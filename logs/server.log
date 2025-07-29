@@ -1,0 +1,8 @@
+[2025-06-06T08:41:33.629Z] API 요청 시작
+[2025-06-06T08:41:33.634Z] 요청 데이터: {"automationType":"?? ???","userGoals":"?? ??? ???","followupAnswers":{"frequency":"??","dataSource":"?? ??","outputFormat":"PDF"}}
+[2025-06-06T08:41:33.635Z] Flow Design Agent 시작
+[2025-06-06T08:41:34.559Z] 에러 발생: API request failed: Bad Request
+[2025-06-06T08:53:55.389Z] API 요청 시작
+[2025-06-06T08:53:55.390Z] 요청 데이터: {"automationType":"?? ??? ???","userGoals":"?? ???? ???? ???? ???? ???? ???? ????.","followupAnswers":{"dataSource":"?? ??","notificationMethod":"???","reportType":"?? ?? ???"}}
+[2025-06-06T08:53:55.390Z] Flow Design Agent 시작
+[2025-06-06T08:53:55.391Z] 에러 발생: Cannot read properties of undefined (reading 'user')

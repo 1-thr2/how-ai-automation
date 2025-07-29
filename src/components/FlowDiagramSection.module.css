@@ -1,0 +1,475 @@
+/* 예시.md의 CSS 전체 이식 (클래스명은 기존과 최대한 맞춤) */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.header h1 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 8px;
+}
+.header p {
+  font-size: 16px;
+  color: #666;
+}
+.impactBar {
+  background: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 16px;
+  text-align: center;
+  margin-bottom: 32px;
+  box-shadow: 0 8px 32px rgba(108, 92, 231, 0.2);
+}
+.impactBar strong {
+  font-size: 18px;
+  font-weight: 700;
+}
+.flowContainer {
+  position: relative;
+  margin-bottom: 40px;
+}
+.progressLine {
+  position: absolute;
+  top: 30px;
+  left: 40px;
+  right: 40px;
+  height: 4px;
+  background: #e1e3e8;
+  border-radius: 2px;
+  z-index: 1;
+}
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 1s ease;
+}
+.flowSteps {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.flowStep {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  transform: translateY(10px);
+  opacity: 0;
+}
+.active {
+  transform: translateY(0);
+  opacity: 1;
+}
+.flowStep:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 12px 40px rgba(108, 92, 231, 0.15);
+}
+.stepNumber {
+  position: absolute;
+  top: -12px;
+  left: 24px;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border: 3px solid #6c5ce7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6c5ce7;
+  z-index: 3;
+}
+.completed {
+  background: #6c5ce7;
+  color: white;
+}
+.stepIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+.step1 .stepIcon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.step2 .stepIcon {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+.step3 .stepIcon {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+.stepTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 6px;
+}
+.stepSubtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.stepDuration {
+  display: inline-flex;
+  align-items: center;
+  background: #f0f7ff;
+  color: #6c5ce7;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.stepDuration:before {
+  content: '⏱️';
+  margin-right: 4px;
+}
+.stepPreview {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 16px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease 0.2s;
+}
+.flowStep:hover .stepPreview {
+  opacity: 1;
+  transform: translateY(0);
+}
+.stepTech {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.techTag {
+  background: #e1ecff;
+  color: #6c5ce7;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.resultShowcase {
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+.showcaseHeader {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.showcaseTitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 8px;
+}
+.showcaseSubtitle {
+  font-size: 14px;
+  color: #666;
+}
+.resultGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.resultCard {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.resultCard:hover {
+  background: #f0f7ff;
+  transform: translateY(-4px);
+}
+.resultIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin: 0 auto 16px;
+  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+}
+.actionHero {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+  position: relative;
+  overflow: hidden;
+}
+.actionTitle {
+  font-size: 24px;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 8px;
+}
+.actionSubtitle {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 32px;
+}
+.mainCta {
+  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  color: white;
+  border: none;
+  padding: 18px 36px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(108, 92, 231, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.mainCta:before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: all 0.3s ease;
+}
+.mainCta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 48px rgba(108, 92, 231, 0.4);
+}
+.mainCta:hover:before {
+  width: 300px;
+  height: 300px;
+}
+.secondaryActions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+.secondaryBtn {
+  background: transparent;
+  color: #6c5ce7;
+  border: 2px solid #e1ecff;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.secondaryBtn:hover {
+  background: #f0f7ff;
+  border-color: #6c5ce7;
+  transform: translateY(-1px);
+}
+.shareSection {
+  background: white;
+  border-radius: 20px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-top: 24px;
+}
+.shareHeader h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 8px;
+}
+.shareHeader p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+}
+.shareBtn {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+}
+.shareBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+}
+.floatingTip {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #6c5ce7;
+  color: white;
+  padding: 16px 20px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 32px rgba(108, 92, 231, 0.3);
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.4s ease;
+  cursor: pointer;
+  z-index: 1000;
+}
+.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.floatingTip:hover {
+  transform: translateY(-4px);
+}
+.modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+}
+.modalContent {
+  position: relative;
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+.closeBtn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #f8f9fa;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  transition: all 0.3s ease;
+}
+.closeBtn:hover {
+  background: #e1e3e8;
+  transform: rotate(90deg);
+}
+.guideStep {
+  background: #f8f9fa;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+}
+.guideNumber {
+  background: #6c5ce7;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+.guideContent h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 6px;
+}
+.guideContent p {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+}
+.codeShowcase {
+  background: #1a1a1a;
+  color: #e6e6e6;
+  padding: 24px;
+  border-radius: 16px;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 20px 0;
+  position: relative;
+  overflow: hidden;
+}
+.codeShowcase:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+}
+@media (max-width: 768px) {
+  .flowSteps {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .progressLine {
+    display: none;
+  }
+  .resultGrid {
+    grid-template-columns: 1fr;
+  }
+  .secondaryActions {
+    flex-direction: column;
+    align-items: center;
+  }
+}

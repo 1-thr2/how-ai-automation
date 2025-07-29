@@ -1,0 +1,21 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const trendingPills = [
+  "문서 자동 승인",
+  "이메일 자동 분류",
+  "슬랙 알림 연동",
+  "구글시트 자동 입력",
+  "매출 리포트 자동화"
+];
+
+const trendingUserGoals = [
+  "구글시트에 새로 들어온 메일 자동으로 정리하고 싶어요",
+  "매일 아침마다 오늘 일정 슬랙으로 받고 싶어요",
+  "이메일 첨부파일을 자동으로 구글드라이브에 저장하고 싶어요",
+  "고객 문의가 오면 자동으로 답변 템플릿 보내고 싶어요",
+  "매출 데이터를 매주 자동 리포트로 받고 싶어요"
+];
+
+export async function GET(request: NextRequest) {
+  return NextResponse.json({ trendingPills, trendingUserGoals, success: true, cached: true });
+} 

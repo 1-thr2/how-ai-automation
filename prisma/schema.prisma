@@ -1,0 +1,81 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 자동화 플로우 모델
+model Automation {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // 관계 정의
+  flowDiagram FlowDiagram?
+  faq         FAQ[]
+  recipes     Recipe[]
+}
+
+// 플로우 다이어그램 모델
+model FlowDiagram {
+  id          String   @id @default(cuid())
+  automation  Automation @relation(fields: [automationId], references: [id])
+  automationId String  @unique
+  nodes       FlowNode[]
+  connections FlowConnection[]
+}
+
+// 플로우 노드 모델
+model FlowNode {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  icon        String
+  color       String
+  flowDiagram FlowDiagram @relation(fields: [flowDiagramId], references: [id])
+  flowDiagramId String
+  details     Json     // guide, code, tips 등을 JSON으로 저장
+}
+
+// 플로우 연결선 모델
+model FlowConnection {
+  id          String   @id @default(cuid())
+  from        String
+  to          String
+  type        String
+  color       String
+  path        String
+  flowDiagram FlowDiagram @relation(fields: [flowDiagramId], references: [id])
+  flowDiagramId String
+}
+
+// FAQ 모델
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  category    String
+  automation  Automation @relation(fields: [automationId], references: [id])
+  automationId String
+}
+
+// 레시피 모델
+model Recipe {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  steps       String[]
+  code        String
+  author      String
+  likes       Int      @default(0)
+  automation  Automation @relation(fields: [automationId], references: [id])
+  automationId String
+} 
