@@ -7,8 +7,8 @@ import { AutomationSurveyProvider } from './context/AutomationSurveyContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'how-ai wow 자동화',
-  description: '따라만 하면 완성되는 wow 자동화',
+  title: '⚡ 원클릭 자동화 생성기',
+  description: '💫 나만의 자동화 만들기',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

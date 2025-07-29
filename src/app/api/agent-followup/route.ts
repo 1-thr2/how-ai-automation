@@ -4,6 +4,23 @@ import type { AutomationAPIResponse, AutomationContext, AutomationCard } from '@
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// 🩺 헬스체크 엔드포인트 (GET)
+export async function GET() {
+  try {
+    return NextResponse.json({ 
+      status: 'API 작동 중',
+      hasApiKey: !!process.env.OPENAI_API_KEY,
+      keyPreview: process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 10)}...` : 'API 키 없음',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return NextResponse.json({ 
+      error: '헬스체크 실패', 
+      details: error instanceof Error ? error.message : '알 수 없는 오류' 
+    }, { status: 500 });
+  }
+}
+
 // 🚀 동적 후속질문 생성 시스템
 export async function POST(req: NextRequest) {
   try {
