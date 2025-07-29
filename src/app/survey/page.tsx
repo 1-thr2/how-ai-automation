@@ -70,7 +70,7 @@ function SurveyContent() {
 
 export default function SurveyPage() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<LoadingScreen stage="first" />}>
       <SurveyContent />
     </Suspense>
   );

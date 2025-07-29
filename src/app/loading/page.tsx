@@ -101,7 +101,7 @@ function LoadingContent() {
 
 export default function LoadingPage() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<LoadingScreen stage="first" />}>
       <LoadingContent />
     </Suspense>
   );

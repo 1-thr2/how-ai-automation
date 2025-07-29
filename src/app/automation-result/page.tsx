@@ -103,7 +103,7 @@ function AutomationResultContent() {
 
 export default function AutomationResultPage() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <Suspense fallback={<LoadingScreen stage="first" />}>
       <AutomationResultContent />
     </Suspense>
   );
