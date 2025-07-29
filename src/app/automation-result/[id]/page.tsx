@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { createAutomationFlow } from '@/lib/api';
 import type { FlowData, PreviewData, FAQData, StepGuideData } from '@/types/automation-flow';
@@ -22,7 +22,7 @@ function getStepGradient(index: number): string {
   return gradients[index % gradients.length];
 }
 
-export default function AutomationResultPage() {
+function AutomationResultContent() {
   const params = useParams() || {};
   const searchParams = useSearchParams();
   
@@ -155,5 +155,13 @@ export default function AutomationResultPage() {
     <div className="max-w-4xl mx-auto p-8">
       <WowAutomationResult result={apiResponse} />
     </div>
+  );
+}
+
+export default function AutomationResultPage() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <AutomationResultContent />
+    </Suspense>
   );
 }

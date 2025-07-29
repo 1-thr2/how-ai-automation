@@ -1,9 +1,9 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingScreen from '../components/LoadingScreen';
 
-export default function LoadingPage() {
+function LoadingContent() {
   const router = useRouter();
   const params = useSearchParams();
   
@@ -97,4 +97,12 @@ export default function LoadingPage() {
   const stage = answers ? 'second' : 'first';
   
   return <LoadingScreen stage={stage} />;
+}
+
+export default function LoadingPage() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <LoadingContent />
+    </Suspense>
+  );
 }

@@ -1,99 +1,12 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import LoadingScreen from '../components/LoadingScreen';
+import WowAutomationResult from '../components/WowAutomationResult';
 import { Card } from '@/lib/types/automation';
 import type { AutomationAPIResponse } from '@/app/types/automation/index';
-import WowAutomationResult from '@/app/components/WowAutomationResult';
-import LoadingScreen from '../components/LoadingScreen';
 
-interface AutomationData {
-  flow: {
-    title: string;
-    subtitle: string;
-    impact: {
-      title: string;
-      desc: string;
-    };
-  };
-  steps: Array<{
-    id: string;
-    icon: string;
-    title: string;
-    subtitle: string;
-    duration: string;
-    tech: string[];
-    guide: {
-      steps: string[];
-      code: string;
-      tips: string[];
-    };
-  }>;
-  results: {
-    dashboard: {
-      stats: {
-        total: number;
-        completed: number;
-        pending: number;
-      };
-      distribution: Array<{
-        category: string;
-        percentage: number;
-        color: string;
-      }>;
-    };
-    faq: {
-      items: Array<{
-        q: string;
-        a: string;
-      }>;
-    };
-  };
-  cards: Array<{
-    type: string;
-    title?: string;
-    desc?: string;
-    steps?: Array<{
-      id: string;
-      icon: string;
-      title: string;
-      subtitle: string;
-      duration: string;
-      preview: string;
-      techTags: string[];
-    }>;
-    stepId?: string;
-    content?: {
-      steps: string[];
-      code: string;
-      tips: string[];
-    };
-    stats?: {
-      total: number;
-      completed: number;
-      pending: number;
-    };
-    distribution?: Array<{
-      category: string;
-      percentage: number;
-      color: string;
-    }>;
-    items?: Array<{
-      q: string;
-      a: string;
-    }>;
-  }>;
-}
-
-interface AgentProgress {
-  flowDesign: boolean;
-  guide: boolean;
-  result: boolean;
-  visualDesign: boolean;
-  codeQuality: boolean;
-}
-
-export default function AutomationResultPage() {
+function AutomationResultContent() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,43 +48,63 @@ export default function AutomationResultPage() {
         console.log('❌ [AutomationResult] sessionStorage에 데이터 없음');
         setError('결과 데이터가 없습니다. 다시 시도해 주세요.');
       }
-    } catch (err) {
-      console.error('❌ [AutomationResult] 처리 중 오류:', err);
-      setError(err instanceof Error ? err.message : '알 수 없는 오류가 발생했습니다');
+    } catch (e) {
+      console.error('❌ [AutomationResult] 데이터 파싱 실패:', e);
+      setError('데이터 로드 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const flowCard = cards.find(c => c.type === 'flow');
-  const stepsCount = flowCard?.steps?.length ?? 0;
-
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingScreen />
+      </div>
+    );
   }
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-600 text-xl mb-2">오류 발생</div>
-          <p className="text-gray-600">{error}</p>
+          <h1 className="text-2xl font-bold mb-4">오류 발생</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            홈으로 돌아가기
+          </button>
         </div>
       </div>
     );
   }
 
-  if (!cards.length) {
+  if (!result) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center text-gray-500">결과 데이터를 생성하는 데 실패했거나, 데이터가 유효하지 않습니다. 다시 시도해 주세요.</div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">결과 없음</h1>
+          <p className="text-gray-600 mb-4">생성된 결과가 없습니다.</p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            홈으로 돌아가기
+          </button>
+        </div>
       </div>
     );
   }
 
+  return <WowAutomationResult result={result} />;
+}
+
+export default function AutomationResultPage() {
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      {result && <WowAutomationResult result={result} />}
-    </div>
+    <Suspense fallback={<LoadingScreen />}>
+      <AutomationResultContent />
+    </Suspense>
   );
 }
