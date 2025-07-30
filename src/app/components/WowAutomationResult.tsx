@@ -44,6 +44,42 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
     router.push('/');
   };
 
+  const handleShare = async () => {
+    try {
+      const currentUrl = window.location.href;
+      const shareText = `${title || '자동화 레시피'} - 쉽고 실용적인 자동화 가이드\n\n${result.context.userInput}`;
+      
+      // Web Share API 지원 확인
+      if (navigator.share) {
+        await navigator.share({
+          title: title || '자동화 레시피',
+          text: shareText,
+          url: currentUrl
+        });
+      } else {
+        // 클립보드에 복사
+        await navigator.clipboard.writeText(`${shareText}\n\n🔗 ${currentUrl}`);
+        
+        // 성공 메시지 표시
+        const button = document.querySelector('.share-btn') as HTMLButtonElement;
+        if (button) {
+          const originalText = button.textContent;
+          button.textContent = '✅ 복사완료!';
+          button.style.backgroundColor = '#10b981';
+          
+          setTimeout(() => {
+            button.textContent = originalText;
+            button.style.backgroundColor = '';
+          }, 2000);
+        }
+      }
+    } catch (error) {
+      console.log('공유하기 실패:', error);
+      // 실패 시 간단한 알림
+      alert('공유 기능을 사용할 수 없습니다. 페이지 URL을 직접 복사해주세요.');
+    }
+  };
+
   // URL 추출 및 클릭 처리 함수
   const extractAndHandleUrl = (text: string) => {
     const urlMatch = text.match(/(https?:\/\/[^\s\)]+)/);
@@ -628,13 +664,13 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
         {expansionCard && (
           <div className="expansion-section">
             <div className="expansion-header">
-              <h3>🚀 한 단계 더 나아가기</h3>
-              <p>현재 자동화를 더욱 강력하게 발전시킬 수 있는 방법들</p>
+              <h3>🚀 이제 여기서 한 단계 더!</h3>
+              <p>지금 만든 자동화를 더 스마트하게 업그레이드하는 방법</p>
             </div>
             <div className="expansion-content">
               {expansionCard.possibilities && expansionCard.possibilities.length > 0 && (
                 <div className="expansion-possibilities">
-                  <h4>💡 바로 시작할 수 있는 개선</h4>
+                  <h4>⚡ 당장 이것부터 추가해보세요</h4>
                   <ul>
                     {expansionCard.possibilities.map((possibility: string, index: number) => 
                       renderTextWithClickableUrl(possibility, index)
@@ -644,7 +680,7 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
               )}
               {expansionCard.futureVision && expansionCard.futureVision.length > 0 && (
                 <div className="expansion-future">
-                  <h4>🔮 장기적 발전 방향</h4>
+                  <h4>🎯 이렇게 발전시키면 더욱 강력해집니다</h4>
                   <ul>
                     {expansionCard.futureVision.map((vision: string, index: number) => 
                       renderTextWithClickableUrl(vision, index)
@@ -667,7 +703,7 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
             <h3>📤 도움이 되었다면 공유해주세요</h3>
             <p>다른 사람들도 이 자동화의 혜택을 누릴 수 있도록</p>
           </div>
-          <button className="share-btn">
+          <button className="share-btn" onClick={handleShare}>
             공유하기
           </button>
         </div>
