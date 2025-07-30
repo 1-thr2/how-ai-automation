@@ -108,7 +108,17 @@ export async function POST(request: Request) {
     let questions;
     try {
       console.log('🔄 [API] JSON 파싱 시도...');
-      const parsed = JSON.parse(content);
+      
+      // OpenAI가 ```json으로 래핑한 경우 제거
+      let cleanContent = content;
+      if (content.includes('```json')) {
+        const startIndex = content.indexOf('```json') + 7;
+        const endIndex = content.lastIndexOf('```');
+        cleanContent = content.substring(startIndex, endIndex).trim();
+        console.log('🧹 [API] JSON 마크다운 래퍼 제거됨');
+      }
+      
+      const parsed = JSON.parse(cleanContent);
       questions = parsed.questions || [];
       console.log('✅ [API] JSON 파싱 성공, 질문 수:', questions.length);
     } catch (parseError) {
