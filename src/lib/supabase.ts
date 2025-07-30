@@ -85,4 +85,95 @@ export async function getAutomationRequestById(id: number) {
     console.error('❌ 자동화 요청 상세 조회 에러:', err)
     return null
   }
+}
+
+// 공유 링크 타입 정의
+export interface ShareLink {
+  id?: string
+  request_id: number
+  created_at?: string
+  expires_at?: string
+}
+
+// 공유 링크 생성 또는 조회
+export async function createOrGetShareLink(requestId: number): Promise<string | null> {
+  try {
+    // 1. 기존 공유 링크가 있는지 확인
+    const { data: existing, error: checkError } = await supabase
+      .from('share_links')
+      .select('id')
+      .eq('request_id', requestId)
+      .maybeSingle()
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('❌ 기존 공유 링크 확인 실패:', checkError)
+      return null
+    }
+
+    // 2. 기존 링크가 있으면 반환
+    if (existing) {
+      console.log('✅ 기존 공유 링크 사용:', existing.id)
+      return existing.id
+    }
+
+    // 3. 새 공유 링크 생성
+    const { data, error } = await supabase
+      .from('share_links')
+      .insert([{ 
+        request_id: requestId,
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30일 후 만료
+      }])
+      .select('id')
+
+    if (error) {
+      console.error('❌ 공유 링크 생성 실패:', error)
+      return null
+    }
+
+    console.log('✅ 새 공유 링크 생성:', data[0]?.id)
+    return data[0]?.id || null
+  } catch (err) {
+    console.error('❌ 공유 링크 생성 에러:', err)
+    return null
+  }
+}
+
+// 공유 링크로 자동화 요청 조회
+export async function getAutomationByShareId(shareId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('share_links')
+      .select(`
+        id,
+        created_at,
+        expires_at,
+        automation_requests (
+          id,
+          user_input,
+          followup_answers,
+          generated_cards,
+          created_at,
+          processing_time_ms
+        )
+      `)
+      .eq('id', shareId)
+      .gt('expires_at', new Date().toISOString()) // 만료되지 않은 것만
+      .maybeSingle()
+
+    if (error) {
+      console.error('❌ 공유 링크 조회 실패:', error)
+      return null
+    }
+
+    if (!data) {
+      console.log('🔍 공유 링크를 찾을 수 없거나 만료됨:', shareId)
+      return null
+    }
+
+    console.log('✅ 공유 링크 조회 성공:', shareId)
+    return data
+  } catch (err) {
+    console.error('❌ 공유 링크 조회 에러:', err)
+    return null
+  }
 } 

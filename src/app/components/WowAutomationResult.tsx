@@ -5,7 +5,7 @@ import WowCardRenderer from './WowCardRenderer';
 
 interface WowAutomationResultProps {
   result: {
-    context: { userInput: string };
+    context: { userInput: string; followupAnswers?: any };
     cards: any[];
     error?: string;
     fallbackExample?: string;
@@ -13,19 +13,23 @@ interface WowAutomationResultProps {
     raw?: any;
   };
   title?: string;
+  cards?: any[]; // 공유 페이지에서 직접 전달받는 경우
+  isSharedView?: boolean; // 공유 뷰 여부
 }
 
-export default function WowAutomationResult({ result, title }: WowAutomationResultProps) {
+export default function WowAutomationResult({ result, title, cards, isSharedView = false }: WowAutomationResultProps) {
+  // 카드 데이터는 직접 전달받은 것 우선, 없으면 result에서 사용
+  const cardData = cards || result.cards;
   const [showFAQ, setShowFAQ] = useState(false);
   const router = useRouter();
   
-  console.log('🎨 WowAutomationResult - 받은 카드들:', result.cards);
+  console.log('🎨 WowAutomationResult - 받은 카드들:', cardData);
   
   // 카드 타입별 분류
-  const flowCard = result.cards.find((c: any) => c.type === 'flow');
-  const faqCard = result.cards.find((c: any) => c.type === 'faq');
-  const shareCard = result.cards.find((c: any) => c.type === 'share');
-  const expansionCard = result.cards.find((c: any) => c.type === 'expansion');
+  const flowCard = cardData.find((c: any) => c.type === 'flow');
+  const faqCard = cardData.find((c: any) => c.type === 'faq');
+  const shareCard = cardData.find((c: any) => c.type === 'share');
+  const expansionCard = cardData.find((c: any) => c.type === 'expansion');
 
   // 플로우 단계 처리
   const processedFlowSteps = flowCard?.steps?.map((step: any, index: number) => ({
@@ -46,13 +50,53 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
 
   const handleShare = async () => {
     try {
-      // 성격유형테스트처럼 goal 파라미터가 포함된 공유 URL 생성
-      const baseUrl = window.location.origin;
-      const encodedGoal = encodeURIComponent(result.context.userInput);
-      const shareUrl = `${baseUrl}/automation-result?goal=${encodedGoal}`;
+      console.log('🔗 공유 링크 생성 시작...');
+      
+      // 1. 먼저 automation_requests에 데이터 저장 (없으면)
+      let requestId;
+      try {
+        const response = await fetch('/api/save-automation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_input: result.context.userInput,
+            followup_answers: result.context.followupAnswers || {},
+            generated_cards: cards,
+            user_session_id: `session_${Date.now()}`,
+            processing_time_ms: 0,
+            success: true
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          requestId = data.id;
+          console.log('✅ 자동화 데이터 저장 완료:', requestId);
+        } else {
+          throw new Error('데이터 저장 실패');
+        }
+      } catch (saveError) {
+        console.error('❌ 데이터 저장 실패:', saveError);
+        alert('공유 링크 생성에 실패했습니다. 다시 시도해주세요.');
+        return;
+      }
+      
+      // 2. 공유 링크 생성
+      const shareResponse = await fetch('/api/create-share-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId })
+      });
+      
+      if (!shareResponse.ok) {
+        throw new Error('공유 링크 생성 실패');
+      }
+      
+      const { shareId } = await shareResponse.json();
+      const shareUrl = `${window.location.origin}/s/${shareId}`;
       const shareText = `${title || '자동화 레시피'} - 쉽고 실용적인 자동화 가이드\n\n${result.context.userInput}`;
       
-      // Web Share API 지원 확인
+      // 3. 공유하기
       if (navigator.share) {
         await navigator.share({
           title: title || '자동화 레시피',
@@ -76,10 +120,11 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
           }, 2000);
         }
       }
+      
+      console.log('✅ 공유 링크 생성 완료:', shareUrl);
     } catch (error) {
-      console.log('공유하기 실패:', error);
-      // 실패 시 간단한 알림
-      alert('공유 기능을 사용할 수 없습니다. 페이지 URL을 직접 복사해주세요.');
+      console.error('❌ 공유하기 실패:', error);
+      alert('공유 기능을 사용할 수 없습니다. 다시 시도해주세요.');
     }
   };
 
@@ -122,8 +167,8 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
 
   // 동적 헤더 제목 생성
   const getDynamicTitle = () => {
-    const flowCard = result.cards.find((c: any) => c.type === 'flow');
-    const needsCard = result.cards.find((c: any) => c.type === 'needs_analysis');
+    const flowCard = cardData.find((c: any) => c.type === 'flow');
+    const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
     
     // 1순위: flow 카드의 제목 사용
     if (flowCard?.title) {
@@ -155,7 +200,7 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
   // 동적 헤더 설명 생성
   const getDynamicSubtitle = () => {
     const stepCount = processedFlowSteps.length;
-    const needsCard = result.cards.find((c: any) => c.type === 'needs_analysis');
+    const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
     
     // 예상 효과가 있으면 포함
     if (needsCard?.expectedBenefit) {
@@ -641,7 +686,7 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
         {processedFlowSteps.length > 0 && (
           <FlowDiagramSection
             steps={processedFlowSteps} 
-            cards={result.cards}
+            cards={cardData}
             engine={flowCard?.engine}
             flowMap={flowCard?.flowMap}
             fallback={flowCard?.fallback}
@@ -650,7 +695,7 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
         
         {/* 🚀 새로운 WOW 카드들 렌더링 */}
         <div className="wow-cards-section" style={{ marginBottom: '2rem' }}>
-          {result.cards
+          {cardData
             .filter((card: any) => [
               'tool_recommendation', 'flow', 'slide_guide', 'video_guide', 
               'landing_guide', 'dashboard_guide', 'creative_guide', 
