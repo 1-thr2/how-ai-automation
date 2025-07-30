@@ -774,8 +774,8 @@ export default function LoadingScreen({ stage = 'first' }: LoadingScreenProps) {
 
       <div className="text-gray-400 text-xs mt-8">
         {stage === 'first' 
-          ? '맞춤형 질문을 생성하는데 약 3초 소요됩니다'
-          : '자동화 레시피를 만드는데 약 15초 소요됩니다'
+          ? '추가질문을 만드는데 약 20초 소요됩니다'
+          : '솔직히 시간이 조금 걸립니다... 기다리는 동안, 게임한판 어떠신가요?'
         }
       </div>
       
