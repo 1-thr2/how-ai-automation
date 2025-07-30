@@ -48,7 +48,7 @@ export default function DynamicQuestionnaire({ userInput, onSubmit }: Props) {
         
         console.log('🔄 후속질문 생성 시작:', userInput);
         
-        const response = await axios.post('/api/agent-followup', {
+        const response = await axios.post('/api/test-followup', {
           userInput: userInput
         });
         
