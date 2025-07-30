@@ -46,7 +46,10 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
 
   const handleShare = async () => {
     try {
-      const currentUrl = window.location.href;
+      // 성격유형테스트처럼 goal 파라미터가 포함된 공유 URL 생성
+      const baseUrl = window.location.origin;
+      const encodedGoal = encodeURIComponent(result.context.userInput);
+      const shareUrl = `${baseUrl}/automation-result?goal=${encodedGoal}`;
       const shareText = `${title || '자동화 레시피'} - 쉽고 실용적인 자동화 가이드\n\n${result.context.userInput}`;
       
       // Web Share API 지원 확인
@@ -54,11 +57,11 @@ export default function WowAutomationResult({ result, title }: WowAutomationResu
         await navigator.share({
           title: title || '자동화 레시피',
           text: shareText,
-          url: currentUrl
+          url: shareUrl
         });
       } else {
         // 클립보드에 복사
-        await navigator.clipboard.writeText(`${shareText}\n\n🔗 ${currentUrl}`);
+        await navigator.clipboard.writeText(`${shareText}\n\n🔗 ${shareUrl}`);
         
         // 성공 메시지 표시
         const button = document.querySelector('.share-btn') as HTMLButtonElement;

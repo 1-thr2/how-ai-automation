@@ -1,0 +1,10 @@
+[33mca2f0c7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m 가이드 생성 프롬프트 대폭 간소화 - JSON 파싱 오류 해결을 위해 복잡한 프롬프트를 간단하게 정리
+[33me16028c[m 공유 링크 기능 수정 및 중복 가이드 문제 해결: URL goal 파라미터로 자동화 재생성, 동일 도구 로그인 반복 방지 원칙 추가
+[33m8fd665e[m 랭킹 UI 대폭 개선: 전체 보라색 톤 통일, 메달별 그라데이션 효과, 애니메이션 추가로 더 세련된 게임 랭킹 화면 구현
+[33m732fa97[m 확장 아이디어 섹션 표현력 개선 및 공유하기 버튼 실제 동작 구현: 더 와닿는 문구로 변경, Web Share API와 클립보드 복사 기능 추가
+[33m5556f96[m 도구 선택 제한 해제 및 맞춤형 FAQ 개선: 모든 도구 활용 가능, 사용자 요청별 실전 FAQ 생성, Apps Script 웹뷰 코드 제공 강화
+[33m5354a13[m  Optimize prompts: Prioritize free AI tools (Jensspark, Claude) over expensive APIs, add cost transparency, enhance WOW results
+[33m471cf1c[m  Update loading screen texts: 20 seconds for questions, friendly game invitation
+[33m0baaa42[m vercel.json 삭제-에러뜸-
+[33meaf25b0[m  Complete dependency stabilization: Next.js 13.5.6 + styled-jsx 5.1.1 - Build SUCCESS
+[33m3e6c646[m Update styled-jsx to latest version
