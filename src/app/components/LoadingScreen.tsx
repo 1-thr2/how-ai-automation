@@ -548,51 +548,99 @@ const GameRanking = ({ onPlayGame }: { onPlayGame: () => void }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-purple-100 to-blue-100 rounded-xl p-6 mb-6"
+      className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-6 mb-6 border border-purple-200/50 shadow-lg"
     >
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-bold text-purple-800 mb-2">🏆 7배 빠른 테트리스 랭킹</h3>
-        <p className="text-gray-600 text-sm">
-          일반 테트리스보다 7배 빠른 속도! ⚡
+      <div className="text-center mb-6">
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+            <span className="text-white text-lg">🏆</span>
+          </div>
+          <h3 className="text-xl font-bold bg-gradient-to-r from-purple-700 to-indigo-700 bg-clip-text text-transparent">
+            7배 빠른 테트리스 랭킹
+          </h3>
+        </div>
+        <p className="text-gray-600 text-sm leading-relaxed">
+          ⚡ 일반 테트리스보다 7배 빠른 속도로 
           <br />
-          다른 사용자들과 실력을 겨뤄보세요!
+          <span className="font-semibold text-purple-600">짜릿한 승부</span>를 즐겨보세요!
         </p>
       </div>
       
       {rankings.length > 0 ? (
-        <div className="space-y-2 mb-4">
-          {rankings.map((score, index) => (
-            <div key={index} className="flex justify-between items-center bg-white rounded-lg px-3 py-2">
-              <div className="flex items-center">
-                <span className="text-lg mr-2">
-                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅'}
-                </span>
-                <span className="font-semibold">{score.nickname}</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-purple-600">{score.score.toLocaleString()}점</div>
-                <div className="text-xs text-gray-500">{score.duration}초 플레이</div>
-              </div>
-            </div>
-          ))}
+        <div className="space-y-3 mb-6">
+          {rankings.map((score, index) => {
+            const isTopThree = index < 3;
+            const rankColors = {
+              0: 'from-yellow-400 to-yellow-500 border-yellow-300', // 금메달
+              1: 'from-gray-300 to-gray-400 border-gray-300',       // 은메달  
+              2: 'from-orange-400 to-orange-500 border-orange-300'   // 동메달
+            };
+            
+            return (
+              <motion.div 
+                key={index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`flex justify-between items-center rounded-xl px-4 py-3 border shadow-sm ${
+                  isTopThree 
+                    ? `bg-gradient-to-r ${rankColors[index as keyof typeof rankColors]} text-white` 
+                    : 'bg-white border-purple-200/50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`text-xl ${isTopThree ? 'animate-bounce' : ''}`}>
+                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅'}
+                  </div>
+                  <div>
+                    <div className={`font-bold ${isTopThree ? 'text-white' : 'text-gray-800'}`}>
+                      {score.nickname}
+                    </div>
+                    <div className={`text-xs ${isTopThree ? 'text-white/80' : 'text-gray-500'}`}>
+                      {score.duration}초 플레이
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-bold text-lg ${isTopThree ? 'text-white' : 'text-purple-600'}`}>
+                    {score.score.toLocaleString()}
+                  </div>
+                  <div className={`text-xs ${isTopThree ? 'text-white/80' : 'text-gray-500'}`}>
+                    점
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       ) : (
-        <div className="text-center text-gray-500 mb-4">
-          <div className="text-4xl mb-2">🎮</div>
-          <p>아직 기록이 없어요!</p>
-          <p className="text-sm">첫 번째 도전자가 되어보세요</p>
+        <div className="text-center text-gray-500 mb-6 bg-white/70 rounded-xl p-6 border border-purple-100">
+          <motion.div 
+            animate={{ rotate: [0, 15, -15, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-5xl mb-3"
+          >
+            🎮
+          </motion.div>
+          <p className="font-semibold text-gray-700 mb-1">아직 기록이 없어요!</p>
+          <p className="text-sm text-purple-600">첫 번째 도전자가 되어보세요 ⚡</p>
         </div>
       )}
       
-      <div className="text-center space-y-2">
-        <button
+      <div className="text-center space-y-3">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={onPlayGame}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-full transition-colors"
+          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-4 rounded-full transition-all shadow-lg hover:shadow-xl border border-purple-500"
         >
-          🚀 7배 빠른 테트리스 도전!
-        </button>
-        <div className="text-xs text-gray-500">
-          ⚡ 7배 빠른 속도로 짜릿한 승부!
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-lg">🚀</span>
+            <span>7배 빠른 테트리스 도전!</span>
+          </div>
+        </motion.button>
+        <div className="text-xs text-purple-600 font-medium bg-purple-50 rounded-full px-3 py-1 inline-block">
+          ⚡ 일반 테트리스보다 7배 빠른 속도!
         </div>
       </div>
     </motion.div>
@@ -751,7 +799,7 @@ export default function LoadingScreen({ stage = 'first' }: LoadingScreenProps) {
                 <div>
                   <button
                     onClick={() => setShowRanking(true)}
-                    className="bg-gradient-to-r from-orange-500 to-red-500 text-white font-medium rounded-full px-6 py-2 shadow-md hover:shadow-lg hover:scale-105 transition-all text-sm"
+                    className="bg-gradient-to-r from-purple-400 to-indigo-400 text-white font-medium rounded-full px-6 py-2 shadow-md hover:shadow-lg hover:scale-105 transition-all text-sm border border-purple-300"
                   >
                     🏆 랭킹 보기
                   </button>
