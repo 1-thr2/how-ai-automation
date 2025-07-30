@@ -14,15 +14,6 @@ const nextConfig = {
   // 컴파일러 최적화
   compiler: {
     removeConsole: false,
-  },
-  
-  // Vercel 배포 최적화
-  experimental: {
-    // 빌드 성능 향상
-    optimizeCss: false,
-    turbotrace: {
-      logLevel: 'error'
-    }
   }
 }
 
