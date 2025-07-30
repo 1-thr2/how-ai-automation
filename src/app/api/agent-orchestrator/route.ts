@@ -214,10 +214,10 @@ export async function POST(req: Request) {
         const jsonContent = jsonMatch ? jsonMatch[1] : stage1Content;
         const parsed = JSON.parse(jsonContent);
         stage1Cards = parsed.cards || [];
-        allCards.push(...stage1Cards);
+    allCards.push(...stage1Cards);
         console.log(`[1단계] 완료 - 생성된 카드 수: ${stage1Cards.length}`);
       }
-    } catch (error) {
+  } catch (error) {
       console.error('[1단계] 파싱 오류:', error);
     }
 
@@ -520,10 +520,10 @@ ${previousGuides.length > 0 ?
             
             const stepGuides = parsed.cards || [];
             if (stepGuides.length > 0) {
-              guideCards.push(...stepGuides);
+            guideCards.push(...stepGuides);
               console.log(`[2단계] ${i + 1}번째 단계 가이드 생성 ✅ (${stepGuides.length}개 카드)`);
               console.log(`[2단계] 생성된 가이드: ${stepGuides[0].title}`);
-            } else {
+          } else {
               console.log(`[2단계] ${i + 1}번째 단계: cards 배열이 비어있음`);
             }
           }
@@ -544,7 +544,7 @@ ${previousGuides.length > 0 ?
             content: {
               detailedSteps: [
                 {
-                  number: 1,
+                number: 1,
                   title: `${step.title} 준비하기`,
                   description: '이 단계에 대한 상세 가이드는 현재 준비 중입니다. 곧 업데이트 예정입니다.',
                   expectedScreen: '설정 화면',
@@ -565,11 +565,11 @@ ${previousGuides.length > 0 ?
 
     allCards.push(...guideCards);
     console.log(`[2단계] 최종 생성된 가이드 카드 수: ${guideCards.length}/${steps.length}`);
-    console.log(`[2단계] 생성된 가이드 카드들:`, guideCards.map((card: any) => ({
-      stepId: card.stepId,
-      title: card.title,
+        console.log(`[2단계] 생성된 가이드 카드들:`, guideCards.map((card: any) => ({
+          stepId: card.stepId,
+          title: card.title,
       hasDetailedSteps: !!(card.content?.detailedSteps?.length > 0)
-    })));
+        })));
 
     // 🔄 3단계: FAQ + 확장 아이디어 (gpt-4o-mini - 비용절약)
     console.log('[3단계] FAQ + 확장 아이디어 (gpt-4o-mini - 비용절약)');

@@ -18,6 +18,7 @@ import {
   Lightbulb,
   Download,
 } from 'lucide-react';
+import { AutomationCard } from '@/app/types/automation';
 import StepGuide from './StepGuide';
 import FlowVisualization from './FlowVisualization';
 
@@ -28,7 +29,7 @@ interface ResultsSectionProps {
 export default function ResultsSection({ data }: ResultsSectionProps) {
   if (!data) return null;
   const { ux, flows, intent, requirements, trends } = data;
-  const cards = ux?.cards || [];
+  const cards: AutomationCard[] = ux?.cards || [];
 
   return (
     <div className="space-y-8">
@@ -40,16 +41,16 @@ export default function ResultsSection({ data }: ResultsSectionProps) {
       </div>
 
       {/* 자동화 옵션 탭 */}
-      <Tabs defaultValue={cards[0]?.type || '복붙'} className="w-full">
+      <Tabs defaultValue={cards[0]?.description || '복붙'} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          {cards.map(card => (
-            <TabsTrigger key={card.type} value={card.type}>
-              {card.type}
+          {cards.map((card: AutomationCard) => (
+            <TabsTrigger key={card.title} value={card.description}>
+              {card.title}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {cards.map(card => (
+        {cards.map((card: AutomationCard) => (
           <TabsContent key={card.type} value={card.type} className="space-y-4">
             {/* 플로우 시각화 */}
             {card.flow && card.flow.length > 0 && (

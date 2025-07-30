@@ -1,6 +1,8 @@
 // 다양한 API 응답 구조를 UI용 데이터로 추상화하는 함수
 
-import { Card } from '@/lib/types/automation';
+import { FlowCard, GuideCard, ImpactBarCard, DashboardCard, FAQCard } from '../../lib/types/automation';
+
+type Card = FlowCard | GuideCard | ImpactBarCard | DashboardCard | FAQCard;
 
 export interface ParsedAutomationData {
   flowDiagram: Array<{ icon?: string; title: string; role?: string; desc?: string; key?: string }>;
@@ -49,14 +51,16 @@ export function parseAutomationResult(data: any): Card[] {
       title: data.title || '',
       subtitle: data.subtitle || '',
       steps: data.steps.map((step: any, index: number) => ({
-        id: step.id || String(index + 1),
+        id: step.id || index + 1,
         icon: step.icon || '',
         title: step.title || '',
         subtitle: step.subtitle || '',
         duration: step.duration || '',
         preview: step.preview || '',
-        tech: step.tech || []
-      }))
+        tech: step.tech || step.techTags || []
+      })),
+      engine: 'make',
+      flowMap: data.steps.map((step: any) => step.title || '')
     });
   }
 
@@ -101,8 +105,8 @@ export function parseAutomationResult(data: any): Card[] {
     cards.push({
       type: 'faq',
       items: data.faq.map((item: any) => ({
-        q: item.q || '',
-        a: item.a || ''
+        q: item.q || item.question || '',
+        a: item.a || item.answer || ''
       }))
     });
   }
