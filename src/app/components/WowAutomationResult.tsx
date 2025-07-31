@@ -49,6 +49,11 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
     techTags: step.tech || step.techTags || []
   })) || [];
 
+  // 🔍 디버깅: 데이터 구조 확인
+  console.log('🔍 [UI Debug] cardData:', cardData);
+  console.log('🔍 [UI Debug] flowCard:', flowCard);
+  console.log('🔍 [UI Debug] processedFlowSteps:', processedFlowSteps);
+
 
 
   const handleNewRecipe = () => {
@@ -671,16 +676,7 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
           />
         )}
         
-        {/* 🚀 기본 플로우 카드만 렌더링 */}
-        <div className="wow-cards-section" style={{ marginBottom: '2rem' }}>
-          {cardData
-            .filter((card: any) => ['flow'].includes(card.type))
-            .map((card: any, index: number) => (
-              <div key={index} style={{ marginBottom: '1.5rem' }}>
-                <WowCardRenderer card={card} />
-              </div>
-            ))}
-        </div>
+
         
         {/* 확장 아이디어 섹션 */}
         {expansionCard && (
