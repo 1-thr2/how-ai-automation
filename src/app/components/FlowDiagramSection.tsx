@@ -109,6 +109,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
   const getCurrentStepData = () => {
     if (!selectedStep) return null;
     
+    // 1순위: 전용 guide 카드 찾기 (기존 로직)
     const guideCard = cards.find((card: any) => 
       card.type === 'guide' && card.stepId === String(selectedStep.id)
     );
@@ -122,6 +123,50 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
           executableCode: guideCard.content.executableCode || null,
           tips: guideCard.content.practicalTips || [],
           errorSolutions: guideCard.content.errorSolutions || []
+        }
+      };
+    }
+    
+    // 2순위: flow 카드에서 현재 단계 정보 추출 (리팩토링 대응)
+    const flowCard = cards.find((card: any) => card.type === 'flow');
+    if (flowCard && selectedStep) {
+      // 기본 가이드 데이터 생성
+      const mockSteps = [
+        {
+          number: 1,
+          title: `${selectedStep.title} 준비하기`,
+          description: `${selectedStep.title}을(를) 시작하기 전 필요한 준비사항을 확인합니다.\n\n1. 필요한 도구나 플랫폼에 로그인합니다\n2. 권한 설정을 확인합니다\n3. 데이터 백업을 수행합니다`,
+          expectedScreen: "로그인 화면 또는 대시보드 메인 페이지",
+          checkpoint: "정상적으로 로그인되고 메인 화면이 표시됨"
+        },
+        {
+          number: 2,
+          title: `${selectedStep.title} 실행하기`,
+          description: `${selectedStep.title}의 핵심 작업을 수행합니다.\n\n1. ${selectedStep.subtitle || '해당 기능'}을 찾아 클릭합니다\n2. 필요한 설정값을 입력합니다\n3. 저장 또는 실행 버튼을 클릭합니다`,
+          expectedScreen: "설정 완료 또는 성공 메시지",
+          checkpoint: `${selectedStep.title} 설정이 정상적으로 완료됨`
+        },
+        {
+          number: 3,
+          title: `${selectedStep.title} 검증하기`,
+          description: `설정이 올바르게 작동하는지 확인합니다.\n\n1. 테스트 데이터로 실행해봅니다\n2. 결과값을 확인합니다\n3. 문제가 있다면 설정을 재검토합니다`,
+          expectedScreen: "테스트 결과 또는 성공 확인 화면",
+          checkpoint: "테스트가 성공하고 예상된 결과가 나타남"
+        }
+      ];
+
+      return {
+        guide: {
+          title: selectedStep.title,
+          subtitle: selectedStep.subtitle || '단계별 상세 가이드',
+          steps: mockSteps,
+          executableCode: null,
+          tips: [
+            `💡 ${selectedStep.title} 작업 시 ${selectedStep.duration || '5분'} 정도 소요됩니다`,
+            "🔍 각 단계에서 예상 결과와 다르다면 이전 단계로 돌아가 확인해보세요",
+            "📝 문제가 발생하면 스크린샷을 찍어두시면 문제 해결에 도움됩니다"
+          ],
+          errorSolutions: []
         }
       };
     }
