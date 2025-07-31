@@ -99,7 +99,7 @@ Draft와 동일한 JSON 구조를 유지하되, 내용의 품질을 향상시킵
 /**
  * Orchestrator Step A Blueprint
  */
-export const ORCHESTRATOR_STEP_A = \`# Step A: 카드 뼈대 초안 생성
+export const ORCHESTRATOR_STEP_A = `# Step A: 카드 뼈대 초안 생성
 
 ## 목표
 사용자 요청과 후속답변을 바탕으로 자동화 카드들의 기본 뼈대를 빠르게 생성합니다.
@@ -169,12 +169,12 @@ export const ORCHESTRATOR_STEP_A = \`# Step A: 카드 뼈대 초안 생성
 ## 중요사항
 - 모든 카드에 "status": "draft" 포함
 - B단계에서 검증할 수 있도록 도구명과 URL 힌트 포함
-- 완벽함보다는 빠른 방향성 제시가 목표\`;
+- 완벽함보다는 빠른 방향성 제시가 목표`;
 
 /**
  * Orchestrator Step B Blueprint
  */
-export const ORCHESTRATOR_STEP_B = \`# Step B: RAG 검증 및 정보 강화
+export const ORCHESTRATOR_STEP_B = `# Step B: RAG 검증 및 정보 강화
 
 ## 목표
 A단계에서 생성된 초안 카드들을 최신 정보로 검증하고 보강합니다.
@@ -232,12 +232,12 @@ A단계와 동일한 JSON 구조를 유지하되, 다음 항목들이 보강됩�
 ## 실패 처리
 - RAG API 오류 시: 기존 초안 유지 + 경고 로그
 - 링크 검증 실패 시: 링크 제거 또는 대체
-- 도구 정보 없음 시: "확인 필요" 표시\`;
+- 도구 정보 없음 시: "확인 필요" 표시`;
 
 /**
  * Orchestrator Step C Blueprint
  */
-export const ORCHESTRATOR_STEP_C = \`# Step C: 한국어 WOW 마감 처리
+export const ORCHESTRATOR_STEP_C = `# Step C: 한국어 WOW 마감 처리
 
 ## 목표
 RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니다.
@@ -292,7 +292,7 @@ RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니�
 ## 출력 형식
 반드시 유효한 JSON으로만 응답하세요. 한국어 WOW 경험이 반영된 최종 결과물을 생성하세요.
 
-이 단계가 끝나면 사용자는 "와! AI가 나보다 나를 더 잘 아는 것 같아!"라고 느끼게 됩니다.\`;
+이 단계가 끝나면 사용자는 "와! AI가 나보다 나를 더 잘 아는 것 같아!"라고 느끼게 됩니다.`;
 
 /**
  * Blueprint 관리 클래스 (레거시 호환성 유지)
