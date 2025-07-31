@@ -326,7 +326,7 @@ RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니�
 4. **확장성 흥미**: "이렇게까지 발전시킬 수 있구나!"
 
 ## 출력 형식 (매우 중요!)
-반드시 다음과 같은 cards 배열 구조로만 응답하세요:
+반드시 다음과 같은 구체적인 cards 배열 구조로만 응답하세요:
 
 \`\`\`json
 {
@@ -334,13 +334,62 @@ RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니�
     {
       "type": "needs_analysis",
       "title": "🎯 진짜 니즈 발견",
-      "content": "한국어 WOW 경험이 반영된 내용",
+      "subtitle": "사용자의 실제 요구사항 분석",
+      "content": "구체적인 니즈 분석 내용",
+      "surfaceRequest": "사용자가 표면적으로 요청한 내용",
+      "realNeed": "실제로 필요한 핵심 요구사항",
       "status": "wow_completed"
     },
     {
       "type": "flow",
-      "title": "🚀 완벽한 실행 계획", 
-      "steps": [...],
+      "title": "🚀 완벽한 실행 계획",
+      "subtitle": "단계별 자동화 워크플로우", 
+      "content": "플로우 설명",
+      "steps": [
+        {
+          "title": "1단계 제목",
+          "description": "구체적인 실행 방법"
+        }
+      ],
+      "engine": "추천 플랫폼명",
+      "status": "wow_completed"
+    },
+    {
+      "type": "faq",
+      "title": "❓ 자주 묻는 질문",
+      "subtitle": "실제 궁금한 점들 해결",
+      "content": "FAQ 설명",
+      "faqs": [
+        {
+          "question": "질문 내용",
+          "answer": "상세한 답변"
+        }
+      ],
+      "status": "wow_completed"
+    },
+    {
+      "type": "expansion",
+      "title": "🚀 확장 아이디어",
+      "subtitle": "더 발전된 활용 방안",
+      "content": "확장 아이디어 설명",
+      "ideas": [
+        {
+          "title": "아이디어 제목",
+          "description": "구체적인 실행 방법"
+        }
+      ],
+      "status": "wow_completed"
+    },
+    {
+      "type": "share",
+      "title": "🔗 공유하기",
+      "subtitle": "이 자동화를 다른 사람과 나누기",
+      "content": "공유 방법 설명",
+      "shareOptions": [
+        "팀 멤버와 공유",
+        "소셜미디어 공유",
+        "블로그 포스팅"
+      ],
       "status": "wow_completed"
     }
   ]

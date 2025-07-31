@@ -27,6 +27,10 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
   const router = useRouter();
   
   console.log('🎨 WowAutomationResult - 받은 카드들:', cardData);
+  console.log('🔍 각 카드 상세 구조:');
+  cardData.forEach((card: any, index: number) => {
+    console.log(`${index + 1}. ${card.type}:`, JSON.stringify(card, null, 2));
+  });
   
   // 카드 타입별 분류
   const flowCard = cardData.find((c: any) => c.type === 'flow');
