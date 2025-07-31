@@ -3,6 +3,7 @@ import { handleApiError } from '@/lib/error-handler';
 import { saveAutomationRequest } from '@/lib/supabase';
 import { generate3StepAutomation } from '@/lib/agents/orchestrator-v2';
 import { checkRAGHealth } from '@/lib/services/rag';
+import { startAPIMetrics } from '@/lib/monitoring/collector';
 
 // 🚀 리팩토링된 3단계 시스템: A(초안) → B(RAG검증) → C(WOW마감)
 export async function POST(req: Request) {
@@ -10,10 +11,17 @@ export async function POST(req: Request) {
   let followupAnswers = {};
   let startTime = Date.now();
   
+  // 📊 메트릭 수집 시작
+  const metricsCollector = startAPIMetrics('/api/agent-orchestrator');
+  
   try {
     const requestData = await req.json();
     userInput = requestData.userInput;
     followupAnswers = requestData.followupAnswers;
+    
+    // 메트릭에 사용자 데이터 기록
+    metricsCollector.metricData.userInput = userInput;
+    metricsCollector.metricData.followupAnswers = followupAnswers;
     
     console.log('🚀 [리팩토링] 3단계 자동화 생성 시작 (v2.0)');
     console.log('📝 사용자 입력:', userInput);
@@ -38,6 +46,13 @@ export async function POST(req: Request) {
     const { cards: allCards, metrics } = await generate3StepAutomation(userInput, followupAnswers);
 
     const processingTime = metrics.totalLatencyMs;
+    
+    // 📊 메트릭 기록
+    metricsCollector
+      .recordModel(metrics.modelsUsed[0] || 'mixed', metrics.totalTokens)
+      .recordApproach('3-step-rag-refactored', metrics.stagesCompleted)
+      .recordRAG(metrics.ragSearches, metrics.ragSources, metrics.urlsVerified)
+      .recordResults(allCards.length);
     
     // 📊 리팩토링된 시스템 메트릭 로깅
     console.log(`🎯 [리팩토링] 완료 - 생성된 카드 수: ${allCards.length}`);
@@ -106,10 +121,16 @@ export async function POST(req: Request) {
       // 저장 실패해도 응답은 정상 반환
     }
 
+    // 📊 성공으로 메트릭 완료
+    metricsCollector.success();
+
     return NextResponse.json(response_data);
 
   } catch (error) {
     console.error('❌ 리팩토링된 자동화 생성 실패:', error);
+    
+    // 📊 실패로 메트릭 완료
+    metricsCollector.error(error instanceof Error ? error.message : 'Unknown error');
     
     // 💾 실패한 요청도 Supabase에 저장 (분석용)
     try {
