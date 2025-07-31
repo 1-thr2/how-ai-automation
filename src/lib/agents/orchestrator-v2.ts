@@ -426,22 +426,41 @@ function parseCardsJSON(content: string): any[] {
   try {
     const parsed = JSON.parse(content);
     
-    // 다양한 JSON 구조 지원
+    // 다양한 JSON 구조 지원 (강화된 버전)
     let cards: any[] = [];
     
     if (parsed.cards && Array.isArray(parsed.cards)) {
       cards = parsed.cards;
       console.log(`✅ [Cards JSON] 1차 파싱 성공 (cards 구조) - ${cards.length}개 카드`);
-    } else if (parsed.solution && parsed.solution.cards) {
+    } else if (parsed.solution && parsed.solution.cards && Array.isArray(parsed.solution.cards)) {
       cards = parsed.solution.cards;
       console.log(`✅ [Cards JSON] 1차 파싱 성공 (solution.cards 구조) - ${cards.length}개 카드`);
+    } else if (parsed.result && parsed.result.cards && Array.isArray(parsed.result.cards)) {
+      cards = parsed.result.cards;
+      console.log(`✅ [Cards JSON] 1차 파싱 성공 (result.cards 구조) - ${cards.length}개 카드`);
+    } else if (parsed.data && parsed.data.cards && Array.isArray(parsed.data.cards)) {
+      cards = parsed.data.cards;
+      console.log(`✅ [Cards JSON] 1차 파싱 성공 (data.cards 구조) - ${cards.length}개 카드`);
     } else if (Array.isArray(parsed)) {
       cards = parsed;
       console.log(`✅ [Cards JSON] 1차 파싱 성공 (배열 구조) - ${cards.length}개 카드`);
     } else {
-      console.log(`⚠️ [Cards JSON] 1차 파싱 성공하지만 cards 배열 없음`);
-      console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
-      console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+      // 최후의 수단: solution.steps를 cards로 변환 시도
+      if (parsed.solution && parsed.solution.steps && Array.isArray(parsed.solution.steps)) {
+        console.log(`🔄 [Cards JSON] solution.steps를 cards로 변환 시도`);
+        cards = [{
+          type: "flow",
+          title: parsed.solution.title || "자동화 가이드",
+          description: parsed.solution.description || "",
+          steps: parsed.solution.steps,
+          status: "converted"
+        }];
+        console.log(`✅ [Cards JSON] solution.steps 변환 성공 - ${cards.length}개 카드`);
+      } else {
+        console.log(`⚠️ [Cards JSON] 1차 파싱 성공하지만 cards 배열 없음`);
+        console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
+        console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+      }
     }
     
     return cards;
@@ -469,22 +488,41 @@ function parseCardsJSON(content: string): any[] {
       
       const parsed = JSON.parse(cleanContent);
       
-      // 2차 파싱에서도 다양한 구조 지원
+      // 2차 파싱에서도 다양한 구조 지원 (강화된 버전)
       let cards: any[] = [];
       
       if (parsed.cards && Array.isArray(parsed.cards)) {
         cards = parsed.cards;
         console.log(`✅ [Cards JSON] 2차 파싱 성공 (cards 구조) - ${cards.length}개 카드`);
-      } else if (parsed.solution && parsed.solution.cards) {
+      } else if (parsed.solution && parsed.solution.cards && Array.isArray(parsed.solution.cards)) {
         cards = parsed.solution.cards;
         console.log(`✅ [Cards JSON] 2차 파싱 성공 (solution.cards 구조) - ${cards.length}개 카드`);
+      } else if (parsed.result && parsed.result.cards && Array.isArray(parsed.result.cards)) {
+        cards = parsed.result.cards;
+        console.log(`✅ [Cards JSON] 2차 파싱 성공 (result.cards 구조) - ${cards.length}개 카드`);
+      } else if (parsed.data && parsed.data.cards && Array.isArray(parsed.data.cards)) {
+        cards = parsed.data.cards;
+        console.log(`✅ [Cards JSON] 2차 파싱 성공 (data.cards 구조) - ${cards.length}개 카드`);
       } else if (Array.isArray(parsed)) {
         cards = parsed;
         console.log(`✅ [Cards JSON] 2차 파싱 성공 (배열 구조) - ${cards.length}개 카드`);
       } else {
-        console.log(`⚠️ [Cards JSON] 2차 파싱 성공하지만 cards 배열 없음`);
-        console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
-        console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+        // 최후의 수단: solution.steps를 cards로 변환 시도
+        if (parsed.solution && parsed.solution.steps && Array.isArray(parsed.solution.steps)) {
+          console.log(`🔄 [Cards JSON] 2차 파싱에서 solution.steps를 cards로 변환 시도`);
+          cards = [{
+            type: "flow",
+            title: parsed.solution.title || "자동화 가이드",
+            description: parsed.solution.description || "",
+            steps: parsed.solution.steps,
+            status: "converted"
+          }];
+          console.log(`✅ [Cards JSON] 2차 파싱에서 solution.steps 변환 성공 - ${cards.length}개 카드`);
+        } else {
+          console.log(`⚠️ [Cards JSON] 2차 파싱 성공하지만 cards 배열 없음`);
+          console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
+          console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+        }
       }
       
       return cards;
