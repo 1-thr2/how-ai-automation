@@ -563,6 +563,145 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
         </div>
       );
 
+    // 🎯 니즈 분석 카드
+    case 'needs_analysis':
+      const needsCard = card as any;
+      return (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white text-xl">
+              🎯
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{needsCard.title}</h3>
+              <p className="text-gray-600">{needsCard.subtitle}</p>
+            </div>
+          </div>
+          
+          {needsCard.content && (
+            <div className="bg-white rounded-lg p-4 mb-4">
+              <p className="text-gray-700 leading-relaxed">{needsCard.content}</p>
+            </div>
+          )}
+          
+          {needsCard.surfaceRequest && needsCard.realNeed && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2">표면적 요청</h4>
+                <p className="text-blue-700 text-sm">{needsCard.surfaceRequest}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4">
+                <h4 className="font-semibold text-green-900 mb-2">진짜 니즈</h4>
+                <p className="text-green-700 text-sm">{needsCard.realNeed}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+    // 🚀 확장 아이디어 카드
+    case 'expansion':
+      const expansionCard = card as any;
+      return (
+        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white text-xl">
+              🚀
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{expansionCard.title}</h3>
+              <p className="text-gray-600">{expansionCard.subtitle}</p>
+            </div>
+          </div>
+          
+          {expansionCard.content && (
+            <div className="bg-white rounded-lg p-4 mb-4">
+              <p className="text-gray-700 leading-relaxed">{expansionCard.content}</p>
+            </div>
+          )}
+          
+          {expansionCard.ideas && (
+            <div className="space-y-3">
+              {expansionCard.ideas.map((idea: any, index: number) => (
+                <div key={index} className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-2">{idea.title || idea}</h4>
+                  {idea.description && (
+                    <p className="text-purple-700 text-sm">{idea.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+
+    // ❓ FAQ 카드
+    case 'faq':
+      const faqCard = card as any;
+      return (
+        <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-6 border border-orange-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white text-xl">
+              ❓
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{faqCard.title}</h3>
+              <p className="text-gray-600">{faqCard.subtitle}</p>
+            </div>
+          </div>
+          
+          {faqCard.content && (
+            <div className="bg-white rounded-lg p-4 mb-4">
+              <p className="text-gray-700 leading-relaxed">{faqCard.content}</p>
+            </div>
+          )}
+          
+          {faqCard.faqs && (
+            <div className="space-y-4">
+              {faqCard.faqs.map((faq: any, index: number) => (
+                <div key={index} className="bg-white rounded-lg p-4 border border-orange-100">
+                  <h4 className="font-semibold text-orange-900 mb-2">Q. {faq.question || faq.q}</h4>
+                  <p className="text-gray-700 text-sm leading-relaxed">A. {faq.answer || faq.a}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+
+    // 🔗 공유 카드
+    case 'share':
+      const shareCard = card as any;
+      return (
+        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white text-xl">
+              🔗
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">{shareCard.title}</h3>
+              <p className="text-gray-600">{shareCard.subtitle}</p>
+            </div>
+          </div>
+          
+          {shareCard.content && (
+            <div className="bg-white rounded-lg p-4 mb-4">
+              <p className="text-gray-700 leading-relaxed">{shareCard.content}</p>
+            </div>
+          )}
+          
+          {shareCard.shareOptions && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {shareCard.shareOptions.map((option: string, index: number) => (
+                <div key={index} className="bg-blue-50 rounded-lg p-3 text-center">
+                  <p className="text-blue-700 text-sm font-medium">{option}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+
     // 기본 케이스 (기존 카드들)
     default:
       return (

@@ -673,7 +673,9 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
             .filter((card: any) => [
               'tool_recommendation', 'flow', 'slide_guide', 'video_guide', 
               'landing_guide', 'dashboard_guide', 'creative_guide', 
-              'audio_guide', 'chatbot_guide', 'wow_preview'
+              'audio_guide', 'chatbot_guide', 'wow_preview',
+              // 🔥 GPT가 생성하는 실제 카드 타입들 추가
+              'needs_analysis', 'expansion', 'faq', 'share'
             ].includes(card.type))
             .map((card: any, index: number) => (
               <div key={index} style={{ marginBottom: '1.5rem' }}>
