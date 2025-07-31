@@ -470,12 +470,38 @@ function parseCardsJSON(content: string): any[] {
     console.log(`🔍 [Cards JSON] 1차 에러: ${firstError instanceof Error ? firstError.message : String(firstError)}`);
     
     try {
+      // 2차 시도: 강화된 마크다운 코드 블록 제거
       let cleanContent = content;
+      
+      // 다양한 마크다운 블록 패턴 처리
       if (content.includes('```json')) {
-        const startIndex = content.indexOf('```json') + 7;
-        const endIndex = content.lastIndexOf('```');
-        cleanContent = content.substring(startIndex, endIndex).trim();
+        const jsonStart = content.indexOf('```json');
+        const afterJsonTag = jsonStart + 7; // '```json' 길이
+        
+        // 첫 번째 줄바꿈까지 건너뛰기
+        let startIndex = afterJsonTag;
+        if (content.charAt(startIndex) === '\n') {
+          startIndex++;
+        }
+        
+        const endIndex = content.indexOf('```', afterJsonTag);
+        if (endIndex !== -1) {
+          cleanContent = content.substring(startIndex, endIndex).trim();
+        } else {
+          cleanContent = content.substring(startIndex).trim();
+        }
         console.log('🔧 [Cards JSON] 마크다운 블록 제거 완료');
+      } else if (content.includes('```')) {
+        // 일반적인 코드 블록 처리
+        const startIndex = content.indexOf('```') + 3;
+        let actualStart = startIndex;
+        if (content.charAt(actualStart) === '\n') {
+          actualStart++;
+        }
+        const endIndex = content.indexOf('```', startIndex);
+        if (endIndex !== -1) {
+          cleanContent = content.substring(actualStart, endIndex).trim();
+        }
       }
       
       cleanContent = cleanContent
