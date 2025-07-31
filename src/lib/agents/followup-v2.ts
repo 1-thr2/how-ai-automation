@@ -40,7 +40,10 @@ async function draftStepGen(userInput: string): Promise<{
 위 요청을 분석하여 3-4개의 핵심 후속질문 초안을 생성하세요.
 속도를 우선시하여 간단하고 명확한 질문만 만드세요.
 
-중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
+중요: 반드시 JSON 배열 형식으로만 응답하세요. 
+잘못된 형식: 마크다운 블록 사용하거나 객체로 감싸기
+올바른 형식: [{"key": "...", "question": "...", ...}]
+마크다운 블록이나 다른 텍스트는 절대 포함하지 마세요.`;
 
     // 토큰 수 추정 및 모델 선택
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
@@ -113,7 +116,10 @@ ${JSON.stringify(draftQuestions, null, 2)}
 위 질문들을 더 명확하고 실용적으로 개선해주세요. 
 질문의 개수는 유지하되, 표현과 옵션들을 더 구체적이고 사용자 친화적으로 만드세요.
 
-중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
+중요: 반드시 JSON 배열 형식으로만 응답하세요. 
+잘못된 형식: 마크다운 블록 사용하거나 객체로 감싸기
+올바른 형식: [{"key": "...", "question": "...", ...}]
+마크다운 블록이나 다른 텍스트는 절대 포함하지 마세요.`;
 
     // 토큰 수 추정 및 모델 선택
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
@@ -170,19 +176,58 @@ function parseQuestionsJSON(content: string): any[] {
     // 1차 시도: 직접 파싱
     const parsed = JSON.parse(content);
     console.log('✅ [JSON] 1차 파싱 성공');
-    return parsed.questions || [];
+    
+    // 🔧 다양한 응답 구조 처리
+    if (Array.isArray(parsed)) {
+      // 배열이 직접 반환된 경우
+      console.log('📋 [JSON] 1차 - 배열 형태 응답 감지');
+      return parsed;
+    } else if (parsed.questions && Array.isArray(parsed.questions)) {
+      // questions 객체로 감싸진 경우
+      console.log('📋 [JSON] 1차 - questions 객체 형태 응답 감지');
+      return parsed.questions;
+    } else {
+      // 기타 구조
+      console.log('📋 [JSON] 1차 - 알 수 없는 구조, 빈 배열 반환');
+      return [];
+    }
   } catch (firstError) {
     console.log('🔄 [JSON] 1차 파싱 실패, 정리 후 재시도...');
     console.log('🔍 [JSON] 1차 에러:', firstError instanceof Error ? firstError.message : String(firstError));
     
     try {
-      // 2차 시도: 마크다운 코드 블록 제거
+      // 2차 시도: 강화된 마크다운 코드 블록 제거
       let cleanContent = content;
+      
+      // 다양한 마크다운 블록 패턴 처리
       if (content.includes('```json')) {
-        const startIndex = content.indexOf('```json') + 7;
-        const endIndex = content.lastIndexOf('```');
-        cleanContent = content.substring(startIndex, endIndex).trim();
+        const jsonStart = content.indexOf('```json');
+        const afterJsonTag = jsonStart + 7; // '```json' 길이
+        
+        // 첫 번째 줄바꿈까지 건너뛰기
+        let startIndex = afterJsonTag;
+        if (content.charAt(startIndex) === '\n') {
+          startIndex++;
+        }
+        
+        const endIndex = content.indexOf('```', afterJsonTag);
+        if (endIndex !== -1) {
+          cleanContent = content.substring(startIndex, endIndex).trim();
+        } else {
+          cleanContent = content.substring(startIndex).trim();
+        }
         console.log('🔍 [JSON] 마크다운 블록 제거 후 길이:', cleanContent.length);
+      } else if (content.includes('```')) {
+        // 일반적인 코드 블록 처리
+        const startIndex = content.indexOf('```') + 3;
+        let actualStart = startIndex;
+        if (content.charAt(actualStart) === '\n') {
+          actualStart++;
+        }
+        const endIndex = content.indexOf('```', startIndex);
+        if (endIndex !== -1) {
+          cleanContent = content.substring(actualStart, endIndex).trim();
+        }
       }
       
       // 3차 시도: 추가 정리
@@ -197,7 +242,21 @@ function parseQuestionsJSON(content: string): any[] {
       
       const parsed = JSON.parse(cleanContent);
       console.log('✅ [JSON] 2차 파싱 성공');
-      return parsed.questions || [];
+      
+      // 🔧 다양한 응답 구조 처리
+      if (Array.isArray(parsed)) {
+        // 배열이 직접 반환된 경우
+        console.log('📋 [JSON] 배열 형태 응답 감지');
+        return parsed;
+      } else if (parsed.questions && Array.isArray(parsed.questions)) {
+        // questions 객체로 감싸진 경우
+        console.log('📋 [JSON] questions 객체 형태 응답 감지');
+        return parsed.questions;
+      } else {
+        // 기타 구조
+        console.log('📋 [JSON] 알 수 없는 구조, 빈 배열 반환');
+        return [];
+      }
       
     } catch (secondError) {
       console.error('❌ [JSON] 2차 파싱도 실패, 폴백 질문 반환');
