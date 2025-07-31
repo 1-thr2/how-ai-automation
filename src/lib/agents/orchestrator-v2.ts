@@ -451,6 +451,7 @@ function parseCardsJSON(content: string): any[] {
         cards = [{
           type: "flow",
           title: parsed.solution.title || "자동화 가이드",
+          content: parsed.solution.description || "",
           description: parsed.solution.description || "",
           steps: parsed.solution.steps,
           status: "converted"
@@ -513,6 +514,7 @@ function parseCardsJSON(content: string): any[] {
           cards = [{
             type: "flow",
             title: parsed.solution.title || "자동화 가이드",
+            content: parsed.solution.description || "",
             description: parsed.solution.description || "",
             steps: parsed.solution.steps,
             status: "converted"

@@ -671,16 +671,10 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
           />
         )}
         
-        {/* 🚀 새로운 WOW 카드들 렌더링 */}
+        {/* 🚀 기본 플로우 카드만 렌더링 */}
         <div className="wow-cards-section" style={{ marginBottom: '2rem' }}>
           {cardData
-            .filter((card: any) => [
-              'tool_recommendation', 'flow', 'slide_guide', 'video_guide', 
-              'landing_guide', 'dashboard_guide', 'creative_guide', 
-              'audio_guide', 'chatbot_guide', 'wow_preview',
-              // 🔥 GPT가 생성하는 실제 카드 타입들 추가
-              'needs_analysis', 'expansion', 'faq', 'share'
-            ].includes(card.type))
+            .filter((card: any) => ['flow'].includes(card.type))
             .map((card: any, index: number) => (
               <div key={index} style={{ marginBottom: '1.5rem' }}>
                 <WowCardRenderer card={card} />

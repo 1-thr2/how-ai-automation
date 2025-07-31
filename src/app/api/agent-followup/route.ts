@@ -83,8 +83,8 @@ export async function POST(request: Request) {
     
     // 📊 성공으로 메트릭 완료
     metricsCollector.success();
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       questions: validQuestions,
       metadata: {
         approach: '2-step-refactored',
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     // 📊 실패로 메트릭 완료
     metricsCollector.error(error instanceof Error ? error.message : 'Unknown error');
     
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: '후속질문 생성 중 오류가 발생했습니다',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
