@@ -53,7 +53,8 @@ async function executeStepA(
 
 위 정보를 바탕으로 자동화 카드들의 기본 뼈대를 빠르게 생성하세요.
 상세한 내용은 B/C 단계에서 추가할 예정이니, 구조와 방향성에 집중하세요.
-반드시 JSON 형태로만 응답하세요.`;
+
+중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
     // 토큰 추정 및 모델 선택 (A단계는 항상 mini 사용)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
@@ -147,7 +148,9 @@ URL 검증 결과:
 ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' : '❌ 무효'}`).join('\n')}
 
 위 정보를 바탕으로 draft 카드들을 검증하고 최신 정보로 보강하세요.
-잘못된 정보는 수정하고, 깨진 링크는 대체하세요.`;
+잘못된 정보는 수정하고, 깨진 링크는 대체하세요.
+
+중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
     // 7. gpt-4o-mini로 처리 (B단계도 비용 효율적)
     const model = 'gpt-4o-mini';
@@ -242,7 +245,9 @@ RAG 검증 정보:
 
 위 정보를 바탕으로 사용자가 "와! 정말 유용하다!"라고 감탄할 만한 최종 결과물을 만드세요.
 개인화된 솔루션, 즉시 실행 가능성, 확장 비전, 창의적 대안을 모두 포함하세요.
-한국어 톤앤매너로 친근하고 확신에 찬 표현을 사용하세요.`;
+한국어 톤앤매너로 친근하고 확신에 찬 표현을 사용하세요.
+
+중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
     // 토큰 추정 및 모델 선택 (C단계는 품질 우선으로 gpt-4o 사용)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
@@ -416,17 +421,23 @@ export async function generate3StepAutomation(
 
 // 유틸리티 함수들
 function parseCardsJSON(content: string): any[] {
-  // followup-v2.ts의 개선된 JSON 파싱 로직 재사용
+  console.log(`🔍 [Cards JSON] 파싱 시작 - 원본 길이: ${content.length}`);
+  
   try {
     const parsed = JSON.parse(content);
+    console.log(`✅ [Cards JSON] 1차 파싱 성공 - ${parsed.cards?.length || 0}개 카드`);
     return parsed.cards || [];
   } catch (firstError) {
+    console.log('🔄 [Cards JSON] 1차 파싱 실패, 정리 후 재시도...');
+    console.log(`🔍 [Cards JSON] 1차 에러: ${firstError.message}`);
+    
     try {
       let cleanContent = content;
       if (content.includes('```json')) {
         const startIndex = content.indexOf('```json') + 7;
         const endIndex = content.lastIndexOf('```');
         cleanContent = content.substring(startIndex, endIndex).trim();
+        console.log('🔧 [Cards JSON] 마크다운 블록 제거 완료');
       }
       
       cleanContent = cleanContent
@@ -435,10 +446,20 @@ function parseCardsJSON(content: string): any[] {
         .replace(/,(\s*[}\]])/g, '$1')
         .trim();
       
+      console.log(`🔍 [Cards JSON] 정리 후 첫 100자: ${cleanContent.substring(0, 100)}`);
+      console.log(`🔍 [Cards JSON] 정리 후 마지막 100자: ${cleanContent.substring(cleanContent.length - 100)}`);
+      
       const parsed = JSON.parse(cleanContent);
+      console.log(`✅ [Cards JSON] 2차 파싱 성공 - ${parsed.cards?.length || 0}개 카드`);
       return parsed.cards || [];
     } catch (secondError) {
-      console.error('❌ JSON 파싱 실패, 기본 카드 반환');
+      console.error('❌ [Cards JSON] 2차 파싱도 실패, 기본 카드 반환');
+      console.log(`🔍 [Cards JSON] 2차 에러: ${secondError.message}`);
+      
+      // 디버깅용 원본 내용 출력
+      console.log(`🔍 [Cards JSON] 원본 첫 200자: ${content.substring(0, 200)}`);
+      console.log(`🔍 [Cards JSON] 원본 마지막 200자: ${content.substring(content.length - 200)}`);
+      
       return [];
     }
   }
