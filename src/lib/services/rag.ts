@@ -1,4 +1,4 @@
-import { tavily } from 'tavily';
+import { TavilyClient } from '@tavily/sdk';
 
 /**
  * Tavily RAG 서비스
@@ -6,7 +6,7 @@ import { tavily } from 'tavily';
  */
 
 // Tavily 클라이언트 설정
-const tavilyClient = tavily({
+const tavilyClient = new TavilyClient({
   apiKey: process.env.TAVILY_API_KEY || '',
 });
 
@@ -55,7 +55,7 @@ export async function searchWithRAG(
     // Tavily API 호출
     const response = await tavilyClient.search({
       query,
-      max_results: defaultOptions.maxResults,
+      num_results: defaultOptions.maxResults,
       include_images: defaultOptions.includeImages,
       include_answer: defaultOptions.includeAnswers,
       search_depth: defaultOptions.searchDepth,

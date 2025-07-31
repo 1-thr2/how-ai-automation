@@ -49,9 +49,9 @@ export async function POST(req: Request) {
     
     // 📊 메트릭 기록
     metricsCollector
-      .recordModel(metrics.modelsUsed[0] || 'mixed', metrics.totalTokens)
-      .recordApproach('3-step-rag-refactored', metrics.stagesCompleted)
-      .recordRAG(metrics.ragSearches, metrics.ragSources, metrics.urlsVerified)
+      .recordModel(metrics.modelsUsed?.[0] || 'mixed', metrics.totalTokens)
+      .recordApproach('3-step-rag-refactored', metrics.stagesCompleted || [])
+      .recordRAG(metrics.ragSearches || 0, metrics.ragSources || 0, metrics.urlsVerified || 0)
       .recordResults(allCards.length);
     
     // 📊 리팩토링된 시스템 메트릭 로깅
