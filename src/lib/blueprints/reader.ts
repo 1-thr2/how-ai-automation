@@ -16,10 +16,33 @@ export class BlueprintReader {
     }
     
     try {
-      const fullPath = path.join(process.cwd(), 'src', 'lib', 'blueprints', blueprintPath);
-      const content = fs.readFileSync(fullPath, 'utf-8');
-      this.cache.set(blueprintPath, content);
-      return content;
+      // 🔍 Vercel 환경 디버깅
+      const cwd = process.cwd();
+      const fullPath = path.join(cwd, 'src', 'lib', 'blueprints', blueprintPath);
+      
+      console.log(`🔍 [Blueprint Debug] CWD: ${cwd}`);
+      console.log(`🔍 [Blueprint Debug] Full Path: ${fullPath}`);
+      console.log(`🔍 [Blueprint Debug] Exists: ${fs.existsSync(fullPath)}`);
+      
+      // 대안 경로들도 시도
+      const alternatives = [
+        path.join(cwd, 'src', 'lib', 'blueprints', blueprintPath),
+        path.join(__dirname, '..', 'blueprints', blueprintPath),
+        path.join(__dirname, '../../../src/lib/blueprints', blueprintPath),
+        path.join(cwd, 'blueprints', blueprintPath)
+      ];
+      
+      for (const altPath of alternatives) {
+        console.log(`🔍 [Blueprint Debug] Trying: ${altPath} - Exists: ${fs.existsSync(altPath)}`);
+        if (fs.existsSync(altPath)) {
+          console.log(`✅ [Blueprint Debug] Found at: ${altPath}`);
+          const content = fs.readFileSync(altPath, 'utf-8');
+          this.cache.set(blueprintPath, content);
+          return content;
+        }
+      }
+      
+      throw new Error(`모든 경로에서 파일을 찾을 수 없음: ${blueprintPath}`);
     } catch (error) {
       console.error(`❌ Blueprint 읽기 실패: ${blueprintPath}`, error);
       throw new Error(`Blueprint 파일을 찾을 수 없습니다: ${blueprintPath}`);
