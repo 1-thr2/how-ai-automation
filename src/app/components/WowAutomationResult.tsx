@@ -252,6 +252,14 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
           line-height: 1.5;
         }
         
+        .guide-cards-section {
+          margin: 32px 0;
+        }
+        
+        .guide-card-wrapper {
+          margin-bottom: 24px;
+        }
+        
         .expansion-section {
           background: white;
           border-radius: 12px;
@@ -692,7 +700,21 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
           />
         )}
         
-
+        {/* 상세 가이드 카드들 */}
+        <div className="guide-cards-section">
+          {cardData
+            .filter((card: any) => [
+              'tool_recommendation', 'guide', 'slide_guide', 'video_guide',
+              'landing_guide', 'dashboard_guide', 'creative_guide',
+              'audio_guide', 'chatbot_guide', 'wow_preview',
+              'needs_analysis', 'faq'
+            ].includes(card.type))
+            .map((card: any, index: number) => (
+              <div key={index} className="guide-card-wrapper">
+                <WowCardRenderer card={card} />
+              </div>
+            ))}
+        </div>
         
         {/* 확장 아이디어 섹션 */}
         {expansionCard && (
