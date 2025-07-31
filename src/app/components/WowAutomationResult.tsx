@@ -39,9 +39,25 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
   const expansionCard = cardData.find((c: any) => c.type === 'expansion');
 
   // 플로우 단계 처리
+  const getStepIcon = (index: number, title: string) => {
+    // 제목 기반 아이콘 자동 선택
+    const titleLower = title.toLowerCase();
+    if (titleLower.includes('로그인') || titleLower.includes('계정') || titleLower.includes('가입')) return '🔐';
+    if (titleLower.includes('연결') || titleLower.includes('연동') || titleLower.includes('api')) return '🔗';
+    if (titleLower.includes('데이터') || titleLower.includes('수집') || titleLower.includes('입력')) return '📊';
+    if (titleLower.includes('설정') || titleLower.includes('구성') || titleLower.includes('설치')) return '⚙️';
+    if (titleLower.includes('전송') || titleLower.includes('알림') || titleLower.includes('메시지')) return '📤';
+    if (titleLower.includes('분석') || titleLower.includes('리포트') || titleLower.includes('보고서')) return '📈';
+    if (titleLower.includes('테스트') || titleLower.includes('확인') || titleLower.includes('검증')) return '✅';
+    
+    // 순서 기반 기본 아이콘
+    const defaultIcons = ['🚀', '⚡', '🎯', '🔥', '✨', '💡'];
+    return defaultIcons[index] || defaultIcons[index % defaultIcons.length];
+  };
+
   const processedFlowSteps = flowCard?.steps?.map((step: any, index: number) => ({
     id: String(step.id || index + 1),
-    icon: step.icon || '🔧',
+    icon: step.icon || getStepIcon(index, step.title || ''),
     title: step.title || `단계 ${index + 1}`,
     subtitle: step.subtitle || '',
     duration: step.duration || step.timing || '5분',
@@ -686,13 +702,15 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               <p>지금 만든 자동화를 더 스마트하게 업그레이드하는 방법</p>
             </div>
             <div className="expansion-content">
-              {expansionCard.possibilities && expansionCard.possibilities.length > 0 && (
+              {expansionCard.ideas && expansionCard.ideas.length > 0 && (
                 <div className="expansion-possibilities">
-                  <h4>⚡ 당장 이것부터 추가해보세요</h4>
+                  <h4>🚀 이렇게 더 발전시켜보세요!</h4>
                   <ul>
-                    {expansionCard.possibilities.map((possibility: string, index: number) => 
-                      renderTextWithClickableUrl(possibility, index)
-                    )}
+                    {expansionCard.ideas.map((idea: string, index: number) => (
+                      <li key={index} style={{ marginBottom: '8px', color: '#4f46e5' }}>
+                        💡 {idea}
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
