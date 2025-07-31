@@ -31,6 +31,7 @@
     "next": "13.5.6",
     "next-swagger-doc": "^0.4.1",
     "openai": "^4.28.0",
+    "p-map": "^7.0.3",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-flow-renderer": "^10.3.17",
@@ -44,6 +45,7 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
+    "tavily": "^1.0.2",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },

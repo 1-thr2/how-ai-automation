@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callOpenAI } from '@/lib/openai';
-import { AutomationData } from '@/app/types/automation';
-import { handleError, handleApiError } from '@/lib/error-handler';
+import { handleApiError } from '@/lib/error-handler';
 import { saveAutomationRequest } from '@/lib/supabase';
-import OpenAI from 'openai';
+import { generate3StepAutomation } from '@/lib/agents/orchestrator-v2';
+import { checkRAGHealth } from '@/lib/services/rag';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// 🎯 현실적 절충안: 3단계 하이브리드 방식 (기존 방식 유지 + 부분 최적화)
+// 🚀 리팩토링된 3단계 시스템: A(초안) → B(RAG검증) → C(WOW마감)
 export async function POST(req: Request) {
   let userInput = '';
   let followupAnswers = {};
@@ -20,680 +15,78 @@ export async function POST(req: Request) {
     userInput = requestData.userInput;
     followupAnswers = requestData.followupAnswers;
     
-    console.log('🚀 [하이브리드] 3단계 자동화 생성 시작');
+    console.log('🚀 [리팩토링] 3단계 자동화 생성 시작 (v2.0)');
     console.log('📝 사용자 입력:', userInput);
     console.log('📋 후속 답변:', followupAnswers);
 
-    startTime = Date.now();
-    let allCards = [];
-
-    // 🔄 1단계: 니즈 분석 + 플로우 생성 (gpt-4o-2024-11-20 - 품질 우선)
-    console.log('[1단계] 니즈 분석 + 플로우 생성 (gpt-4o-2024-11-20 - 품질 우선)');
-    const stage1Response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-11-20',
-      messages: [
-        {
-          role: 'system',
-          content: `당신은 2025년 자동화 전문가입니다. 사용자 요청을 분석하여 투입대비 산출을 고려한 최적 자동화 수준을 추천하세요.
-
-# 핵심 원칙: 사용자가 원하는 것이 아닌, 투입대비 산출 기준으로 AI가 추천
-
-## 자동화 수준 분석 기준:
-1. **빈도 분석**: 일회성 vs 주기적 vs 실시간
-2. **데이터량**: 소량 vs 중간 vs 대량
-3. **복잡도**: 단순 vs 중간 vs 복잡
-4. **팀 규모**: 개인 vs 팀 vs 조직
-5. **기술 수준**: 초보 vs 중급 vs 고급
-
-## 자동화 수준별 투입대비 산출:
-
-### 🟢 수동 처리 (ROI 측정 단계)
-- **투입**: 30분-1시간/회
-- **적용**: 월 1-2회 or 일회성 or 데이터 소량
-- **장점**: 즉시 시작, 학습 비용 없음
-- **단점**: 반복 시 비효율
-
-### 🟡 반자동화 (효율성 증대)
-- **투입**: 설정 1-2시간 + 주 5-10분 관리
-- **적용**: 주 1회 이상 or 패턴 반복 or 중간 데이터량
-- **장점**: 80% 시간 절약, 안정성
-- **단점**: 초기 설정 필요
-
-### 🔴 완전자동화 (스케일링)
-- **투입**: 설정 3-5시간 + 월 10-20분 관리
-- **적용**: 일일 반복 or 대량 데이터 or 팀 공유
-- **장점**: 95% 시간 절약, 확장성
-- **단점**: 높은 초기 투자
-
-# 반드시 JSON 형태로 응답:
-{
-  "cards": [
-    {
-      "type": "needs_analysis",
-      "title": "🎯 진짜 니즈 발견",
-      "surfaceRequest": "사용자가 말한 것",
-      "realNeed": "실제로 필요한 것",
-      "recommendedLevel": "수동/반자동/완전자동",
-      "expectedBenefit": "예상 효과 (시간 절약, 정확도 향상 등)",
-      "investmentRequired": "필요한 투입 (시간, 학습 등)",
-      "whyThisLevel": "이 수준을 추천하는 이유"
-    },
-    {
-      "type": "flow",
-      "title": "🚀 추천 자동화 플로우",
-      "subtitle": "투입대비 산출 최적화된 단계별 실행 계획",
-      "automationLevel": "추천된 자동화 수준",
-      "expectedROI": "예상 투입대비 산출",
-      "steps": [
-        {
-          "id": "1",
-          "icon": "🔧",
-          "title": "구체적 결과 중심 단계명",
-          "subtitle": "사용자가 느낄 편리함",
-          "duration": "예상 시간",
-          "automationType": "수동/반자동/완전자동",
-          "inputData": "이 단계에서 처리할 입력 데이터",
-          "outputData": "이 단계에서 생성되는 구체적 결과물 (파일명, URL, 데이터 형태)",
-          "nextStepConnection": "다음 단계에서 이 결과물을 어떻게 활용하는지",
-          "toolRecommendation": {
-            "primary": "최적 효율성 우선 + 후속답변 기반 최적 도구",
-            "reason": "최적 효율성 + 통합 워크플로우 + 사용자 적합성",
-            "alternatives": ["간단한 대안 1-2개"],
-            "whyNotOthers": "다른 방법들을 안 추천하는 이유"
-          }
-        },
-        {
-          "id": "2",
-          "icon": "📊",
-          "title": "두 번째 단계명",
-          "subtitle": "사용자가 느낄 편리함",
-          "duration": "예상 시간",
-          "automationType": "수동/반자동/완전자동",
-          "inputData": "1단계에서 생성된 구체적 결과물",
-          "outputData": "이 단계에서 생성되는 구체적 결과물",
-          "nextStepConnection": "3단계에서 이 결과물을 어떻게 활용하는지"
-        },
-        {
-          "id": "3",
-          "icon": "🎯",
-          "title": "세 번째 단계명",
-          "subtitle": "사용자가 느낄 편리함",
-          "duration": "예상 시간",
-          "automationType": "수동/반자동/완전자동",
-          "inputData": "2단계에서 생성된 구체적 결과물",
-          "outputData": "최종 목표 달성을 위한 결과물",
-          "nextStepConnection": "최종 목표 완성"
-        }
-      ]
-    }
-  ]
-}`
-        },
-        {
-          role: 'user',
-          content: `사용자 요청: "${userInput}"
-사용자 후속답변: ${JSON.stringify(followupAnswers || {})}
-
-# 🎯 진짜 니즈 발굴 및 wow 경험 설계
-
-## 핵심 원칙: 후속답변으로 숨은 욕망 파악
-후속답변은 표면적 요청 뒤에 숨은 진짜 니즈를 보여줍니다:
-
-**예시 분석**:
-- 표면 요청: "스프레드시트 시각화"
-- 후속답변: {data_source: '수동 입력', success_criteria: '시간 절약'}
-- **진짜 니즈**: 매번 수동으로 차트 만드는 게 번거로워서 → 자동화된 대시보드로 실시간 모니터링하고 싶음
-- **wow 포인트**: 단순 차트가 아니라 "데이터 변화 시 자동 알림 + 트렌드 분석 + 팀 공유"까지
-
-## 니즈 발굴 질문들:
-1. **왜 이걸 원하는가?** (진짜 목적)
-2. **누구를 위한 것인가?** (이해관계자)
-3. **언제 사용하는가?** (사용 맥락)
-4. **무엇이 불편한가?** (현재 문제점)
-5. **어떤 결과를 원하는가?** (기대 효과)
-
-## 후속답변 → 니즈 매핑:
-- data_source: '수동 입력' → 반복 작업 자동화 욕구
-- current_workflow: '분석하지 않음' → 인사이트 도출 욕구
-- success_criteria: '시간 절약' → 효율성 + 더 중요한 일에 집중 욕구
-
-## wow 경험 설계:
-표면적 요청을 **10배 더 가치있는 시스템**으로 확장:
-- 단순 차트 → 실시간 대시보드 + 자동 알림
-- 일회성 분석 → 지속적 모니터링 + 트렌드 예측
-- 개인 사용 → 팀 협업 + 의사결정 지원
-
-## 🚨 단계 설계 원칙 (필수):
-- **하나의 통합 플랫폼**: 모든 단계가 하나의 자동화 플랫폼(Zapier, Make.com 등)에서 연결된 워크플로우 (개별 분리 금지)
-- **실제 데이터 연결**: 1단계 출력 → 2단계 입력 → 3단계 입력의 구체적 데이터 흐름
-- **하나의 트리거**: 전체 자동화가 하나의 이벤트로 시작되어 끝까지 연결
-- **최적 효율성**: 가장 빠르고 쉬운 방법 우선 (AI 도구가 더 효율적이면 AI 도구 선택)
-- **단계명**: 사용자가 느낄 가치 중심 (기술용어 금지)
-- **내용**: 후속답변의 맥락을 깊이 반영
-
-## 🔗 **연결된 자동화 설계 필수사항**:
-- ❌ 금지: "개별 Zapier 3개 만들기", "따로따로 설정하기"
-- ✅ 필수: "하나의 Zapier에서 단계별 연결", "데이터가 자동으로 다음 단계로 전달"
-- ✅ 예시: "1단계에서 수집된 데이터 → 2단계 AI 분석 → 3단계 슬랙 전송 (모두 하나의 워크플로우)"
-
-## 🎯 개인 맞춤형 최적 솔루션 선택:
-후속답변을 바탕으로 **이 사용자에게 가장 적합한 하나의 방법**을 선택하세요:
-
-### 🔍 **사용자 분석 기준**:
-- **기술 수준**: 후속답변에서 드러나는 기술적 친숙도
-- **현재 도구**: 사용자가 언급한 기존 도구들
-- **목표**: 시간 절약 vs 품질 향상 vs 완전 자동화
-- **환경**: 개인 vs 팀 vs 기업
-
-### 🛠️ **사용자 요청에 맞는 최적 도구 선택** (제한 없음):
-
-#### 💰 **비용 효율성 우선 원칙**
-- **무료 도구 우선 탐색** → **저비용 도구** → **유료 도구** (필요시에만)
-- **모든 도구는 사용자 요청에 딱 맞는 것**으로 선택 (제한 없음)
-
-#### 🎯 **요청 유형별 최적 도구 예시** (이것만이 아님):
-
-**📊 데이터/분석**: 젠스파크, 클로드, ChatGPT, 구글 시트, Apps Script, Airtable, Zapier
-**🎨 디자인/이미지**: Canva, Midjourney, DALL-E, Figma, 런웨이, 레오나르도 AI
-**📹 영상 제작**: 런웨이, Luma AI, Pika Labs, CapCut, 클립챔프, InVideo
-**🌐 웹 개발**: Apps Script, Bubble, Webflow, Glide, Carrd, Framer
-**📝 문서/콘텐츠**: Notion AI, 워드프레스, 카피AI, Jasper, 구글 독스
-**🔗 자동화**: Zapier, Make.com, Power Automate, IFTTT, Integromat
-**📱 앱 개발**: Bubble, Glide, Adalo, FlutterFlow, App Sheet
-**🎵 음성/오디오**: Murf, Descript, Otter.ai, ElevenLabs
-**💬 챗봇**: 챗플로우, 보이스플로우, ManyChat, Landbot
-**📊 대시보드**: Apps Script + HTML/CSS/JS, 태블로, 파워BI, 루커
-
-#### 🚨 **중요**: 사용자 요청에 따라 위 목록 외 **다른 어떤 도구든 선택 가능**
-
-#### 💡 **Apps Script 웹뷰 대시보드 예시**:
-- **HTML/CSS/JS 코드 완전 제공** 필수
-- **구글 시트 연결** + **실시간 데이터 업데이트**
-- **웹 퍼블리싱 방법**까지 포함
-
-#### 🎨 **창작 도구 활용 시**:
-- **구체적 프롬프트** 제공 (미드저니, DALL-E 등)
-- **스타일 가이드** 포함
-- **품질 최적화 팁** 제공
-
-### 📋 **선택 기준** (우선순위 순):
-1. **💰 비용 효율성**: 무료 > 저비용 > 유료 (비용 명시 필수)
-2. **⚡ 즉시 실행**: 바로 사용 가능한지 (설정 복잡도)
-3. **🎯 WOW 결과**: 사용자가 감탄할 만한 결과물
-4. **🔗 통합 가능성**: 기존 도구와 연결 용이성
-5. **🇰🇷 한국 환경**: 한국어 지원, 국내 도구 우선
-
-**결과**: 여러 방법을 나열하지 말고, **이 사용자에게 딱 맞는 하나의 최적 솔루션**을 제시`
-        }
-      ],
-      max_tokens: 2000,
-      temperature: 0.7
-    });
-
-    // 1단계 결과 파싱
-    const stage1Content = stage1Response.choices[0]?.message?.content;
-    let stage1Cards: any[] = [];
+    // 🏥 RAG 시스템 헬스체크 (선택적)
     try {
-      if (stage1Content) {
-        const jsonMatch = stage1Content.match(/```json\s*([\s\S]*?)\s*```/);
-        const jsonContent = jsonMatch ? jsonMatch[1] : stage1Content;
-        const parsed = JSON.parse(jsonContent);
-        stage1Cards = parsed.cards || [];
-    allCards.push(...stage1Cards);
-        console.log(`[1단계] 완료 - 생성된 카드 수: ${stage1Cards.length}`);
-      }
-  } catch (error) {
-      console.error('[1단계] 파싱 오류:', error);
-    }
-
-    // 플로우에서 단계 추출
-    const flowCard = stage1Cards.find((card: any) => card.type === 'flow');
-    const steps = flowCard?.steps || [];
-    console.log(`[2단계] 시작 - ${steps.length}개 단계에 대한 상세 가이드 생성`);
-    console.log(`[2단계] 생성된 단계들:`, steps.map((s: any) => `${s.id}. ${s.title}`));
-
-    // 🔄 2단계: 각 단계별 상세 가이드 생성 (gpt-4o-2024-11-20 - 최고 품질)
-    const guideCards = [];
-    
-    // 1단계와 2단계 사이 RPM 한도 회피를 위한 딜레이
-    console.log(`[2단계] 1단계 완료 후 RPM 한도 회피를 위해 1초 대기...`);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      console.log(`[2단계] ${i + 1}번째 단계 가이드 생성: ${step.title} (stepId: ${step.id})`);
+      const ragHealth = await checkRAGHealth();
+      console.log('🏥 [RAG] 헬스체크:', ragHealth);
       
-      // RPM 한도 회피를 위해 1초 대기 (기존 2초 → 1초 최적화)
-      if (i > 0) {
-        console.log(`[2단계] RPM 한도 회피를 위해 1초 대기...`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!ragHealth.tavilyAvailable) {
+        console.log('⚠️ [RAG] Tavily 사용 불가, 기본 모드로 진행');
       }
-
-      // 이전 단계들의 결과물 수집
-      const previousSteps = steps.slice(0, i);
-      const previousGuides = guideCards.filter(card => 
-        previousSteps.some((prevStep: any) => prevStep.id === card.stepId)
-      );
-
-      try {
-        const guideResponse = await openai.chat.completions.create({
-          model: 'gpt-4o-2024-11-20', // 최고 품질 모델
-          messages: [
-            {
-              role: 'system',
-              content: `당신은 왕초보도 100% 따라할 수 있는 자동화 가이드 전문가입니다.
-
-🚨 **절대 원칙**: 
-- 오직 JSON 형태로만 응답하세요
-- 정확한 URL, 버튼명, 위치 포함
-- "설정하세요" 같은 추상적 표현 금지
-
-## 🔄 **중복 방지** (매우 중요):
-${previousGuides.length > 0 ? 
-`- 이전 단계에서 이미 로그인한 도구는 "이어서" 시작
-- 이미 사용한 도구: ${previousGuides.map(g => g.title).join(', ')}` : 
-'- 첫 번째 단계이므로 처음부터 상세히 설명'}
-
-## 필수 포함사항:
-- **정확한 URL**: https://로 시작하는 완전한 주소
-- **정확한 버튼명**: "파란색 '로그인' 버튼" 등 구체적 표현
-- **확인 방법**: "성공시 초록색 메시지 표시" 등
-
-반드시 아래 JSON 형태로만 응답하세요:
-
-{
-  "cards": [
-    {
-      "type": "guide",
-      "stepId": "${step.id}",
-      "title": "${step.title}",
-      "subtitle": "초보자도 따라할 수 있는 설명",
-      "basicConcept": "이 단계의 목적과 필요성",
-      "automationLevel": "수동",
-      "content": {
-        "detailedSteps": [
-          {
-            "number": 1,
-            "title": "구체적인 첫 번째 작업명",
-            "description": "왕초보도 100% 따라할 수 있는 매우 상세한 설명:\\n\\n1. 크롬 브라우저를 열고 주소창에 [정확한 URL] 입력\\n2. 화면 [정확한 위치]의 '[정확한 버튼명]' 클릭\\n3. [구체적인 필드]에 [정확한 값] 입력\\n4. [저장 버튼] 클릭하여 완료",
-            "expectedScreen": "완료 후 화면에 정확히 무엇이 보이는지",
-            "checkpoint": "성공 확인하는 구체적 방법"
-          }
-        ],
-        "practicalTips": ["왕초보를 위한 실용적 팁"],
-        "commonMistakes": []
-      }
-    }
-  ]
-}`
-            },
-            {
-              role: 'user',
-              content: `# 🔄 플로우 연결성 정보
-전체 플로우: ${JSON.stringify(steps.map((s: any) => ({ id: s.id, title: s.title })))}
-현재 단계: ${step.id}번째 - ${step.title}
-이전 단계들: ${previousSteps.map((s: any) => s.title).join(' → ') || '없음'}
-
-# 📋 이전 단계 결과물 (연결 활용)
-${previousGuides.length > 0 ? 
-  previousGuides.map(guide => 
-`- ${guide.title}: ${guide.content?.detailedSteps?.[0]?.title || '설정 완료'}
-  → 결과물: ${guide.content?.detailedSteps?.[0]?.expectedScreen || '설정된 시스템'}`
-).join('\n') : '첫 번째 단계 - 이전 결과물 없음'}
-
-# 🎯 현재 단계 정보
-단계 정보: ${step.title} (${step.id}번째 단계)
-단계 설명: ${step.subtitle}
-전체 목표: "${userInput}"
-사용자 후속답변: ${JSON.stringify(followupAnswers || {})}
-
-# 🚨 워크플로우 연결성 절대 원칙 (필수):
-
-## ❌ **절대 금지되는 표현들**:
-- "새로운 워크플로우 생성", "새로운 Zapier 만들기", "별도 자동화"
-- "처음부터 시작", "새 시나리오", "독립적으로 설정"
-- "개별적으로", "따로 만들기", "분리된 자동화"
-
-## ✅ **반드시 사용해야 하는 표현들**:
-- "이전 단계에서 이어서", "기존 워크플로우에 추가", "연결된 다음 단계"
-- "이전 단계 출력을 입력으로 활용", "하나의 플로우에서 계속"
-
-## 🔗 **단계별 연결 방식**:
-1. **1단계**: 워크플로우 시작 + 첫 번째 액션
-2. **2단계**: 1단계와 같은 워크플로우에서 + (Plus) 버튼으로 두 번째 액션 추가
-3. **3단계**: 2단계와 같은 워크플로우에서 + (Plus) 버튼으로 세 번째 액션 추가
-
-## 🎯 **이 단계의 역할** (${step.id}번째 단계):
-- **워크플로우 위치**: ${step.id === '1' ? '워크플로우 시작' : `이전 ${step.id-1}단계에서 이어서 ${step.id}번째 액션 추가`}
-- **데이터 입력**: ${step.id === '1' ? '트리거 이벤트' : '이전 단계 출력 데이터'}
-- **연결 방법**: ${step.id === '1' ? '워크플로우 생성' : '+ (Plus) 버튼으로 액션 추가'}
-- **데이터 출력**: 다음 단계로 전달할 구체적 데이터
-
-# 🚨 **왕초보 가이드 필수사항**:
-- **극도로 상세한 설명**: "어느 메뉴 → 몇 번째 버튼 → 어떤 필드에 무엇 입력" 수준의 완벽한 설명
-- **개발자 도구 초보자 가이드**: F12 누르는 것부터 시작해서 정확한 탭과 클릭 위치까지 스크린샷처럼 설명
-- **API URL 찾기 완전 가이드**: Network 탭에서 어떤 항목을 클릭해야 하는지 단계별 상세 설명
-- **정확한 버튼명과 위치**: "화면 오른쪽 상단의 파란색 '로그인' 버튼" 수준의 정확한 위치
-- **성공 확인 방법**: 어떤 메시지가 어디에 나타나야 성공인지까지 명시
-
-# 🔄 **중복 방지 원칙** (매우 중요):
-## ❌ **절대 반복하지 말 것**:
-- **같은 도구의 로그인/회원가입**: Canva 로그인, ChatGPT 로그인 등을 여러 단계에서 반복 금지
-- **동일한 도구 접속**: 같은 사이트 주소 입력과 접속 과정 반복 금지
-- **기본 설정**: 계정 생성, 대시보드 접근 등 기본 설정 반복 금지
-
-## ✅ **대신 이렇게 표현**:
-- **2단계 이후**: "이전 단계에서 접속한 Canva에서 이어서..."
-- **이미 로그인 상태**: "로그인된 상태에서 다음 작업을 진행합니다"
-- **도구 재사용**: "앞서 사용한 [도구명]에서 새로운 작업을 시작합니다"
-
-## 🎯 **단계별 중복 체크**:
-- 1단계에서 Canva 로그인 했으면 → 2, 3단계에서는 "Canva에서 이어서" 시작
-- 1단계에서 ChatGPT 접속 했으면 → 2, 3단계에서는 "ChatGPT 화면에서 계속"
-- 1단계에서 계정 생성 했으면 → 2, 3단계에서는 "생성된 계정으로 바로"
-
-## 🔍 **개발자 도구 왕초보 가이드 예시**:
-1. 키보드에서 F12 키를 누르면 화면 아래쪽이나 오른쪽에 개발자 도구 창이 나타남
-2. 상단 탭 중에서 'Network' (또는 '네트워크') 탭을 클릭
-3. Network 탭 화면에서 'XHR' 버튼을 클릭 (Ajax 요청만 필터링)
-4. 웹페이지에서 새로고침(F5)을 눌러서 데이터 로딩
-5. Network 탭에 나타나는 목록 중 'api', 'ajax', 'data' 키워드가 포함된 항목 클릭
-6. 오른쪽 패널에서 'Request URL' 항목을 찾아서 마우스 우클릭 → '복사' 선택
-
-## 📋 **상세 설명 기준**:
-- 모든 기술적 단계는 "어떤 키를 누르고 → 어느 위치의 무슨 버튼을 클릭하고 → 어떤 결과가 나타나는지" 완벽 설명
-- 스크린샷이 없어도 글만 보고 100% 따라할 수 있는 수준
-
-이 단계에 대한 도구 추천 + 왕초보도 100% 따라할 수 있는 초극상세 실행 가이드를 생성하세요.`
-            }
-          ],
-          max_tokens: 2000,
-          temperature: 0.7
-        });
-
-        const guideContent = guideResponse.choices[0]?.message?.content;
-        try {
-          if (guideContent) {
-            // 🔧 더 안전한 JSON 파싱 로직
-            let jsonContent = '';
-            
-            // ```json으로 감싸진 경우 추출
-            const jsonMatch = guideContent.match(/```json\s*([\s\S]*?)\s*```/);
-            if (jsonMatch) {
-              jsonContent = jsonMatch[1].trim();
-            } else {
-              // JSON 블록이 없으면 전체 내용에서 JSON 찾기
-              const startIndex = guideContent.indexOf('{');
-              const lastIndex = guideContent.lastIndexOf('}');
-              if (startIndex !== -1 && lastIndex !== -1 && lastIndex > startIndex) {
-                jsonContent = guideContent.substring(startIndex, lastIndex + 1);
-              } else {
-                throw new Error('JSON 구조를 찾을 수 없습니다');
-              }
-            }
-            
-            // 🚀 JSON 파싱 (강화된 에러 처리)
-            let parsed;
-            try {
-              parsed = JSON.parse(jsonContent);
-            } catch (firstError) {
-              console.log(`[2단계] 첫 번째 JSON 파싱 실패, 강화된 정리 후 재시도...`);
-              try {
-                const cleanedJson = jsonContent
-                  .replace(/[\u201C\u201D]/g, '"')  // 스마트 따옴표 → 일반 따옴표
-                  .replace(/[\u2018\u2019]/g, "'")  // 스마트 아포스트로피 → 일반 아포스트로피
-                  .replace(/\n\s*\n/g, '\n')       // 연속 줄바꿈 정리
-                  .replace(/\\n/g, '\\\\n')        // 이스케이프된 줄바꿈 처리
-                  .replace(/"/g, '\\"')            // 내부 따옴표 이스케이프
-                  .replace(/\\\\"/g, '"')          // 시작/끝 따옴표는 복원
-                  .trim();
-                
-                // 더 안전한 JSON 재구성
-                const safeJson = cleanedJson
-                  .replace(/,(\s*[}\]])/g, '$1')   // trailing comma 제거
-                  .replace(/([^\\])\\([^"\\\/bfnrtu])/g, '$1\\\\$2'); // 잘못된 이스케이프 처리
-                
-                parsed = JSON.parse(safeJson);
-              } catch (secondError) {
-                console.log(`[2단계] 두 번째 JSON 파싱도 실패, 폴백 가이드 생성...`);
-                console.log(`[2단계] 원본 응답 길이: ${guideContent.length}`);
-                console.log(`[2단계] 원본 응답 시작: ${guideContent.substring(0, 200)}`);
-                console.log(`[2단계] 원본 응답 끝: ${guideContent.substring(Math.max(0, guideContent.length - 200))}`);
-                
-                // 완전 폴백: 기본 가이드 생성
-                parsed = {
-                  cards: [{
-                    type: 'guide',
-                    stepId: step.id,
-                    title: step.title,
-                    subtitle: '상세 가이드 생성 중 오류가 발생했습니다',
-                    basicConcept: `${step.title} 단계를 위한 기본 가이드입니다.`,
-                    automationLevel: '수동',
-                    content: {
-                      detailedSteps: [{
-                        number: 1,
-                        title: `${step.title} 설정`,
-                        description: `${step.title}을(를) 설정합니다. 상세 가이드는 곧 업데이트될 예정입니다.`,
-                        expectedScreen: `${step.title} 설정 완료 화면`,
-                        checkpoint: `${step.title}이(가) 올바르게 설정되었는지 확인`
-                      }],
-                      practicalTips: ['상세 가이드는 곧 추가될 예정입니다'],
-                      commonMistakes: []
-                    }
-                  }]
-                };
-              }
-            }
-            
-            const stepGuides = parsed.cards || [];
-            if (stepGuides.length > 0) {
-            guideCards.push(...stepGuides);
-              console.log(`[2단계] ${i + 1}번째 단계 가이드 생성 ✅ (${stepGuides.length}개 카드)`);
-              console.log(`[2단계] 생성된 가이드: ${stepGuides[0].title}`);
-          } else {
-              console.log(`[2단계] ${i + 1}번째 단계: cards 배열이 비어있음`);
-            }
-          }
-        } catch (error) {
-          console.error(`[2단계] ${i + 1}번째 단계 파싱 오류:`, error);
-          console.error(`[2단계] 원본 응답 길이:`, guideContent?.length);
-          console.error(`[2단계] 원본 응답 시작:`, guideContent?.substring(0, 200));
-          console.error(`[2단계] 원본 응답 끝:`, guideContent?.substring(-200));
-          
-          // 🔄 파싱 실패시 기본 가이드 카드 생성 (최후의 수단)
-          const fallbackGuide = {
-            type: 'guide',
-            stepId: step.id,
-            title: step.title,
-            subtitle: '상세 가이드 생성 중 오류가 발생했습니다',
-            basicConcept: `${step.title} 단계를 위한 기본 가이드입니다.`,
-            automationLevel: '수동',
-            content: {
-              detailedSteps: [
-                {
-                number: 1,
-                  title: `${step.title} 준비하기`,
-                  description: '이 단계에 대한 상세 가이드는 현재 준비 중입니다. 곧 업데이트 예정입니다.',
-                  expectedScreen: '설정 화면',
-                  checkpoint: '기본 설정 완료'
-                }
-              ],
-              practicalTips: ['상세 가이드는 곧 추가될 예정입니다'],
-              commonMistakes: []
-            }
-          };
-          guideCards.push(fallbackGuide);
-          console.log(`[2단계] ${i + 1}번째 단계: 폴백 가이드 생성됨`);
-        }
-      } catch (error) {
-        console.error(`[2단계] ${i + 1}번째 단계 생성 오류:`, error);
-      }
+    } catch (ragError) {
+      console.log('⚠️ [RAG] 헬스체크 실패, 기본 모드로 진행:', ragError);
     }
 
-    allCards.push(...guideCards);
-    console.log(`[2단계] 최종 생성된 가이드 카드 수: ${guideCards.length}/${steps.length}`);
-        console.log(`[2단계] 생성된 가이드 카드들:`, guideCards.map((card: any) => ({
-          stepId: card.stepId,
-          title: card.title,
-      hasDetailedSteps: !!(card.content?.detailedSteps?.length > 0)
-        })));
+    startTime = Date.now();
 
-    // 🔄 3단계: FAQ + 확장 아이디어 (gpt-4o-mini - 비용절약)
-    console.log('[3단계] FAQ + 확장 아이디어 (gpt-4o-mini - 비용절약)');
-    const stage3Response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `당신은 실전 자동화 전문가입니다. FAQ와 확장 아이디어를 생성하세요.
+    // 🚀 새로운 3단계 시스템 실행: A(초안) → B(RAG검증) → C(WOW마감)
+    console.log('🚀 [리팩토링] 새로운 3단계 시스템 실행...');
+    const { cards: allCards, metrics } = await generate3StepAutomation(userInput, followupAnswers);
 
-# 반드시 JSON 형태로 응답:
-{
-  "cards": [
-    {
-      "type": "faq",
-      "title": "❓ 자주 묻는 질문",
-      "items": [
-        {
-          "question": "실제 상황별 질문",
-          "answer": "구체적이고 실용적인 답변"
-        }
-      ]
-    },
-    {
-      "type": "expansion", 
-      "title": "🚀 확장 아이디어",
-      "subtitle": "더 큰 가치 창출",
-      "possibilities": [
-        "현재 자동화를 더 큰 시스템으로 확장하는 방법들 (AI 도구 활용 중심)"
-      ],
-      "futureVision": [
-        "GPT-4o/Claude 3.5 Sonnet 등 최신 AI로 더 스마트하게 발전시키는 방향"
-      ]
-    },
-    {
-      "type": "method_recommendation",
-      "title": "🛠️ 추천 방법",
-      "subtitle": "상황별 최적 방법",
-      "methods": [
-        {
-          "name": "방법명",
-          "description": "설명",
-          "pros": ["장점들"],
-          "cons": ["단점들"],
-          "difficulty": "쉬움/보통/어려움"
-        }
-      ]
-    },
-    {
-      "type": "share",
-      "title": "📤 공유하기",
-      "subtitle": "결과 공유 및 협업",
-      "shareOptions": [
-        "공유 방법들"
-      ]
-    }
-  ]
-}`
-        },
-        {
-          role: 'user',
-          content: `전체 목표: ${userInput}
-생성된 플로우: ${JSON.stringify(flowCard?.steps || [])}
-후속 답변: ${JSON.stringify(followupAnswers || {})}
-
-# 🛠️ 다양한 솔루션 접근법 중심 지침:
-
-## FAQ 작성 시 (반드시 사용자 요청 맞춤형):
-- **사용자 요청과 직접 관련된 실전 질문만** 작성
-- **구체적인 상황별 문제와 해결책** 중심
-- **일반적인 질문 금지** (예: "기술 지식 없어도...", "예산 제한..." 등)
-
-### 🎯 **요청별 맞춤 FAQ 예시**:
-- **슬라이드 제작 요청**: "데이터가 실시간으로 바뀌면 슬라이드도 자동 업데이트되나요?"
-- **메일 정리 요청**: "VIP 고객 메일은 어떻게 우선 처리하나요?"
-- **데이터 분석 요청**: "새로운 데이터 컬럼이 추가되면 분석도 자동 반영되나요?"
-- **영상 제작 요청**: "브랜드 컬러와 폰트를 자동으로 적용할 수 있나요?"
-
-### 🚨 **중요**: 반드시 **구체적 업무 상황**에서 나올 수 있는 질문만 작성
-
-## 확장 아이디어 작성 시 (사용자 요청 기반):
-- **현재 자동화 → 사용자 업무와 연관된 더 큰 시스템**으로 확장
-- **사용자의 실제 업무 환경**에서 연결 가능한 아이디어
-- **후속 답변에서 언급된 도구/환경**을 활용한 확장
-
-### 🎯 **요청별 맞춤 확장 예시**:
-- **캠페인 슬라이드 요청** → **마케팅 성과 대시보드** + **경쟁사 분석** + **예측 모델**
-- **고객 메일 정리 요청** → **CS 인텔리전스 시스템** + **감정 분석** + **자동 우선순위**
-- **재고 관리 요청** → **실시간 재주문 시스템** + **수요 예측** + **공급업체 자동 협상**
-- **콘텐츠 제작 요청** → **브랜드 일관성 시스템** + **콘텐츠 성과 분석** + **트렌드 감지**
-
-## 추천 방법 작성 시 (최적 방법 1개 + 간단한 대안 1-2개):
-- **🏆 최적 방법**: 후속답변 기반으로 이 사용자에게 가장 적합한 방법
-- **🔄 간단한 대안**: 1-2개의 대안만 간략히 제시
-- **❌ 안 추천하는 방법**: 왜 다른 방법들은 이 사용자에게 적합하지 않은지
-
-## 🔧 **Apps Script 대시보드/웹뷰 제작 시**:
-### 반드시 완전한 코드 제공:
-- **HTML 템플릿**: 완전한 웹페이지 구조
-- **CSS 스타일**: 반응형 디자인 + 모바일 최적화
-- **JavaScript**: 구글 시트 연동 + 실시간 데이터 업데이트
-- **Apps Script 서버 코드**: 데이터 처리 + 웹앱 배포
-- **배포 가이드**: 웹앱 URL 생성 + 권한 설정
-
-### 코드 예시 구조:
-// Code.gs (Apps Script)
-function doGet() { return HtmlService.createTemplateFromFile('index').evaluate(); }
-function getSheetData() { /* 데이터 로직 */ }
-
-// index.html
-<!DOCTYPE html><html><head>/* CSS */</head><body>/* HTML + JS */</body></html>
-
-실전 FAQ, 확장 아이디어, 추천 방법, 공유 옵션, 그리고 필요시 완전한 코드를 생성하세요.`
-        }
-      ],
-      max_tokens: 1500,
-      temperature: 0.7
+    const processingTime = metrics.totalLatencyMs;
+    
+    // 📊 리팩토링된 시스템 메트릭 로깅
+    console.log(`🎯 [리팩토링] 완료 - 생성된 카드 수: ${allCards.length}`);
+    console.log(`💰 [비용 최적화] 총 토큰: ${metrics.totalTokens}개`);
+    console.log(`💰 [비용 세부내역]:`, {
+      stepA: `${metrics.costBreakdown.stepA.tokens}토큰 (${metrics.costBreakdown.stepA.model})`,
+      stepB: `${metrics.costBreakdown.stepB.tokens}토큰 + RAG ${metrics.costBreakdown.stepB.ragCalls}회`,
+      stepC: `${metrics.costBreakdown.stepC.tokens}토큰 (${metrics.costBreakdown.stepC.model})`
     });
+    console.log(`⚡ [속도 최적화] 총 처리시간: ${processingTime}ms`);
+    console.log(`🎨 [품질 최적화] 완료 단계: ${metrics.stagesCompleted.join(' → ')}`);
+    console.log(`🔍 [RAG 활용] 검색: ${metrics.ragSearches}회, 소스: ${metrics.ragSources}개, URL검증: ${metrics.urlsVerified}개`);
+    console.log(`🚀 [리팩토링] 카드 타입들:`, allCards.map((card: any) => card.type));
 
-    // 3단계 결과 파싱
-    const stage3Content = stage3Response.choices[0]?.message?.content;
-    try {
-      if (stage3Content) {
-        const jsonMatch = stage3Content.match(/```json\s*([\s\S]*?)\s*```/);
-        const jsonContent = jsonMatch ? jsonMatch[1] : stage3Content;
-        const parsed = JSON.parse(jsonContent);
-        const stage3Cards = parsed.cards || [];
-        allCards.push(...stage3Cards);
-        console.log(`[3단계] 완료 - 생성된 카드 수: ${stage3Cards.length}`);
-      }
-    } catch (error) {
-      console.error('[3단계] 파싱 오류:', error);
-    }
-
-    const processingTime = Date.now() - startTime;
-    console.log(`[하이브리드] 완료 - 생성된 카드 수: ${allCards.length}`);
-    console.log(`[💰 비용 최적화] 1단계: gpt-4o-2024-11-20 ($2.50/$10.00), 2단계: gpt-4o-2024-11-20 ($2.50/$10.00), 3단계: gpt-4o-mini ($0.15/$0.60)`);
-    console.log(`[⚡ 속도 최적화] 1,2단계: 1초딜레이 (4o RPM한도 회피), 3단계: 빠른응답 (mini 높은RPM)`);
-    console.log(`[🎨 품질 최적화] 플로우+가이드는 최고품질 모델, FAQ만 효율적 처리`);
-    console.log(`[하이브리드] [최종 cards 수]: ${allCards.length}`);
-    console.log(`[하이브리드] [카드 타입들]:`, allCards.map((card: any) => card.type));
-
-    // 🎯 메타데이터 추가
+    // 🎯 메타데이터 추가 (리팩토링 버전)
     const response_data = {
       cards: allCards,
       metadata: {
         generatedAt: new Date().toISOString(),
         processingTime: processingTime,
-        approach: '3단계_하이브리드_최적화',
+        approach: '3단계_리팩토링_시스템_v2',
+        version: '2.0.0',
         stages: {
-          stage1: 'gpt-4o-2024-11-20 (니즈+플로우)',
-          stage2: 'gpt-4o-2024-11-20 (상세가이드)',
-          stage3: 'gpt-4o-mini (FAQ+확장)'
+          stepA: `${metrics.costBreakdown.stepA.model} (카드 초안)`,
+          stepB: `RAG 검증 (${metrics.ragSearches}회 검색)`,
+          stepC: `${metrics.costBreakdown.stepC.model} (WOW 마감)`
         },
-        costOptimization: '33%절약 (FAQ만 mini 사용)',
-        speedOptimization: '1초대기 (4o RPM한도 회피)',
-        qualityMaintained: '플로우+가이드는 최고품질 유지'
+        performance: {
+          totalTokens: metrics.totalTokens,
+          totalLatencyMs: metrics.totalLatencyMs,
+          stagesCompleted: metrics.stagesCompleted,
+          ragUtilization: {
+            searches: metrics.ragSearches,
+            sources: metrics.ragSources,
+            urlsVerified: metrics.urlsVerified
+          }
+        },
+        costOptimization: {
+          stepA: `$${metrics.costBreakdown.stepA.cost.toFixed(4)}`,
+          stepB: `$${metrics.costBreakdown.stepB.cost.toFixed(4)}`,
+          stepC: `$${metrics.costBreakdown.stepC.cost.toFixed(4)}`,
+          total: `$${(metrics.costBreakdown.stepA.cost + metrics.costBreakdown.stepB.cost + metrics.costBreakdown.stepC.cost).toFixed(4)}`
+        },
+        qualityIndicators: {
+          success: metrics.success,
+          blueprintSystem: true,
+          ragVerification: metrics.ragSearches > 0,
+          wowFinalization: metrics.stagesCompleted.includes('C-wow')
+        }
       }
     };
 
@@ -705,9 +98,9 @@ function getSheetData() { /* 데이터 로직 */ }
         generated_cards: allCards,
         user_session_id: `session_${Date.now()}`, // 임시 세션 ID
         processing_time_ms: processingTime,
-        success: true
+        success: metrics.success
       });
-      console.log('✅ 자동화 요청 데이터 저장 완료');
+      console.log('✅ 자동화 요청 데이터 저장 완료 (v2.0)');
     } catch (saveError) {
       console.error('⚠️ 자동화 요청 저장 실패 (응답은 정상 진행):', saveError);
       // 저장 실패해도 응답은 정상 반환
@@ -716,7 +109,7 @@ function getSheetData() { /* 데이터 로직 */ }
     return NextResponse.json(response_data);
 
   } catch (error) {
-    console.error('❌ 자동화 생성 실패:', error);
+    console.error('❌ 리팩토링된 자동화 생성 실패:', error);
     
     // 💾 실패한 요청도 Supabase에 저장 (분석용)
     try {
@@ -729,11 +122,11 @@ function getSheetData() { /* 데이터 로직 */ }
         success: false,
         error_message: error instanceof Error ? error.message : 'Unknown error'
       });
-      console.log('✅ 실패한 요청 데이터 저장 완료');
+      console.log('✅ 실패한 요청 데이터 저장 완료 (v2.0)');
     } catch (saveError) {
       console.error('⚠️ 실패 요청 저장 실패:', saveError);
     }
     
     return handleApiError(error);
   }
-} 
+}
