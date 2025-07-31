@@ -45,7 +45,7 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "tavily": "^1.0.2",
+    "@tavily/core": "^0.5.10",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
