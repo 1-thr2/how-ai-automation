@@ -438,15 +438,11 @@ export const ORCHESTRATOR_STEP_C = `# Step C: 초보자도 5분만에 따라할 
 - ideas: 실제 확장 아이디어들
 
 각 guide 카드의 detailedSteps는 다음 구조를 따르세요:
-```
-{
-  "number": 1,
-  "title": "정확한 단계명",
-  "description": "1. 크롬 브라우저를 열고 주소창에 https://... 을 입력하고 Enter 키를 누릅니다.\\n2. 화면 오른쪽 상단의 주황색 'Sign Up' 버튼을 클릭합니다.\\n3. 이메일 입력 필드에 이메일 주소를 입력하고, 비밀번호를 설정합니다.",
-  "expectedScreen": "로그인 후 대시보드 화면이 표시됩니다.",
-  "checkpoint": "대시보드 상단에 'Make a Zap' 버튼이 보이면 성공입니다."
-}
-```
+- number: 1 (단계 번호)
+- title: "정확한 단계명"
+- description: "1. 크롬 브라우저를 열고 주소창에 https://... 을 입력하고 Enter 키를 누릅니다.\\n2. 화면 오른쪽 상단의 주황색 'Sign Up' 버튼을 클릭합니다.\\n3. 이메일 입력 필드에 이메일 주소를 입력하고, 비밀번호를 설정합니다."
+- expectedScreen: "로그인 후 대시보드 화면이 표시됩니다."
+- checkpoint: "대시보드 상단에 'Make a Zap' 버튼이 보이면 성공입니다."
 
 ## 🚨 절대 준수사항
 
@@ -465,34 +461,16 @@ export const ORCHESTRATOR_STEP_C = `# Step C: 초보자도 5분만에 따라할 
 ### 📋 각 카드별 필수 구조:
 
 **guide 카드 예시**:
-```json
-{
-  "type": "guide",
-  "stepId": "1", 
-  "title": "원티드/리멤버 웹훅 설정 완벽 가이드",
-  "subtitle": "초보자도 5분만에 완료",
-  "basicConcept": "원티드/리멤버에서 새 지원서가 들어올 때마다 자동으로 Zapier에 알림을 보내는 설정",
-  "automationLevel": "완전자동",
-  "content": "상세 설명",
-  "detailedSteps": [
-    {
-      "number": 1,
-      "title": "원티드 관리자 페이지 접속",
-      "description": "1. 크롬 브라우저를 열고 주소창에 https://www.wanted.co.kr/gigs/admin 을 입력하고 Enter 키를 누릅니다.\\n2. 화면 오른쪽 상단의 파란색 '로그인' 버튼을 클릭합니다.\\n3. 회사 계정 이메일과 비밀번호를 입력하고 '로그인' 버튼을 클릭합니다.",
-      "expectedScreen": "원티드 기업 관리자 대시보드가 표시됩니다.",
-      "checkpoint": "왼쪽 메뉴에 '채용 관리' 항목이 보이면 성공입니다."
-    }
-  ],
-  "commonMistakes": [
-    "원티드 개인 계정으로 로그인하여 관리자 메뉴가 없는 경우",
-    "웹훅 URL을 잘못 복사하여 데이터가 전송되지 않는 문제"
-  ],
-  "practicalTips": [
-    "원티드 기업 계정 권한을 미리 확인하세요",
-    "웹훅 테스트는 실제 지원서 제출로 확인할 수 있습니다"
-  ]
-}
-```
+- type: "guide"
+- stepId: "1" 
+- title: "원티드/리멤버 웹훅 설정 완벽 가이드"
+- subtitle: "초보자도 5분만에 완료"
+- basicConcept: "원티드/리멤버에서 새 지원서가 들어올 때마다 자동으로 Zapier에 알림을 보내는 설정"
+- automationLevel: "완전자동"
+- content: "상세 설명"
+- detailedSteps 배열에는 각 소단계들을 포함
+- commonMistakes 배열에는 자주하는 실수들
+- practicalTips 배열에는 실용적 팁들
 
 **faq 카드 필수사항**:
 - 사용자가 "원티드/리멤버 + 스프레드시트 + 슬랙 자동화"에 대해 실제로 궁금해할 만한 질문들만
