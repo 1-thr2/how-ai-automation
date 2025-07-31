@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import FlowDiagramSection from './FlowDiagramSection';
 import WowCardRenderer from './WowCardRenderer';
 
@@ -54,79 +55,50 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
     try {
       console.log('🔗 공유 링크 생성 시작...');
       
-      // 1. 먼저 automation_requests에 데이터 저장 (없으면)
-      let requestId;
-      try {
-        const response = await fetch('/api/save-automation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+      // 📡 새로운 단일 API 호출
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          automationData: {
             user_input: result.context.userInput,
             followup_answers: result.context.followupAnswers || {},
-            generated_cards: cards,
+            generated_cards: cardData,
             user_session_id: `session_${Date.now()}`,
             processing_time_ms: 0,
             success: true
-          })
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          requestId = data.id;
-          console.log('✅ 자동화 데이터 저장 완료:', requestId);
-        } else {
-          throw new Error('데이터 저장 실패');
-        }
-      } catch (saveError) {
-        console.error('❌ 데이터 저장 실패:', saveError);
-        alert('공유 링크 생성에 실패했습니다. 다시 시도해주세요.');
-        return;
-      }
-      
-      // 2. 공유 링크 생성
-      const shareResponse = await fetch('/api/create-share-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId })
+          }
+        })
       });
       
-      if (!shareResponse.ok) {
+      if (!response.ok) {
         throw new Error('공유 링크 생성 실패');
       }
       
-      const { shareId } = await shareResponse.json();
-      const shareUrl = `${window.location.origin}/s/${shareId}`;
+      const { id, error } = await response.json();
+      if (error) throw new Error(error);
+      
+      // 🔗 공유 URL 생성
+      const shareUrl = `${window.location.origin}/s/${id}`;
       const shareText = `${title || '자동화 레시피'} - 쉽고 실용적인 자동화 가이드\n\n${result.context.userInput}`;
       
-      // 3. 공유하기
+      // 📱 네이티브 공유 또는 클립보드 복사
       if (navigator.share) {
         await navigator.share({
           title: title || '자동화 레시피',
           text: shareText,
           url: shareUrl
         });
+        toast.success('공유 완료! 🎉');
       } else {
-        // 클립보드에 복사
         await navigator.clipboard.writeText(`${shareText}\n\n🔗 ${shareUrl}`);
-        
-        // 성공 메시지 표시
-        const button = document.querySelector('.share-btn') as HTMLButtonElement;
-        if (button) {
-          const originalText = button.textContent;
-          button.textContent = '✅ 복사완료!';
-          button.style.backgroundColor = '#10b981';
-          
-          setTimeout(() => {
-            button.textContent = originalText;
-            button.style.backgroundColor = '';
-          }, 2000);
-        }
+        toast.success('링크가 복사되었습니다! 🤩');
       }
       
       console.log('✅ 공유 링크 생성 완료:', shareUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ 공유하기 실패:', error);
-      alert('공유 기능을 사용할 수 없습니다. 다시 시도해주세요.');
+      toast.error('공유 링크 생성에 실패했어요 😅');
     }
   };
 
