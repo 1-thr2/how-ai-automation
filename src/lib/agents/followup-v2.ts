@@ -61,6 +61,11 @@ async function draftStepGen(userInput: string): Promise<{
       throw new Error('Draft 응답이 비어있습니다');
     }
 
+    // 🔍 GPT 응답 디버깅
+    console.log('🔍 [Draft] GPT 원시 응답 길이:', content.length);
+    console.log('🔍 [Draft] GPT 원시 응답 첫 200자:', content.substring(0, 200));
+    console.log('🔍 [Draft] GPT 원시 응답 마지막 200자:', content.substring(content.length - 200));
+
     // JSON 파싱 (개선된 로직)
     const questions = parseQuestionsJSON(content);
     const latency = Date.now() - startTime;
@@ -127,6 +132,11 @@ ${JSON.stringify(draftQuestions, null, 2)}
       throw new Error('Refine 응답이 비어있습니다');
     }
 
+    // 🔍 GPT 응답 디버깅
+    console.log('🔍 [Refine] GPT 원시 응답 길이:', content.length);
+    console.log('🔍 [Refine] GPT 원시 응답 첫 200자:', content.substring(0, 200));
+    console.log('🔍 [Refine] GPT 원시 응답 마지막 200자:', content.substring(content.length - 200));
+
     // JSON 파싱
     const questions = parseQuestionsJSON(content);
     const latency = Date.now() - startTime;
@@ -150,12 +160,16 @@ ${JSON.stringify(draftQuestions, null, 2)}
  * 개선된 JSON 파싱 함수
  */
 function parseQuestionsJSON(content: string): any[] {
+  console.log('🔍 [JSON] 파싱 시작 - 원본 길이:', content.length);
+  
   try {
     // 1차 시도: 직접 파싱
     const parsed = JSON.parse(content);
+    console.log('✅ [JSON] 1차 파싱 성공');
     return parsed.questions || [];
   } catch (firstError) {
     console.log('🔄 [JSON] 1차 파싱 실패, 정리 후 재시도...');
+    console.log('🔍 [JSON] 1차 에러:', firstError.message);
     
     try {
       // 2차 시도: 마크다운 코드 블록 제거
@@ -164,6 +178,7 @@ function parseQuestionsJSON(content: string): any[] {
         const startIndex = content.indexOf('```json') + 7;
         const endIndex = content.lastIndexOf('```');
         cleanContent = content.substring(startIndex, endIndex).trim();
+        console.log('🔍 [JSON] 마크다운 블록 제거 후 길이:', cleanContent.length);
       }
       
       // 3차 시도: 추가 정리
@@ -173,11 +188,16 @@ function parseQuestionsJSON(content: string): any[] {
         .replace(/,(\s*[}\]])/g, '$1')   // trailing comma 제거
         .trim();
       
+      console.log('🔍 [JSON] 정리 후 첫 100자:', cleanContent.substring(0, 100));
+      console.log('🔍 [JSON] 정리 후 마지막 100자:', cleanContent.substring(cleanContent.length - 100));
+      
       const parsed = JSON.parse(cleanContent);
+      console.log('✅ [JSON] 2차 파싱 성공');
       return parsed.questions || [];
       
     } catch (secondError) {
       console.error('❌ [JSON] 2차 파싱도 실패, 폴백 질문 반환');
+      console.log('🔍 [JSON] 2차 에러:', secondError.message);
       
       // 폴백: 기본 질문 반환
       return getFallbackQuestions();
