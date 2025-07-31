@@ -425,8 +425,26 @@ function parseCardsJSON(content: string): any[] {
   
   try {
     const parsed = JSON.parse(content);
-    console.log(`✅ [Cards JSON] 1차 파싱 성공 - ${parsed.cards?.length || 0}개 카드`);
-    return parsed.cards || [];
+    
+    // 다양한 JSON 구조 지원
+    let cards: any[] = [];
+    
+    if (parsed.cards && Array.isArray(parsed.cards)) {
+      cards = parsed.cards;
+      console.log(`✅ [Cards JSON] 1차 파싱 성공 (cards 구조) - ${cards.length}개 카드`);
+    } else if (parsed.solution && parsed.solution.cards) {
+      cards = parsed.solution.cards;
+      console.log(`✅ [Cards JSON] 1차 파싱 성공 (solution.cards 구조) - ${cards.length}개 카드`);
+    } else if (Array.isArray(parsed)) {
+      cards = parsed;
+      console.log(`✅ [Cards JSON] 1차 파싱 성공 (배열 구조) - ${cards.length}개 카드`);
+    } else {
+      console.log(`⚠️ [Cards JSON] 1차 파싱 성공하지만 cards 배열 없음`);
+      console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
+      console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+    }
+    
+    return cards;
   } catch (firstError) {
     console.log('🔄 [Cards JSON] 1차 파싱 실패, 정리 후 재시도...');
     console.log(`🔍 [Cards JSON] 1차 에러: ${firstError.message}`);
@@ -450,8 +468,26 @@ function parseCardsJSON(content: string): any[] {
       console.log(`🔍 [Cards JSON] 정리 후 마지막 100자: ${cleanContent.substring(cleanContent.length - 100)}`);
       
       const parsed = JSON.parse(cleanContent);
-      console.log(`✅ [Cards JSON] 2차 파싱 성공 - ${parsed.cards?.length || 0}개 카드`);
-      return parsed.cards || [];
+      
+      // 2차 파싱에서도 다양한 구조 지원
+      let cards: any[] = [];
+      
+      if (parsed.cards && Array.isArray(parsed.cards)) {
+        cards = parsed.cards;
+        console.log(`✅ [Cards JSON] 2차 파싱 성공 (cards 구조) - ${cards.length}개 카드`);
+      } else if (parsed.solution && parsed.solution.cards) {
+        cards = parsed.solution.cards;
+        console.log(`✅ [Cards JSON] 2차 파싱 성공 (solution.cards 구조) - ${cards.length}개 카드`);
+      } else if (Array.isArray(parsed)) {
+        cards = parsed;
+        console.log(`✅ [Cards JSON] 2차 파싱 성공 (배열 구조) - ${cards.length}개 카드`);
+      } else {
+        console.log(`⚠️ [Cards JSON] 2차 파싱 성공하지만 cards 배열 없음`);
+        console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
+        console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+      }
+      
+      return cards;
     } catch (secondError) {
       console.error('❌ [Cards JSON] 2차 파싱도 실패, 기본 카드 반환');
       console.log(`🔍 [Cards JSON] 2차 에러: ${secondError.message}`);
