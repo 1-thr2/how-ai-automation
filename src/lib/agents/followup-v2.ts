@@ -38,7 +38,9 @@ async function draftStepGen(userInput: string): Promise<{
     const userPrompt = `사용자 요청: "${userInput}"
 
 위 요청을 분석하여 3-4개의 핵심 후속질문 초안을 생성하세요.
-속도를 우선시하여 간단하고 명확한 질문만 만드세요.`;
+속도를 우선시하여 간단하고 명확한 질문만 만드세요.
+
+중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
     // 토큰 수 추정 및 모델 선택
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
@@ -109,7 +111,9 @@ Draft 단계에서 생성된 질문들:
 ${JSON.stringify(draftQuestions, null, 2)}
 
 위 질문들을 더 명확하고 실용적으로 개선해주세요. 
-질문의 개수는 유지하되, 표현과 옵션들을 더 구체적이고 사용자 친화적으로 만드세요.`;
+질문의 개수는 유지하되, 표현과 옵션들을 더 구체적이고 사용자 친화적으로 만드세요.
+
+중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
     // 토큰 수 추정 및 모델 선택
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
