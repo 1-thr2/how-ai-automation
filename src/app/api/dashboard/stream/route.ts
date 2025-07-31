@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { metricsStore } from '@/lib/monitoring/store';
 
+// 🔧 빌드 시 정적 생성 건너뛰기 (SSE는 동적 라우트여야 함)
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * 실시간 대시보드 스트림 (Server-Sent Events)
  * 클라이언트가 실시간으로 메트릭 업데이트를 받을 수 있음

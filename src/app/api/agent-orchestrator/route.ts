@@ -5,6 +5,9 @@ import { generate3StepAutomation } from '@/lib/agents/orchestrator-v2';
 import { checkRAGHealth } from '@/lib/services/rag';
 import { startAPIMetrics } from '@/lib/monitoring/collector';
 
+// 🔧 OpenAI API 호출이 있는 동적 라우트
+export const dynamic = 'force-dynamic';
+
 // 🚀 리팩토링된 3단계 시스템: A(초안) → B(RAG검증) → C(WOW마감)
 export async function POST(req: Request) {
   let userInput = '';

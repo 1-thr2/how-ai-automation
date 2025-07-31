@@ -3,6 +3,9 @@ import OpenAI from 'openai';
 import { generate2StepFollowup } from '@/lib/agents/followup-v2';
 import { startAPIMetrics } from '@/lib/monitoring/collector';
 
+// 🔧 OpenAI API 호출이 있는 동적 라우트
+export const dynamic = 'force-dynamic';
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });

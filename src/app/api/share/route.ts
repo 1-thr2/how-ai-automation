@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { saveAutomationRequest, createOrGetShareLink } from '@/lib/supabase';
 
+// 🔧 데이터베이스 호출이 있는 동적 라우트
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const { requestId, automationData } = await req.json();

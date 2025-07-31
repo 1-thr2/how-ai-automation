@@ -1,6 +1,9 @@
 console.log('🔥 search-latest API 라우트 진입!');
 import { NextRequest, NextResponse } from 'next/server';
 
+// 🔧 외부 API 호출이 있는 동적 라우트
+export const dynamic = 'force-dynamic';
+
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
 console.log('TAVILY_API_KEY:', TAVILY_API_KEY);
 

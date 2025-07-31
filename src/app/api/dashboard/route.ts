@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { metricsStore } from '@/lib/monitoring/store';
 
+// 🔧 실시간 메트릭 데이터 반환하는 동적 라우트
+export const dynamic = 'force-dynamic';
+
 /**
  * 대시보드 메인 API
  * GET: 전체 대시보드 통계 반환
