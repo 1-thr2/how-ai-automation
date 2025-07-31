@@ -173,7 +173,7 @@ function parseQuestionsJSON(content: string): any[] {
     return parsed.questions || [];
   } catch (firstError) {
     console.log('🔄 [JSON] 1차 파싱 실패, 정리 후 재시도...');
-    console.log('🔍 [JSON] 1차 에러:', firstError.message);
+    console.log('🔍 [JSON] 1차 에러:', firstError instanceof Error ? firstError.message : String(firstError));
     
     try {
       // 2차 시도: 마크다운 코드 블록 제거
@@ -201,7 +201,7 @@ function parseQuestionsJSON(content: string): any[] {
       
     } catch (secondError) {
       console.error('❌ [JSON] 2차 파싱도 실패, 폴백 질문 반환');
-      console.log('🔍 [JSON] 2차 에러:', secondError.message);
+      console.log('🔍 [JSON] 2차 에러:', secondError instanceof Error ? secondError.message : String(secondError));
       
       // 폴백: 기본 질문 반환
       return getFallbackQuestions();

@@ -397,7 +397,7 @@ export async function generate3StepAutomation(
     console.log(`✅ [3-Step] 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.totalLatencyMs}ms`);
     console.log(`💰 [3-Step] 총 비용: $${totalCost.toFixed(4)}`);
     console.log(`🎯 [3-Step] 완료된 단계: ${metrics.stagesCompleted.join(' → ')}`);
-    console.log(`🤖 [3-Step] 사용된 모델: ${[...new Set(metrics.modelsUsed)].join(', ')}`);
+    console.log(`🤖 [3-Step] 사용된 모델: ${Array.from(new Set(metrics.modelsUsed)).join(', ')}`);
     
     return {
       cards: stepCResult.cards,
@@ -466,7 +466,7 @@ function parseCardsJSON(content: string): any[] {
     return cards;
   } catch (firstError) {
     console.log('🔄 [Cards JSON] 1차 파싱 실패, 정리 후 재시도...');
-    console.log(`🔍 [Cards JSON] 1차 에러: ${firstError.message}`);
+    console.log(`🔍 [Cards JSON] 1차 에러: ${firstError instanceof Error ? firstError.message : String(firstError)}`);
     
     try {
       let cleanContent = content;
@@ -528,7 +528,7 @@ function parseCardsJSON(content: string): any[] {
       return cards;
     } catch (secondError) {
       console.error('❌ [Cards JSON] 2차 파싱도 실패, 기본 카드 반환');
-      console.log(`🔍 [Cards JSON] 2차 에러: ${secondError.message}`);
+      console.log(`🔍 [Cards JSON] 2차 에러: ${secondError instanceof Error ? secondError.message : String(secondError)}`);
       
       // 디버깅용 원본 내용 출력
       console.log(`🔍 [Cards JSON] 원본 첫 200자: ${content.substring(0, 200)}`);
