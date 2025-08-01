@@ -1,4 +1,5 @@
 import { tavily } from '@tavily/core';
+import { detectDomain, getOptimalToolsForDomain } from '../domain-tools-registry';
 
 /**
  * Tavily RAG 서비스
@@ -306,11 +307,15 @@ export async function validateURL(url: string): Promise<boolean> {
   try {
     console.log(`🔗 [RAG] URL 검증: ${url}`);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+    
     const response = await fetch(url, {
       method: 'HEAD',
-      timeout: 5000, // 5초 타임아웃
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
     const isValid = response.ok;
     console.log(`${isValid ? '✅' : '❌'} [RAG] URL 검증 결과: ${url} - ${response.status}`);
 
@@ -322,30 +327,61 @@ export async function validateURL(url: string): Promise<boolean> {
 }
 
 /**
- * 컨텍스트 주입용 RAG 정보 생성
+ * 컨텍스트 주입용 RAG 정보 생성 (도메인 인식 강화)
  */
 export async function generateRAGContext(
   userInput: string,
-  mentionedTools: string[]
+  mentionedTools: string[],
+  followupAnswers?: any
 ): Promise<string> {
   try {
     console.log(`📋 [RAG] 컨텍스트 생성 시작`);
     console.log(`📝 [RAG] 사용자 입력: ${userInput}`);
     console.log(`🛠️ [RAG] 언급된 도구들: ${mentionedTools.join(', ')}`);
 
-    // 1. 사용자 요청 관련 최신 정보 검색
-    const userSearchQuery = `${userInput} 자동화 가이드 최신 방법 2024`;
-    const userResults = await searchWithRAG(userSearchQuery, { maxResults: 2 });
+    // 🎯 도메인 자동 감지
+    const detectedDomain = detectDomain(userInput, followupAnswers);
+    console.log(`🎯 [RAG] 감지된 도메인: ${detectedDomain}`);
 
-    // 2. 각 도구별 최신 정보 수집
-    const toolResults = await Promise.all(
-      mentionedTools.slice(0, 3).map(tool => searchToolInfo(tool)) // 최대 3개 도구만
+    // 🛠️ 도메인별 최적 도구 추천
+    const optimalTools = [
+      ...getOptimalToolsForDomain(detectedDomain, 'dataCollection', true),
+      ...getOptimalToolsForDomain(detectedDomain, 'automation', true),
+      ...getOptimalToolsForDomain(detectedDomain, 'reporting', true)
+    ].slice(0, 5); // 최대 5개
+
+    console.log(`💡 [RAG] 도메인 최적 도구들:`, optimalTools.map(t => t.name));
+
+    // 1. 사용자 요청 관련 최신 정보 검색 (도메인 특화)
+    const domainSpecificQuery = `${userInput} ${detectedDomain} 자동화 최신 방법 2024`;
+    const userResults = await searchWithRAG(domainSpecificQuery, { maxResults: 2 });
+
+    // 2. 도메인 최적 도구들의 정보 수집
+    const domainToolResults = await Promise.all(
+      optimalTools.slice(0, 3).map(tool => searchToolInfo(tool.name))
     );
 
-    const allToolResults = toolResults.flat();
+    // 3. 언급된 도구들 정보도 수집 (기존 로직 유지)
+    const toolResults = await Promise.all(
+      mentionedTools.slice(0, 2).map(tool => searchToolInfo(tool))
+    );
+
+    const allToolResults = [...domainToolResults, ...toolResults].flat();
 
     // 3. 컨텍스트 문자열 생성
     let context = '';
+
+    // 🎯 도메인 정보 추가
+    if (detectedDomain !== 'general') {
+      context += `## 🎯 감지된 도메인: ${detectedDomain}\n`;
+      context += `## 💡 도메인 최적 도구들:\n`;
+      optimalTools.forEach((tool, index) => {
+        context += `${index + 1}. **${tool.name}** (${tool.category}, ${tool.difficulty})\n`;
+        context += `   - 설명: ${tool.description}\n`;
+        context += `   - 가격: ${tool.pricing}\n`;
+        context += `   - 설정시간: ${tool.setupTime}\n\n`;
+      });
+    }
 
     if (userResults.length > 0) {
       context += '## 📊 최신 동향 정보:\n';

@@ -7,6 +7,8 @@ import {
   validateURL,
   checkToolIntegration,
 } from '../services/rag';
+import { detectDomain, getOptimalToolsForDomain } from '../domain-tools-registry';
+import { getCodeTemplate, personalizeCodeTemplate } from '../code-templates';
 import {
   analyzeUserIntent,
   generateDynamicTemplate,
@@ -128,8 +130,8 @@ async function executeStepB(
     const mentionedTools = extractToolsFromCards(draftCards);
     console.log(`🛠️ [Step B] 추출된 도구들: ${mentionedTools.join(', ')}`);
 
-    // 2. RAG 컨텍스트 생성 (병렬 처리)
-    const ragContext = await generateRAGContext(userInput, mentionedTools);
+    // 2. RAG 컨텍스트 생성 (도메인 인식 강화)
+    const ragContext = await generateRAGContext(userInput, mentionedTools, userInput);
 
     // 3. 도구별 상세 정보 수집 (최대 3개 도구, 동시성 제한)
     const toolInfoPromises = mentionedTools.slice(0, 3).map(tool => searchToolInfo(tool));
@@ -300,12 +302,31 @@ async function executeStepC(
   console.log('🎨 [Step C] 한국어 WOW 마감 처리 시작...');
 
   try {
+    // 🎯 도메인 감지 및 최적 도구 선택
+    const detectedDomain = detectDomain(userInput, followupAnswers);
+    console.log(`🎯 [Step C] 감지된 도메인: ${detectedDomain}`);
+
+    // 🛠️ 도메인별 최적 도구 추천
+    const optimalTools = getOptimalToolsForDomain(detectedDomain, 'automation', true);
+    const selectedTool = optimalTools[0]; // 가장 최적의 도구 선택
+    
+    console.log(`💡 [Step C] 선택된 도구: ${selectedTool?.name || '범용 도구'}`);
+
+    // 🔧 실행 가능한 코드 템플릿 준비
+    const codeTemplate = getCodeTemplate(userInput, detectedDomain, 'dataCollection', followupAnswers);
+    console.log(`📝 [Step C] 코드 템플릿: ${codeTemplate ? '찾음' : '없음'}`);
+
     // Blueprint 읽기
     const stepCBlueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
 
-    // 🎯 간단하고 실용적인 분류 접근
+    // 🎯 도메인별 실용적 솔루션 노트
     let practicalSolutionNote = '';
-    if (
+    if (detectedDomain !== 'general') {
+      practicalSolutionNote = `\n\n## 🎯 ${detectedDomain} 도메인 최적화:
+선택된 도구: ${selectedTool?.name || '범용 도구'} (${selectedTool?.difficulty || 'medium'} 난이도, ${selectedTool?.setupTime || '30분'} 설정)
+가격: ${selectedTool?.pricing || '확인 필요'}
+${codeTemplate ? '\n💻 실행 가능한 코드 템플릿 포함됨' : ''}`;
+    } else if (
       userInput.toLowerCase().includes('문의') ||
       userInput.toLowerCase().includes('메시지') ||
       userInput.toLowerCase().includes('고객')
@@ -328,6 +349,21 @@ RAG 검증 정보:
 - 검증된 링크: ${ragMetadata.linksVerified || 0}/${ragMetadata.linksTotal || 0}개
 - 도구 연동 확인: ${ragMetadata.toolIntegrationChecks?.total || 0}개 (지원: ${ragMetadata.toolIntegrationChecks?.supported || 0}개, 불가: ${ragMetadata.toolIntegrationChecks?.unsupported || 0}개)
 - 발견된 대안: ${ragMetadata.toolIntegrationChecks?.alternativesFound || 0}개
+
+🎯 도메인 특화 정보:
+- 감지된 도메인: ${detectedDomain}
+- 최적 도구: ${selectedTool?.name || '범용 도구'}
+- 도구 특성: ${selectedTool?.difficulty || 'medium'} 난이도, ${selectedTool?.setupTime || '30분'} 설정시간
+- 가격: ${selectedTool?.pricing || '확인 필요'}
+
+${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
+- 템플릿: ${codeTemplate.name}
+- 언어: ${codeTemplate.language} (${codeTemplate.framework})
+- 난이도: ${codeTemplate.difficulty}
+- 설정시간: ${codeTemplate.setupTime}
+- 설명: ${codeTemplate.description}
+
+🚨 중요: 이 코드 템플릿을 활용해서 사용자가 바로 복사-붙여넣기할 수 있는 완전한 실행 코드를 제공하세요!` : ''}
 
 🚨 중요: 단순한 "구글시트 기본 사용법"이 아닌, 사용자가 "와! 이런 자동화가 가능하구나!"라고 감탄할 만한 창의적이고 실용적인 솔루션을 제공하세요.
 
