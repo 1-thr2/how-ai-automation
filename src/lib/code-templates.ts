@@ -792,11 +792,13 @@ export function personalizeCodeTemplate(
 
   // 변수 치환
   for (const [key, value] of Object.entries(variables)) {
-    const placeholder = \`{{\${key}}}\`;
-    personalizedCode = personalizedCode.replace(new RegExp(placeholder, 'g'), value);
+    const placeholder = '{{' + key + '}}';
+    // 정규식 특수문자 이스케이프
+    const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    personalizedCode = personalizedCode.replace(new RegExp(escapedPlaceholder, 'g'), value);
     
     personalizedInstructions = personalizedInstructions.map(instruction => 
-      instruction.replace(new RegExp(placeholder, 'g'), value)
+      instruction.replace(new RegExp(escapedPlaceholder, 'g'), value)
     );
   }
 
