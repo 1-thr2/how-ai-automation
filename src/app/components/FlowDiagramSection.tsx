@@ -144,31 +144,49 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
       const currentStepIndex = parseInt(selectedStep.id) - 1;
       const actualStep = flowCard.steps?.[currentStepIndex];
       
-      if (actualStep && actualStep.description) {
-        // GPT가 생성한 실제 상세 단계를 파싱하여 사용
-        const descriptionLines = actualStep.description.split('\n').filter((line: string) => line.trim());
-        const detailedSteps = descriptionLines.map((line: string, index: number) => ({
-          number: index + 1,
-          title: line.replace(/^\d+\.\s*/, '').substring(0, 50) + (line.length > 50 ? '...' : ''),
-          description: line,
-          expectedScreen: `${actualStep.title} 관련 화면`,
-          checkpoint: `${index + 1}단계 완료`
-        }));
+      console.log('🔍 [getCurrentStepData] currentStepIndex:', currentStepIndex);
+      console.log('🔍 [getCurrentStepData] actualStep:', actualStep);
+      console.log('🔍 [getCurrentStepData] typeof actualStep:', typeof actualStep);
+      
+      if (actualStep) {
+        // 🔧 문자열과 객체 모두 처리
+        let stepTitle, stepDescription;
+        
+        if (typeof actualStep === 'string') {
+          // 문자열인 경우
+          stepTitle = actualStep.replace(/^\d+\.\s*/, '');
+          stepDescription = actualStep;
+        } else {
+          // 객체인 경우
+          stepTitle = actualStep.title || selectedStep.title;
+          stepDescription = actualStep.description || actualStep.content || stepTitle;
+        }
+        
+        if (stepDescription) {
+          // 실제 단계 설명을 상세 가이드로 변환
+          const detailedSteps = [{
+            number: 1,
+            title: stepTitle,
+            description: stepDescription,
+            expectedScreen: `${stepTitle} 관련 화면`,
+            checkpoint: `${stepTitle} 완료`
+          }];
 
-        return {
-          guide: {
-            title: actualStep.title,
-            subtitle: selectedStep.subtitle || '실제 실행 가이드',
-            steps: detailedSteps,
-            executableCode: null,
-            tips: [
-              `💡 이 방법대로 하시면 100% 성공해요!`,
-              "🔍 각 단계를 정확히 따라하시면 바로 작동합니다",
-              "📝 문제가 생기면 이전 단계로 돌아가서 다시 확인해보세요"
-            ],
-            errorSolutions: []
-          }
-        };
+          return {
+            guide: {
+              title: stepTitle,
+              subtitle: selectedStep.subtitle || '실제 실행 가이드',
+              steps: detailedSteps,
+              executableCode: null,
+              tips: [
+                `💡 이 방법대로 하시면 100% 성공해요!`,
+                "🔍 각 단계를 정확히 따라하시면 바로 작동합니다",
+                "📝 문제가 생기면 이전 단계로 돌아가서 다시 확인해보세요"
+              ],
+              errorSolutions: []
+            }
+          };
+        }
       }
     }
     

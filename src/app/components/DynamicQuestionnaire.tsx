@@ -73,12 +73,12 @@ export default function DynamicQuestionnaire({ userInput, onSubmit }: Props) {
         console.error('❌ 동적 후속질문 생성 실패:', err);
         setError(err instanceof Error ? err.message : '질문 생성에 실패했습니다.');
         
-        // 기본 질문 제공
+        // 기본 질문 제공 (multiple 타입으로 변경)
         setQuestions([
           {
             key: "current_situation",
-            question: "현재 상황을 알려주세요",
-            type: "single",
+            question: "현재 상황을 알려주세요 (여러 개 선택 가능)",
+            type: "multiple",
             options: ["처음 시작", "부분적으로 하고 있음", "완전히 수동", "개선 필요", "잘모름 (AI가 추천)"],
             category: "data",
             importance: "high",

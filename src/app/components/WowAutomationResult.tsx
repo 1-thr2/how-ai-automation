@@ -55,15 +55,36 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
     return defaultIcons[index] || defaultIcons[index % defaultIcons.length];
   };
 
-  const processedFlowSteps = flowCard?.steps?.map((step: any, index: number) => ({
-    id: String(step.id || index + 1),
-    icon: step.icon || getStepIcon(index, step.title || ''),
-    title: step.title || `단계 ${index + 1}`,
-    subtitle: step.subtitle || '',
-    duration: step.duration || step.timing || '5분',
-    preview: step.preview || step.userValue || '',
-    techTags: step.tech || step.techTags || []
-  })) || [];
+  const processedFlowSteps = flowCard?.steps?.map((step: any, index: number) => {
+    // 🔍 디버깅: 각 단계의 실제 데이터 확인
+    console.log(`🔍 [Step ${index + 1}] 원본 데이터:`, step);
+    console.log(`🔍 [Step ${index + 1}] 타입:`, typeof step);
+    
+    // 🔧 데이터 타입에 따라 처리
+    if (typeof step === 'string') {
+      // 문자열인 경우: AI가 문자열 배열로 생성한 경우
+      return {
+        id: String(index + 1),
+        icon: getStepIcon(index, step),
+        title: step.replace(/^\d+\.\s*/, ''), // "1. " 제거
+        subtitle: '',
+        duration: '5분',
+        preview: '',
+        techTags: []
+      };
+    } else {
+      // 객체인 경우: 기존 로직 유지
+      return {
+        id: String(step.id || index + 1),
+        icon: step.icon || getStepIcon(index, step.title || ''),
+        title: step.title ? step.title.replace(/^\d+\.\s*/, '') : `단계 ${index + 1}`,
+        subtitle: step.subtitle || '',
+        duration: step.duration || step.timing || '5분',
+        preview: step.preview || step.userValue || '',
+        techTags: step.tech || step.techTags || []
+      };
+    }
+  }) || [];
 
   // 🔍 디버깅: 데이터 구조 확인
   console.log('🔍 [UI Debug] cardData:', cardData);

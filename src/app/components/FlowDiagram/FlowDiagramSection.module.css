@@ -240,8 +240,10 @@
   border-radius: 24px;
   max-width: 700px;
   width: 100%;
-  max-height: 85vh;
+  max-height: 90vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   position: relative;
   z-index: 1001;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
@@ -323,8 +325,9 @@
 /* 새로운 모달 바디 */
 .new-modal-body {
   padding: 0;
-  max-height: 70vh;
+  flex: 1;
   overflow-y: auto;
+  min-height: 0; /* flexbox 스크롤을 위한 필수 속성 */
 }
 
 .guide-header {
@@ -812,9 +815,10 @@
 /* 메인 바디 */
 .clean-modal-body {
   padding: 20px;
-  max-height: 70vh;
+  flex: 1;
   overflow-y: auto;
   background: white;
+  min-height: 0; /* flexbox 스크롤을 위한 필수 속성 */
 }
 
 /* 헤더 */
@@ -1072,20 +1076,22 @@
 
 /* 스크롤바 스타일링 */
 .clean-modal-body::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .clean-modal-body::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f8fafc;
+  border-radius: 4px;
 }
 
 .clean-modal-body::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  border: 1px solid #f1f5f9;
 }
 
 .clean-modal-body::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #cbd5e1;
 }
 
 /* 실행 코드 섹션 */
@@ -1489,6 +1495,7 @@
   padding: 16px 24px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0; /* 헤더 크기 고정 */
 }
 
 .clean-fallback {
