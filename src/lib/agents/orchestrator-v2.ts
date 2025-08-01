@@ -1,7 +1,12 @@
 import OpenAI from 'openai';
 import pMap from 'p-map';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
-import { generateRAGContext, searchToolInfo, validateURL } from '../services/rag';
+import {
+  generateRAGContext,
+  searchToolInfo,
+  validateURL,
+  checkToolIntegration,
+} from '../services/rag';
 import {
   analyzeUserIntent,
   generateDynamicTemplate,
@@ -324,9 +329,15 @@ RAG 검증 정보:
 - 도구 연동 확인: ${ragMetadata.toolIntegrationChecks?.total || 0}개 (지원: ${ragMetadata.toolIntegrationChecks?.supported || 0}개, 불가: ${ragMetadata.toolIntegrationChecks?.unsupported || 0}개)
 - 발견된 대안: ${ragMetadata.toolIntegrationChecks?.alternativesFound || 0}개
 
-위 정보를 바탕으로 사용자가 "와! 정말 유용하다!"라고 감탄할 만한 최종 결과물을 만드세요.
-개인화된 솔루션, 즉시 실행 가능성, 확장 비전, 창의적 대안을 모두 포함하세요.
-한국어 톤앤매너로 친근하고 확신에 찬 표현을 사용하세요.
+🚨 중요: 단순한 "구글시트 기본 사용법"이 아닌, 사용자가 "와! 이런 자동화가 가능하구나!"라고 감탄할 만한 창의적이고 실용적인 솔루션을 제공하세요.
+
+📊 특히 "캠페인 광고비 정리" 같은 요청은:
+✅ Zapier로 광고 플랫폼 API 연동하여 자동 데이터 수집
+✅ 구글시트 자동 업데이트 및 실시간 대시보드 생성  
+✅ 슬랙 알림으로 예산 초과 경고 자동화
+✅ 구글 앱스 스크립트로 월별 리포트 자동 생성
+
+이런 수준의 자동화 솔루션을 제공해야 합니다. 기본적인 스프레드시트 사용법이 아닌, 완전 자동화된 워크플로우를 만드세요!
 
 🚨 절대 준수사항:
 1. 반드시 {"cards": [...]} 형식의 JSON으로만 응답

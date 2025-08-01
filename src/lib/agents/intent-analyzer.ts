@@ -83,7 +83,18 @@ export async function analyzeUserIntent(
       throw new Error('OpenAI 응답에서 내용을 찾을 수 없습니다.');
     }
 
-    const analysis = JSON.parse(content);
+    // 🔧 JSON 파싱 강화 (마크다운 블록 제거)
+    let cleanContent = content.trim();
+
+    // ```json ... ``` 블록 제거
+    if (cleanContent.startsWith('```json')) {
+      cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    }
+    if (cleanContent.startsWith('```')) {
+      cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+
+    const analysis = JSON.parse(cleanContent.trim());
     console.log('🧠 [Intent] 분석 결과:', analysis);
 
     return analysis;
