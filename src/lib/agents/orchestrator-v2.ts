@@ -430,7 +430,7 @@ export async function generate3StepAutomation(
     console.log(`📝 [3-Step] 사용자 입력: ${userInput}`);
     console.log(`📋 [3-Step] 후속 답변: ${JSON.stringify(followupAnswers)}`);
 
-    // 🧠 Step 0: 동적 인텐트 분석 (NEW!)
+    // 🧠 Step 0: 동적 인텐트 분석 (서버용으로 수정 완료!)
     console.log('🧠 [Intent] 사용자 의도 분석 시작...');
     const intentAnalysis = await analyzeUserIntent(userInput, followupAnswers);
     console.log('🎯 [Intent] 분석 완료:', intentAnalysis);

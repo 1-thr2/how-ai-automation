@@ -732,7 +732,6 @@ export default function WowAutomationResult({
                 'audio_guide',
                 'chatbot_guide',
                 'wow_preview',
-                'needs_analysis',
               ].includes(card.type)
             )
             .map((card: any, index: number) => {

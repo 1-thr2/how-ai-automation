@@ -1,6 +1,4 @@
-'use client';
-
-import { generateChatCompletion } from '../openai-chat';
+import OpenAI from 'openai';
 
 /**
  * 🧠 사용자 인입값을 동적으로 분석하여
@@ -66,19 +64,26 @@ export async function analyzeUserIntent(
 `;
 
   try {
-    const response = await generateChatCompletion(
-      [
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
         { role: 'system', content: 'JSON 분석 전문가입니다.' },
         { role: 'user', content: analysisPrompt },
       ],
-      {
-        model: 'gpt-4o-mini',
-        temperature: 0.3,
-        max_tokens: 1000,
-      }
-    );
+      temperature: 0.3,
+      max_tokens: 1000,
+    });
 
-    const analysis = JSON.parse(response.content);
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI 응답에서 내용을 찾을 수 없습니다.');
+    }
+
+    const analysis = JSON.parse(content);
     console.log('🧠 [Intent] 분석 결과:', analysis);
 
     return analysis;
