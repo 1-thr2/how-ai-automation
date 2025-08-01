@@ -2,6 +2,12 @@ import OpenAI from 'openai';
 import pMap from 'p-map';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
 import { generateRAGContext, searchToolInfo, validateURL } from '../services/rag';
+import {
+  analyzeUserIntent,
+  generateDynamicTemplate,
+  generateContextualCreativity,
+  optimizePromptLength,
+} from './intent-analyzer';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -32,7 +38,8 @@ interface OrchestratorMetrics {
  */
 async function executeStepA(
   userInput: string,
-  followupAnswers: any
+  followupAnswers: any,
+  intentAnalysis?: any
 ): Promise<{
   cards: any[];
   tokens: number;
@@ -423,8 +430,25 @@ export async function generate3StepAutomation(
     console.log(`📝 [3-Step] 사용자 입력: ${userInput}`);
     console.log(`📋 [3-Step] 후속 답변: ${JSON.stringify(followupAnswers)}`);
 
-    // Step A: 카드 뼈대 초안
-    const stepAResult = await executeStepA(userInput, followupAnswers);
+    // 🧠 Step 0: 동적 인텐트 분석 (NEW!)
+    console.log('🧠 [Intent] 사용자 의도 분석 시작...');
+    const intentAnalysis = await analyzeUserIntent(userInput, followupAnswers);
+    console.log('🎯 [Intent] 분석 완료:', intentAnalysis);
+
+    // 🎨 맞춤형 창의적 솔루션 생성
+    const contextualCreativity = generateContextualCreativity(
+      userInput,
+      followupAnswers,
+      intentAnalysis
+    );
+    console.log('💡 [Creativity] 맞춤형 창의성 생성:', contextualCreativity);
+
+    // 동적 템플릿 생성
+    const dynamicTemplate = generateDynamicTemplate(intentAnalysis);
+    console.log('🎨 [Template] 동적 템플릿 생성 완료');
+
+    // Step A: 카드 뼈대 초안 (인텐트 분석 결과 반영)
+    const stepAResult = await executeStepA(userInput, followupAnswers, intentAnalysis);
     metrics.stagesCompleted.push('A-draft');
     metrics.modelsUsed.push(stepAResult.model);
     metrics.totalTokens += stepAResult.tokens;
