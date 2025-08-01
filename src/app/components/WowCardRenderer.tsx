@@ -33,7 +33,7 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               <p className="text-gray-600">{toolCard.subtitle}</p>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg p-4 mb-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold text-lg">{toolCard.selectedTool.name}</h4>
@@ -44,10 +44,7 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               </div>
             </div>
             <p className="text-gray-700 mb-3">{toolCard.selectedTool.reasoning}</p>
-            <Button 
-              onClick={() => handleOpenUrl(toolCard.selectedTool.url)}
-              className="w-full"
-            >
+            <Button onClick={() => handleOpenUrl(toolCard.selectedTool.url)} className="w-full">
               <ExternalLink className="w-4 h-4 mr-2" />
               {toolCard.selectedTool.name} 시작하기
             </Button>
@@ -96,8 +93,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">📝 최적화된 프롬프트</h4>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => handleCopy(slideCard.importBlocks.slide_prompt)}
                 >
@@ -152,7 +149,9 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
             <div className="bg-white rounded-lg p-3">
               <p className="text-sm text-gray-600">출력 형식</p>
-              <p className="text-lg font-bold text-purple-600 uppercase">{videoCard.outputFormat}</p>
+              <p className="text-lg font-bold text-purple-600 uppercase">
+                {videoCard.outputFormat}
+              </p>
             </div>
           </div>
 
@@ -160,8 +159,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">🎯 영상 프롬프트</h4>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => handleCopy(videoCard.importBlocks.video_prompt)}
                 >
@@ -215,7 +214,7 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                 <p className="text-sm text-gray-600 mb-1">페이지 유형</p>
                 <p className="font-semibold capitalize">{landingCard.pageType}</p>
               </div>
-              <Button 
+              <Button
                 onClick={() => handleOpenUrl(landingCard.liveUrl || '#')}
                 disabled={!landingCard.liveUrl}
               >
@@ -262,7 +261,7 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                 <p className="text-sm text-gray-600 mb-1">챗봇 유형</p>
                 <p className="font-semibold capitalize">{chatbotCard.botType}</p>
               </div>
-              <Button 
+              <Button
                 onClick={() => handleOpenUrl(chatbotCard.liveUrl || '#')}
                 disabled={!chatbotCard.liveUrl}
               >
@@ -276,8 +275,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">🔗 임베드 코드</h4>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => handleCopy(chatbotCard.importBlocks.embed_code)}
                 >
@@ -328,7 +327,7 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                 <p className="text-sm text-gray-600 mb-1">데이터 소스</p>
                 <p className="font-medium">{dashboardCard.dataSource?.join(', ')}</p>
               </div>
-              <Button 
+              <Button
                 onClick={() => handleOpenUrl(dashboardCard.shareUrl || '#')}
                 disabled={!dashboardCard.shareUrl}
               >
@@ -372,11 +371,15 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div className="bg-white rounded-lg p-3">
               <p className="text-sm text-gray-600">크리에이티브 유형</p>
-              <p className="text-lg font-bold text-pink-600 capitalize">{creativeCard.creativeType}</p>
+              <p className="text-lg font-bold text-pink-600 capitalize">
+                {creativeCard.creativeType}
+              </p>
             </div>
             <div className="bg-white rounded-lg p-3">
               <p className="text-sm text-gray-600">출력 파일 수</p>
-              <p className="text-lg font-bold text-purple-600">{creativeCard.outputFiles?.length || 1}개</p>
+              <p className="text-lg font-bold text-purple-600">
+                {creativeCard.outputFiles?.length || 1}개
+              </p>
             </div>
           </div>
 
@@ -418,7 +421,9 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
             <div className="bg-white rounded-lg p-3">
               <p className="text-sm text-gray-600">출력 형식</p>
-              <p className="text-lg font-bold text-purple-600 uppercase">{audioCard.outputFormat}</p>
+              <p className="text-lg font-bold text-purple-600 uppercase">
+                {audioCard.outputFormat}
+              </p>
             </div>
           </div>
 
@@ -426,8 +431,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-medium">📝 스크립트 텍스트</h4>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => handleCopy(audioCard.importBlocks.script_text)}
                 >
@@ -467,16 +472,14 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               🔄
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{flowCard.title || '자동화 플로우'}</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                {flowCard.title || '자동화 플로우'}
+              </h3>
               <p className="text-gray-600">{flowCard.subtitle || '단계별 자동화 워크플로우'}</p>
             </div>
           </div>
 
-          {flowCard.content && (
-            <div className="text-gray-700 mb-4">
-              {flowCard.content}
-            </div>
-          )}
+          {flowCard.content && <div className="text-gray-700 mb-4">{flowCard.content}</div>}
 
           {flowCard.steps && flowCard.steps.length > 0 && (
             <div className="space-y-3 mb-4">
@@ -525,6 +528,89 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
           )}
 
+          {/* 🔧 대안 도구 표시 (연동 불가능한 도구가 있는 경우) */}
+          {flowCard.unsupportedTools && flowCard.unsupportedTools.length > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-2 mb-3">
+                <span className="text-yellow-600 text-lg">⚠️</span>
+                <div>
+                  <h4 className="font-medium text-yellow-800 mb-1">연동 제한사항</h4>
+                  <p className="text-sm text-yellow-700 mb-2">
+                    다음 도구들은 직접 연동이 제한됩니다: {flowCard.unsupportedTools.join(', ')}
+                  </p>
+                </div>
+              </div>
+
+              {flowCard.alternativeTools && flowCard.alternativeTools.length > 0 && (
+                <div>
+                  <h5 className="font-medium text-yellow-800 mb-2">💡 권장 대안 (💰 무료 우선)</h5>
+                  <div className="space-y-2">
+                    {flowCard.alternativeTools.map((alt: any, index: number) => (
+                      <div key={index} className="bg-white rounded-lg p-3 border border-yellow-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">{alt.name}</div>
+                            <div className="text-sm text-gray-600">{alt.purpose}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {/* 💰 가격 정보 표시 */}
+                              {alt.pricing && (
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    alt.pricing.includes('무료') ||
+                                    alt.pricing.toLowerCase().includes('free')
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-orange-100 text-orange-800'
+                                  }`}
+                                >
+                                  {alt.pricing.includes('무료') ||
+                                  alt.pricing.toLowerCase().includes('free')
+                                    ? '🆓 '
+                                    : '💰 '}
+                                  {alt.pricing}
+                                </span>
+                              )}
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  alt.difficulty === 'easy'
+                                    ? 'bg-green-100 text-green-800'
+                                    : alt.difficulty === 'medium'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {alt.difficulty === 'easy'
+                                  ? '쉬움'
+                                  : alt.difficulty === 'medium'
+                                    ? '보통'
+                                    : '어려움'}
+                              </span>
+                            </div>
+                          </div>
+                          {alt.url && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenUrl(alt.url)}
+                              className="ml-2"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {flowCard.integrationWarning && (
+                <div className="mt-3 p-3 bg-yellow-100 rounded-lg">
+                  <p className="text-sm text-yellow-800">{flowCard.integrationWarning}</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {flowCard.description && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">{flowCard.description}</p>
@@ -567,11 +653,7 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                   <div key={index} className="bg-white rounded-lg p-3 border">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">{mockup.description}</span>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleOpenUrl(mockup.url)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => handleOpenUrl(mockup.url)}>
                         <ExternalLink className="w-4 h-4" />
                       </Button>
                     </div>
@@ -603,13 +685,9 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               <p className="text-gray-600">{needsCard.subtitle}</p>
             </div>
           </div>
-          
-          {needsCard.content && (
-            <div className="text-gray-700 mb-4">
-              {needsCard.content}
-            </div>
-          )}
-          
+
+          {needsCard.content && <div className="text-gray-700 mb-4">{needsCard.content}</div>}
+
           {needsCard.surfaceRequest && needsCard.realNeed && (
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div className="bg-white rounded-lg p-4">
@@ -635,17 +713,17 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               🚀
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{expansionCard.title || '확장 아이디어'}</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                {expansionCard.title || '확장 아이디어'}
+              </h3>
               <p className="text-gray-600">{expansionCard.subtitle || '추가 발전 방향'}</p>
             </div>
           </div>
-          
+
           {expansionCard.content && (
-            <div className="text-gray-700 mb-4">
-              {expansionCard.content}
-            </div>
+            <div className="text-gray-700 mb-4">{expansionCard.content}</div>
           )}
-          
+
           {expansionCard.ideas && Array.isArray(expansionCard.ideas) && (
             <div className="space-y-3">
               {expansionCard.ideas.map((idea: any, index: number) => {
@@ -653,13 +731,19 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                 if (!idea) {
                   return null;
                 }
-                
+
                 // idea가 문자열인지 객체인지 확인
-                const ideaTitle = typeof idea === 'string' ? idea : (idea.title || idea.idea || `아이디어 ${index + 1}`);
+                const ideaTitle =
+                  typeof idea === 'string'
+                    ? idea
+                    : idea.title || idea.idea || `아이디어 ${index + 1}`;
                 const ideaDescription = typeof idea === 'object' ? idea.description : null;
-                
+
                 return (
-                  <div key={`idea-${index}`} className="bg-white rounded-lg p-4 border border-green-100">
+                  <div
+                    key={`idea-${index}`}
+                    className="bg-white rounded-lg p-4 border border-green-100"
+                  >
                     <div className="font-semibold text-gray-900 mb-2">{ideaTitle}</div>
                     {ideaDescription && (
                       <div className="text-sm text-gray-600">{ideaDescription}</div>
@@ -686,14 +770,47 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               <p className="text-gray-600">{guideCard.subtitle || '상세 안내'}</p>
             </div>
           </div>
-          
+
           {guideCard.basicConcept && (
             <div className="bg-white rounded-lg p-4 mb-4 border border-blue-100">
               <h4 className="font-semibold text-gray-900 mb-2">💡 핵심 개념</h4>
               <p className="text-gray-700">{guideCard.basicConcept}</p>
             </div>
           )}
-          
+
+          {/* 💡 실용적 분류 접근 (메시지 분류 관련 가이드인 경우) */}
+          {guideCard.title &&
+            (guideCard.title.includes('분류') ||
+              guideCard.title.includes('메시지') ||
+              guideCard.title.includes('고객')) && (
+              <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 mb-4 border border-blue-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-blue-600 text-lg">💡</span>
+                  <h4 className="font-semibold text-blue-900">간단하고 효과적인 분류</h4>
+                </div>
+                <p className="text-sm text-blue-700 mb-2">
+                  키워드 기반 자동 분류로도 충분히 효과적인 결과를 얻을 수 있습니다.
+                </p>
+                <div className="bg-white rounded p-3 border border-blue-200">
+                  <div className="text-xs text-blue-600 font-medium mb-1">분류 예시:</div>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">"로그인", "오류":</span>
+                      <span className="text-blue-600 font-medium">→ 기술지원 채널</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">"결제", "환불":</span>
+                      <span className="text-green-600 font-medium">→ 고객지원 채널</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">기타 문의:</span>
+                      <span className="text-gray-600 font-medium">→ 일반 문의 채널</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           {guideCard.detailedSteps && Array.isArray(guideCard.detailedSteps) && (
             <div className="space-y-4 mb-4">
               <h4 className="font-semibold text-gray-900">📝 상세 단계</h4>
@@ -702,14 +819,19 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                 if (!step || typeof step !== 'object') {
                   return null;
                 }
-                
+
                 return (
-                  <div key={`step-${index}`} className="bg-white rounded-lg p-4 border border-blue-100">
+                  <div
+                    key={`step-${index}`}
+                    className="bg-white rounded-lg p-4 border border-blue-100"
+                  >
                     <div className="flex items-center gap-2 mb-3">
                       <span className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">
                         {step.number || index + 1}
                       </span>
-                      <h5 className="font-semibold text-gray-900">{step.title || `단계 ${index + 1}`}</h5>
+                      <h5 className="font-semibold text-gray-900">
+                        {step.title || `단계 ${index + 1}`}
+                      </h5>
                     </div>
                     <div className="text-sm text-gray-700 mb-3 whitespace-pre-line">
                       {step.description || '설명이 없습니다.'}
@@ -731,28 +853,36 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               })}
             </div>
           )}
-          
-          {guideCard.commonMistakes && Array.isArray(guideCard.commonMistakes) && guideCard.commonMistakes.length > 0 && (
-            <div className="bg-red-50 rounded-lg p-4 mb-4 border border-red-200">
-              <h4 className="font-semibold text-red-900 mb-2">⚠️ 자주하는 실수</h4>
-              <ul className="space-y-1">
-                {guideCard.commonMistakes.map((mistake: string, index: number) => (
-                  <li key={`mistake-${index}`} className="text-sm text-red-700">• {mistake || '내용이 없습니다.'}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          
-          {guideCard.practicalTips && Array.isArray(guideCard.practicalTips) && guideCard.practicalTips.length > 0 && (
-            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-              <h4 className="font-semibold text-yellow-900 mb-2">💡 실용적 팁</h4>
-              <ul className="space-y-1">
-                {guideCard.practicalTips.map((tip: string, index: number) => (
-                  <li key={`tip-${index}`} className="text-sm text-yellow-700">• {tip || '내용이 없습니다.'}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+
+          {guideCard.commonMistakes &&
+            Array.isArray(guideCard.commonMistakes) &&
+            guideCard.commonMistakes.length > 0 && (
+              <div className="bg-red-50 rounded-lg p-4 mb-4 border border-red-200">
+                <h4 className="font-semibold text-red-900 mb-2">⚠️ 자주하는 실수</h4>
+                <ul className="space-y-1">
+                  {guideCard.commonMistakes.map((mistake: string, index: number) => (
+                    <li key={`mistake-${index}`} className="text-sm text-red-700">
+                      • {mistake || '내용이 없습니다.'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+          {guideCard.practicalTips &&
+            Array.isArray(guideCard.practicalTips) &&
+            guideCard.practicalTips.length > 0 && (
+              <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                <h4 className="font-semibold text-yellow-900 mb-2">💡 실용적 팁</h4>
+                <ul className="space-y-1">
+                  {guideCard.practicalTips.map((tip: string, index: number) => (
+                    <li key={`tip-${index}`} className="text-sm text-yellow-700">
+                      • {tip || '내용이 없습니다.'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
         </div>
       );
 
@@ -766,34 +896,42 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               ❓
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{faqCard.title || '자주 묻는 질문'}</h3>
+              <h3 className="text-xl font-bold text-gray-900">
+                {faqCard.title || '자주 묻는 질문'}
+              </h3>
               <p className="text-gray-600">{faqCard.subtitle || 'FAQ'}</p>
             </div>
           </div>
-          
-          {faqCard.content && (
-            <div className="text-gray-700 mb-4">
-              {faqCard.content}
-            </div>
-          )}
-          
-          {(faqCard.faqs || faqCard.questions || faqCard.items) && Array.isArray(faqCard.faqs || faqCard.questions || faqCard.items) && (
-            <div className="space-y-4">
-              {(faqCard.faqs || faqCard.questions || faqCard.items).map((faq: any, index: number) => {
-                // 방어 코드: faq가 유효한지 확인
-                if (!faq) {
-                  return null;
-                }
-                
-                return (
-                  <div key={`faq-${index}`} className="bg-white rounded-lg p-4 border border-orange-100">
-                    <div className="font-semibold text-gray-900 mb-2">Q. {faq.question || faq.q || '질문이 없습니다.'}</div>
-                    <div className="text-sm text-gray-600 leading-relaxed">A. {faq.answer || faq.a || '답변이 없습니다.'}</div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+
+          {faqCard.content && <div className="text-gray-700 mb-4">{faqCard.content}</div>}
+
+          {(faqCard.faqs || faqCard.questions || faqCard.items) &&
+            Array.isArray(faqCard.faqs || faqCard.questions || faqCard.items) && (
+              <div className="space-y-4">
+                {(faqCard.faqs || faqCard.questions || faqCard.items).map(
+                  (faq: any, index: number) => {
+                    // 방어 코드: faq가 유효한지 확인
+                    if (!faq) {
+                      return null;
+                    }
+
+                    return (
+                      <div
+                        key={`faq-${index}`}
+                        className="bg-white rounded-lg p-4 border border-orange-100"
+                      >
+                        <div className="font-semibold text-gray-900 mb-2">
+                          Q. {faq.question || faq.q || '질문이 없습니다.'}
+                        </div>
+                        <div className="text-sm text-gray-600 leading-relaxed">
+                          A. {faq.answer || faq.a || '답변이 없습니다.'}
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
         </div>
       );
 
@@ -811,13 +949,9 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               <p className="text-gray-600">{shareCard.subtitle}</p>
             </div>
           </div>
-          
-          {shareCard.content && (
-            <div className="text-gray-700 mb-4">
-              {shareCard.content}
-            </div>
-          )}
-          
+
+          {shareCard.content && <div className="text-gray-700 mb-4">{shareCard.content}</div>}
+
           {shareCard.shareOptions && (
             <div className="space-y-3">
               {shareCard.shareOptions.map((option: string, index: number) => (
@@ -840,4 +974,4 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
         </div>
       );
   }
-} 
+}

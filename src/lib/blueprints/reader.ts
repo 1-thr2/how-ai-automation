@@ -31,14 +31,31 @@ export const FOLLOWUP_BASE = `# 후속질문 생성 기본 블루프린트
 - **data**: 사용자가 언급한 특정 플랫폼의 데이터 구조, API 접근성, 권한
 - **workflow**: 현재 수동 작업의 구체적 시간/방법, 병목 지점, 반복 패턴  
 - **goals**: 정량적 목표 (시간 절약, 정확도, 빈도), 구체적 결과물
-- **tech**: 언급된 도구들의 연동 가능성, 기술적 제약사항, 인프라
-- **environment**: 팀 규모, 보안 정책, 승인 프로세스, 예산
+- **integration**: 🔧 언급된 도구들의 연동 가능성, 계정 상태, 권한 설정 (매우 중요!)
+- **tech**: 기술적 제약사항, 인프라, 보안 정책
+- **environment**: 팀 규모, 승인 프로세스, 예산
+
+## 🔧 연동 가능성 확인 질문 (필수 포함!)
+사용자가 특정 도구를 언급한 경우, **반드시** 다음과 같은 연동 확인 질문을 포함하세요:
+
+### 📱 카카오톡 관련:
+- "카카오톡 비즈니스 계정을 보유하고 계신가요?"
+- "카카오톡 메시지 수집을 위해 대안 도구(Solapi, 채널톡) 사용이 가능한가요?"
+
+### 💼 채용 사이트 관련:
+- "원티드/사람인에서 직접 데이터 연동 대신 웹폼 방식 사용이 가능한가요?"
+- "채용 공고 수집을 위해 RSS나 웹스크래핑 방식을 고려해보신 적 있나요?"
+
+### 📧 이메일 관련:
+- "현재 사용 중인 이메일이 Gmail/Outlook인가요, 아니면 네이버/다음 등 다른 서비스인가요?"
+
+이런 질문들은 **integration** 카테고리로 분류하고 **높은 중요도**로 설정하세요!
 
 ## 질문 형식:
 각 질문은 다음 형식을 따르세요:
 - **type**: "single" (단일선택) 또는 "multiple" (복수선택)
 - **options**: 선택지 배열 (반드시 "기타 (직접입력)"과 "잘모름 (AI가 추천)" 포함)
-- **category**: "data" | "workflow" | "goals" | "tech" | "environment"
+- **category**: "data" | "workflow" | "goals" | "integration" | "tech" | "environment"
 - **importance**: "high" | "medium" | "low"
 
 ## 반드시 포함해야 할 옵션:
@@ -295,10 +312,12 @@ export const ORCHESTRATOR_STEP_B = `# Step B: RAG 검증 및 정보 강화
 A단계에서 생성된 초안 카드들을 최신 정보로 검증하고 보강합니다.
 
 ## 주요 작업
-1. **URL 유효성 검증**: 언급된 링크들이 실제로 작동하는지 확인
-2. **최신 정보 주입**: Tavily RAG로 수집한 최신 정보 반영
-3. **도구 정보 업데이트**: 추천 도구들의 최신 상태 확인
-4. **사실 검증**: 잘못된 정보나 과시된 기능 수정
+1. **🔧 도구 연동 가능성 확인**: 언급된 도구들이 실제로 Zapier/Make.com과 연동 가능한지 검증
+2. **🔄 대안 도구 제시**: 연동 불가능한 도구에 대한 실행 가능한 대안 검색 및 제안
+3. **URL 유효성 검증**: 언급된 링크들이 실제로 작동하는지 확인
+4. **최신 정보 주입**: Tavily RAG로 수집한 최신 정보 반영
+5. **도구 정보 업데이트**: 추천 도구들의 최신 상태 확인
+6. **사실 검증**: 잘못된 정보나 과시된 기능 수정
 
 ## RAG 정보 활용 방식
 
@@ -319,17 +338,39 @@ RAG 검색: 최신 공식 문서 링크
 
 ## 검증 프로세스
 
-### 1. 도구 검증
+### 🔧 1. 도구 연동 가능성 확인 (최우선!)
+**매우 중요**: 사용자에게 불가능한 솔루션을 제시하지 마세요!
+
+#### ✅ 연동 가능한 도구들:
+- Gmail, Google Sheets, Google Calendar
+- Slack, Microsoft Teams  
+- Dropbox, OneDrive
+- Trello, Asana, Notion
+- Twitter, Facebook, Instagram
+- PayPal, Stripe
+
+#### ❌ 연동 제한적이거나 불가능한 도구들:
+- **카카오톡**: 직접 연동 불가 → 대안: Solapi, 채널톡
+- **네이버 메일**: 공식 API 제한 → 대안: Gmail, Outlook
+- **원티드/사람인**: 직접 API 없음 → 대안: Google Forms + 웹훅
+
+#### 🔄 대안 제시 방법:
+연동 불가능한 도구가 감지되면:
+1. **명확한 제한사항 설명**: "카카오톡은 Zapier와 직접 연동이 지원되지 않습니다"
+2. **실용적 대안 제시**: "대신 Solapi나 채널톡을 통해 비슷한 효과를 얻을 수 있습니다"
+3. **우회 방법 안내**: "Google Forms + 웹훅으로 동일한 기능을 구현할 수 있습니다"
+
+### 📊 2. 도구 검증
 - 언급된 모든 도구에 대해 RAG 검색
 - 최신 가격, 기능, 사용법 확인
 - 대안 도구 추가 검토
 
-### 2. 링크 검증  
+### 🔗 3. 링크 검증  
 - 모든 URL에 대해 HTTP 상태 확인
 - 깨진 링크는 RAG로 대체 링크 검색
 - 공식 문서 우선 사용
 
-### 3. 정보 정확성 검증
+### ✅ 4. 정보 정확성 검증
 - 기술적 내용의 최신성 확인
 - API 변경사항 반영
 - 정책/가격 변경사항 업데이트
@@ -337,6 +378,19 @@ RAG 검색: 최신 공식 문서 링크
 ## 🚨 출력 형식 (절대 준수!)
 A단계와 동일한 JSON 구조를 유지하되, 다음 항목들이 보강됩니다.
 반드시 유효한 JSON으로만 응답하세요. 마크다운 블록이나 다른 텍스트는 포함하지 마세요.
+
+### 🔧 도구 연동 불가 시 추가할 필드들:
+- originalTools: 원래 제안된 도구들
+- unsupportedTools: 연동 불가능한 도구들
+- alternativeTools: 대안 도구들 (name, purpose, url, difficulty 포함)
+- status: "verified" (검증 완료 표시)
+
+### 📋 각 카드에 추가할 수 있는 필드들:
+- **originalTools**: 원래 제안된 도구들
+- **unsupportedTools**: 연동 불가능한 도구들  
+- **alternativeTools**: 대안 도구들 (이름, 목적, URL, 난이도)
+- **integrationWarning**: 연동 제한사항 경고 메시지
+- **status**: "verified" (검증 완료 표시)
 
 올바른 형식: {"cards": [...]}
 잘못된 형식: 마크다운 블록 사용
@@ -361,18 +415,20 @@ export const ORCHESTRATOR_STEP_C = `# Step C: 초보자도 5분만에 따라할 
 
 당신은 **컴퓨터 초보자도 5분만에 따라할 수 있는** 실용적 자동화 가이드를 만드는 전문가입니다.
 
-### ✅ 반드시 사용해야 할 도구들:
-- **Zapier** (1순위): 클릭만으로 자동화
-- **IFTTT**: 모바일 앱 자동화  
-- **Google Workspace**: 무료 도구들
-- **Notion 자동화**: 간단한 템플릿
-- **Slack 워크플로우**: 내장 자동화 기능
+### ✅ 반드시 사용해야 할 도구들 (💰 무료 우선!):
+- **🆓 Google Apps Script**: 완전 무료 자동화 (1순위)
+- **🆓 Zapier 무료 플랜**: 월 100회 무료 (2순위)
+- **🆓 IFTTT**: 모바일 앱 자동화 무료
+- **🆓 Google Workspace**: 무료 도구들 (Sheets, Forms, Drive)
+- **🆓 Notion 자동화**: 간단한 템플릿 무료
 
 ### ❌ 절대 금지 도구/방법들:
 - Python, 코딩, 개발 ❌
 - API 키 발급, 개발자 도구 ❌
 - 터미널, 명령어 ❌
 - 복잡한 설정, 기술적 용어 ❌
+- **💸 비싼 유료 도구 1순위 추천 금지** (채널톡 유료, Slack 유료 등)
+- **반드시 무료 대안 먼저 제시** 후 유료 옵션 언급
 
 ## 실행 가능성 체크리스트 (필수!)
 
@@ -556,10 +612,10 @@ export class BlueprintReader {
    */
   static async getFollowupBlueprints() {
     console.log('✅ [Blueprint] TypeScript 상수에서 Blueprint 로드');
-    return { 
-      base: FOLLOWUP_BASE, 
-      draft: FOLLOWUP_DRAFT, 
-      refine: FOLLOWUP_REFINE 
+    return {
+      base: FOLLOWUP_BASE,
+      draft: FOLLOWUP_DRAFT,
+      refine: FOLLOWUP_REFINE,
     };
   }
 
@@ -568,7 +624,7 @@ export class BlueprintReader {
    */
   static async read(blueprintPath: string): Promise<string> {
     console.log(`✅ [Blueprint] TypeScript 상수에서 로드: ${blueprintPath}`);
-    
+
     switch (blueprintPath) {
       case 'orchestrator/step_a_draft.md':
         return ORCHESTRATOR_STEP_A;
@@ -598,18 +654,20 @@ export function selectModel(estimatedTokens: number) {
     // gpt-4o-mini 우선 사용 (비용 효율적)
     defaultModel: 'gpt-4o-mini',
     fallbackModel: 'gpt-4o-2024-11-20',
-    
+
     // 토큰 임계값
     tokenThresholds: {
-      mini: 2000,    // 2000토큰 이하는 mini
-      upgrade: 3000  // 3000토큰 이상은 4o로 업그레이드
-    }
+      mini: 2000, // 2000토큰 이하는 mini
+      upgrade: 3000, // 3000토큰 이상은 4o로 업그레이드
+    },
   };
-  
+
   if (estimatedTokens <= config.tokenThresholds.mini) {
     return config.defaultModel;
   } else if (estimatedTokens >= config.tokenThresholds.upgrade) {
-    console.log(`🔄 토큰 수 ${estimatedTokens} > ${config.tokenThresholds.upgrade}, ${config.fallbackModel}로 업그레이드`);
+    console.log(
+      `🔄 토큰 수 ${estimatedTokens} > ${config.tokenThresholds.upgrade}, ${config.fallbackModel}로 업그레이드`
+    );
     return config.fallbackModel;
   } else {
     return config.defaultModel;

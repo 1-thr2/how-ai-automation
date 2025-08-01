@@ -41,11 +41,11 @@ async function executeStepA(
 }> {
   const startTime = Date.now();
   console.log('📝 [Step A] 카드 뼈대 초안 생성 시작...');
-  
+
   try {
     // Blueprint 읽기
     const stepABlueprint = await BlueprintReader.read('orchestrator/step_a_draft.md');
-    
+
     // 프롬프트 구성
     const systemPrompt = stepABlueprint;
     const userPrompt = `사용자 요청: "${userInput}"
@@ -59,17 +59,17 @@ async function executeStepA(
     // 토큰 추정 및 모델 선택 (A단계는 항상 mini 사용)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
     const model = 'gpt-4o-mini'; // A단계는 비용 효율성 우선
-    
+
     console.log(`📊 [Step A] 예상 토큰: ${estimatedTokens}, 모델: ${model}`);
-    
+
     const response = await openai.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
       max_tokens: 600, // A단계는 제한적
-      temperature: 0.8 // 창의성 우선
+      temperature: 0.8, // 창의성 우선
     });
 
     const content = response.choices[0]?.message?.content;
@@ -81,16 +81,15 @@ async function executeStepA(
     const cards = parseCardsJSON(content);
     const latency = Date.now() - startTime;
     const actualTokens = response.usage?.total_tokens || estimatedTokens;
-    
+
     console.log(`✅ [Step A] 완료 - ${cards.length}개 카드, ${actualTokens} 토큰, ${latency}ms`);
-    
+
     return {
       cards,
       tokens: actualTokens,
       latency,
-      model
+      model,
     };
-    
   } catch (error) {
     console.error('❌ [Step A] 실패:', error);
     throw error;
@@ -111,59 +110,112 @@ async function executeStepB(
 }> {
   const startTime = Date.now();
   console.log('🔍 [Step B] RAG 검증 및 정보 강화 시작...');
-  
+
   try {
     // 1. 언급된 도구들 추출
     const mentionedTools = extractToolsFromCards(draftCards);
     console.log(`🛠️ [Step B] 추출된 도구들: ${mentionedTools.join(', ')}`);
-    
+
     // 2. RAG 컨텍스트 생성 (병렬 처리)
     const ragContext = await generateRAGContext(userInput, mentionedTools);
-    
+
     // 3. 도구별 상세 정보 수집 (최대 3개 도구, 동시성 제한)
     const toolInfoPromises = mentionedTools.slice(0, 3).map(tool => searchToolInfo(tool));
-    const toolInfoResults = await pMap(toolInfoPromises, async (promise) => promise, {
-      concurrency: 2 // OpenAI Rate-Limit 보호
+    const toolInfoResults = await pMap(toolInfoPromises, async promise => promise, {
+      concurrency: 2, // OpenAI Rate-Limit 보호
     });
-    
-    // 4. URL 검증 (언급된 링크들)
+
+    // 4. 🔧 도구 연동 가능성 확인 (핵심 신기능!)
+    console.log(`🔍 [Step B] 도구 연동 가능성 확인 중...`);
+    const toolIntegrationPromises = mentionedTools
+      .slice(0, 3)
+      .map(tool => checkToolIntegration(tool));
+    const toolIntegrationResults = await pMap(toolIntegrationPromises, async promise => promise, {
+      concurrency: 2, // API 부담 최소화
+    });
+
+    // 연동 불가능한 도구와 대안 정리
+    const unsupportedTools = toolIntegrationResults.filter(result => !result.isSupported);
+    const supportedTools = toolIntegrationResults.filter(result => result.isSupported);
+
+    console.log(
+      `📊 [Step B] 연동 현황: ${supportedTools.length}개 지원, ${unsupportedTools.length}개 불가`
+    );
+    if (unsupportedTools.length > 0) {
+      console.log(
+        `⚠️ [Step B] 연동 불가 도구:`,
+        unsupportedTools.map(t => t.toolName)
+      );
+      console.log(
+        `🔄 [Step B] 발견된 대안:`,
+        unsupportedTools.flatMap(t => t.alternatives?.map(a => a.name) || [])
+      );
+    }
+
+    // 5. URL 검증 (언급된 링크들)
     const urls = extractURLsFromCards(draftCards);
     const urlValidationPromises = urls.map(url => validateURL(url));
-    const urlValidationResults = await pMap(urlValidationPromises, async (promise) => promise, {
-      concurrency: 3
+    const urlValidationResults = await pMap(urlValidationPromises, async promise => promise, {
+      concurrency: 3,
     });
-    
-    // 5. Blueprint 읽기
+
+    // 6. Blueprint 읽기
     const stepBBlueprint = await BlueprintReader.read('orchestrator/step_b_rag.md');
-    
-    // 6. 프롬프트 구성
+
+    // 7. 프롬프트 구성 (도구 연동 정보 포함)
     const systemPrompt = `${stepBBlueprint}\n\n## RAG 수집 정보:\n${ragContext}`;
+
+    // 도구 연동 상태 정리
+    const toolIntegrationSummary = toolIntegrationResults
+      .map(result => {
+        if (result.isSupported) {
+          return `✅ ${result.toolName}: 연동 지원됨 (신뢰도: ${(result.confidence * 100).toFixed(0)}%)`;
+        } else {
+          const alternatives =
+            result.alternatives
+              ?.slice(0, 2)
+              .map(alt => alt.name)
+              .join(', ') || '없음';
+          return `❌ ${result.toolName}: 연동 불가 → 대안: ${alternatives}`;
+        }
+      })
+      .join('\n');
+
     const userPrompt = `Draft 카드들:
 ${JSON.stringify(draftCards, null, 2)}
 
 언급된 도구들의 최신 정보:
-${toolInfoResults.flat().map((info: any) => `- ${info.title}: ${info.url}`).join('\n')}
+${toolInfoResults
+  .flat()
+  .map((info: any) => `- ${info.title}: ${info.url}`)
+  .join('\n')}
+
+🔧 도구 연동 가능성 분석:
+${toolIntegrationSummary}
 
 URL 검증 결과:
 ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' : '❌ 무효'}`).join('\n')}
 
-위 정보를 바탕으로 draft 카드들을 검증하고 최신 정보로 보강하세요.
-잘못된 정보는 수정하고, 깨진 링크는 대체하세요.
+📋 중요 지침:
+1. 연동 불가능한 도구에 대해서는 반드시 대안을 제시하세요
+2. 각 카드에 "alternativeTools" 배열을 추가하여 대안 도구 정보를 포함하세요
+3. 불가능한 연동은 명확히 "사용 불가" 표시하고 실행 가능한 방법만 안내하세요
+4. 깨진 링크는 대체하고, 잘못된 정보는 수정하세요
 
 중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
     // 7. gpt-4o-mini로 처리 (B단계도 비용 효율적)
     const model = 'gpt-4o-mini';
     console.log(`📊 [Step B] 모델: ${model}`);
-    
+
     const response = await openai.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
       max_tokens: 1200,
-      temperature: 0.3 // 정확성 우선
+      temperature: 0.3, // 정확성 우선
     });
 
     const content = response.choices[0]?.message?.content;
@@ -175,36 +227,44 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
     const cards = parseCardsJSON(content);
     const latency = Date.now() - startTime;
     const actualTokens = response.usage?.total_tokens || 0;
-    
-    // RAG 메타데이터 구성
+
+    // RAG 메타데이터 구성 (도구 연동 정보 포함)
     const ragMetadata = {
       searchesPerformed: mentionedTools.length,
       sourcesFound: toolInfoResults.flat().length,
       linksVerified: urlValidationResults.filter(Boolean).length,
       linksTotal: urls.length,
-      ragContextLength: ragContext.length
+      ragContextLength: ragContext.length,
+      toolIntegrationChecks: {
+        total: toolIntegrationResults.length,
+        supported: supportedTools.length,
+        unsupported: unsupportedTools.length,
+        alternativesFound: unsupportedTools.reduce(
+          (sum, tool) => sum + (tool.alternatives?.length || 0),
+          0
+        ),
+      },
     };
-    
+
     console.log(`✅ [Step B] 완료 - ${cards.length}개 카드, ${actualTokens} 토큰, ${latency}ms`);
     console.log(`🔍 [Step B] RAG 통계:`, ragMetadata);
-    
+
     return {
       cards,
       tokens: actualTokens,
       latency,
-      ragMetadata
+      ragMetadata,
     };
-    
   } catch (error) {
     console.error('❌ [Step B] 실패:', error);
-    
+
     // B단계 실패 시에도 A단계 결과 유지
     console.log('🔄 [Step B] 실패 시 A단계 결과 유지');
     return {
       cards: draftCards,
       tokens: 0,
       latency: Date.now() - startTime,
-      ragMetadata: { error: 'RAG 처리 실패' }
+      ragMetadata: { error: 'RAG 처리 실패' },
     };
   }
 }
@@ -226,13 +286,25 @@ async function executeStepC(
 }> {
   const startTime = Date.now();
   console.log('🎨 [Step C] 한국어 WOW 마감 처리 시작...');
-  
+
   try {
     // Blueprint 읽기
     const stepCBlueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
-    
+
+    // 🎯 간단하고 실용적인 분류 접근
+    let practicalSolutionNote = '';
+    if (
+      userInput.toLowerCase().includes('문의') ||
+      userInput.toLowerCase().includes('메시지') ||
+      userInput.toLowerCase().includes('고객')
+    ) {
+      practicalSolutionNote = `\n\n## 💡 실용적 분류 방법:
+키워드 기반 자동 분류로 충분히 효과적인 결과를 얻을 수 있습니다.
+예: "로그인", "결제" → 기술지원 / "환불", "취소" → 고객지원`;
+    }
+
     // 프롬프트 구성
-    const systemPrompt = stepCBlueprint;
+    const systemPrompt = stepCBlueprint + practicalSolutionNote;
     const userPrompt = `원본 요청: "${userInput}"
 후속 답변: ${JSON.stringify(followupAnswers || {})}
 
@@ -242,6 +314,8 @@ ${JSON.stringify(verifiedCards, null, 2)}
 RAG 검증 정보:
 - 검색된 소스: ${ragMetadata.sourcesFound || 0}개
 - 검증된 링크: ${ragMetadata.linksVerified || 0}/${ragMetadata.linksTotal || 0}개
+- 도구 연동 확인: ${ragMetadata.toolIntegrationChecks?.total || 0}개 (지원: ${ragMetadata.toolIntegrationChecks?.supported || 0}개, 불가: ${ragMetadata.toolIntegrationChecks?.unsupported || 0}개)
+- 발견된 대안: ${ragMetadata.toolIntegrationChecks?.alternativesFound || 0}개
 
 위 정보를 바탕으로 사용자가 "와! 정말 유용하다!"라고 감탄할 만한 최종 결과물을 만드세요.
 개인화된 솔루션, 즉시 실행 가능성, 확장 비전, 창의적 대안을 모두 포함하세요.
@@ -260,17 +334,17 @@ RAG 검증 정보:
     // 토큰 추정 및 모델 선택 (C단계는 품질 우선으로 gpt-4o 사용)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
     const model = estimatedTokens > 3000 ? 'gpt-4o-2024-11-20' : 'gpt-4o-2024-11-20'; // C단계는 항상 4o
-    
+
     console.log(`📊 [Step C] 예상 토큰: ${estimatedTokens}, 모델: ${model}`);
-    
+
     const response = await openai.chat.completions.create({
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
+        { role: 'user', content: userPrompt },
       ],
       max_tokens: 2000, // C단계는 충분히 길게
-      temperature: 0.7 // 창의성과 정확성의 균형
+      temperature: 0.7, // 창의성과 정확성의 균형
     });
 
     const content = response.choices[0]?.message?.content;
@@ -282,29 +356,28 @@ RAG 검증 정보:
     const cards = parseCardsJSON(content);
     const latency = Date.now() - startTime;
     const actualTokens = response.usage?.total_tokens || estimatedTokens;
-    
+
     // WOW 메타데이터 구성
     const wowMetadata = {
       personalizationElements: countPersonalizationElements(cards, followupAnswers),
       actionableSteps: countActionableSteps(cards),
       creativityScore: calculateCreativityScore(cards),
-      koreanToneQuality: 'excellent' // 추후 자동 평가 로직 추가 가능
+      koreanToneQuality: 'excellent', // 추후 자동 평가 로직 추가 가능
     };
-    
+
     console.log(`✅ [Step C] 완료 - ${cards.length}개 카드, ${actualTokens} 토큰, ${latency}ms`);
     console.log(`🎨 [Step C] WOW 통계:`, wowMetadata);
-    
+
     return {
       cards,
       tokens: actualTokens,
       latency,
       model,
-      wowMetadata
+      wowMetadata,
     };
-    
   } catch (error) {
     console.error('❌ [Step C] 실패:', error);
-    
+
     // C단계 실패 시에도 B단계 결과 유지
     console.log('🔄 [Step C] 실패 시 B단계 결과 유지');
     return {
@@ -312,7 +385,7 @@ RAG 검증 정보:
       tokens: 0,
       latency: Date.now() - startTime,
       model: 'fallback',
-      wowMetadata: { error: 'WOW 처리 실패' }
+      wowMetadata: { error: 'WOW 처리 실패' },
     };
   }
 }
@@ -328,7 +401,7 @@ export async function generate3StepAutomation(
   metrics: OrchestratorMetrics;
 }> {
   const overallStartTime = Date.now();
-  
+
   const metrics: OrchestratorMetrics = {
     totalTokens: 0,
     totalLatencyMs: 0,
@@ -341,15 +414,15 @@ export async function generate3StepAutomation(
     costBreakdown: {
       stepA: { tokens: 0, model: '', cost: 0 },
       stepB: { tokens: 0, ragCalls: 0, cost: 0 },
-      stepC: { tokens: 0, model: '', cost: 0 }
-    }
+      stepC: { tokens: 0, model: '', cost: 0 },
+    },
   };
-  
+
   try {
     console.log('🚀 [3-Step] 자동화 생성 시작');
     console.log(`📝 [3-Step] 사용자 입력: ${userInput}`);
     console.log(`📋 [3-Step] 후속 답변: ${JSON.stringify(followupAnswers)}`);
-    
+
     // Step A: 카드 뼈대 초안
     const stepAResult = await executeStepA(userInput, followupAnswers);
     metrics.stagesCompleted.push('A-draft');
@@ -358,9 +431,9 @@ export async function generate3StepAutomation(
     metrics.costBreakdown.stepA = {
       tokens: stepAResult.tokens,
       model: stepAResult.model,
-      cost: calculateCost(stepAResult.tokens, stepAResult.model)
+      cost: calculateCost(stepAResult.tokens, stepAResult.model),
     };
-    
+
     // Step B: RAG 검증 (1초 대기 후 실행)
     await new Promise(resolve => setTimeout(resolve, 1000));
     const stepBResult = await executeStepB(stepAResult.cards, userInput);
@@ -372,15 +445,15 @@ export async function generate3StepAutomation(
     metrics.costBreakdown.stepB = {
       tokens: stepBResult.tokens,
       ragCalls: metrics.ragSearches,
-      cost: calculateCost(stepBResult.tokens, 'gpt-4o-mini') + (metrics.ragSearches * 0.001) // RAG 비용 추정
+      cost: calculateCost(stepBResult.tokens, 'gpt-4o-mini') + metrics.ragSearches * 0.001, // RAG 비용 추정
     };
-    
+
     // Step C: WOW 마감 (1초 대기 후 실행)
     await new Promise(resolve => setTimeout(resolve, 1000));
     const stepCResult = await executeStepC(
-      stepBResult.cards, 
-      userInput, 
-      followupAnswers, 
+      stepBResult.cards,
+      userInput,
+      followupAnswers,
       stepBResult.ragMetadata
     );
     metrics.stagesCompleted.push('C-wow');
@@ -389,40 +462,39 @@ export async function generate3StepAutomation(
     metrics.costBreakdown.stepC = {
       tokens: stepCResult.tokens,
       model: stepCResult.model,
-      cost: calculateCost(stepCResult.tokens, stepCResult.model)
+      cost: calculateCost(stepCResult.tokens, stepCResult.model),
     };
-    
+
     // 메트릭 완성
     metrics.totalLatencyMs = Date.now() - overallStartTime;
     metrics.success = true;
-    
+
     // 비용 계산 및 로깅
-    const totalCost = 
-      metrics.costBreakdown.stepA.cost + 
-      metrics.costBreakdown.stepB.cost + 
+    const totalCost =
+      metrics.costBreakdown.stepA.cost +
+      metrics.costBreakdown.stepB.cost +
       metrics.costBreakdown.stepC.cost;
-    
+
     console.log(`✅ [3-Step] 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.totalLatencyMs}ms`);
     console.log(`💰 [3-Step] 총 비용: $${totalCost.toFixed(4)}`);
     console.log(`🎯 [3-Step] 완료된 단계: ${metrics.stagesCompleted.join(' → ')}`);
     console.log(`🤖 [3-Step] 사용된 모델: ${Array.from(new Set(metrics.modelsUsed)).join(', ')}`);
-    
+
     return {
       cards: stepCResult.cards,
-      metrics
+      metrics,
     };
-    
   } catch (error) {
     metrics.success = false;
     metrics.errors = [error instanceof Error ? error.message : String(error)];
     metrics.totalLatencyMs = Date.now() - overallStartTime;
-    
+
     console.error('❌ [3-Step] 실패:', error);
-    
+
     // 완전 실패 시 기본 카드 반환
     return {
       cards: getFallbackCards(userInput),
-      metrics
+      metrics,
     };
   }
 }
@@ -430,13 +502,13 @@ export async function generate3StepAutomation(
 // 유틸리티 함수들
 function parseCardsJSON(content: string): any[] {
   console.log(`🔍 [Cards JSON] 파싱 시작 - 원본 길이: ${content.length}`);
-  
+
   try {
     const parsed = JSON.parse(content);
-    
+
     // 다양한 JSON 구조 지원 (강화된 버전)
     let cards: any[] = [];
-    
+
     if (parsed.cards && Array.isArray(parsed.cards)) {
       cards = parsed.cards;
       console.log(`✅ [Cards JSON] 1차 파싱 성공 (cards 구조) - ${cards.length}개 카드`);
@@ -456,42 +528,49 @@ function parseCardsJSON(content: string): any[] {
       // 최후의 수단: solution.steps를 cards로 변환 시도
       if (parsed.solution && parsed.solution.steps && Array.isArray(parsed.solution.steps)) {
         console.log(`🔄 [Cards JSON] solution.steps를 cards로 변환 시도`);
-        cards = [{
-          type: "flow",
-          title: parsed.solution.title || "자동화 가이드",
-          content: parsed.solution.description || "",
-          description: parsed.solution.description || "",
-          steps: parsed.solution.steps,
-          status: "converted"
-        }];
+        cards = [
+          {
+            type: 'flow',
+            title: parsed.solution.title || '자동화 가이드',
+            content: parsed.solution.description || '',
+            description: parsed.solution.description || '',
+            steps: parsed.solution.steps,
+            status: 'converted',
+          },
+        ];
         console.log(`✅ [Cards JSON] solution.steps 변환 성공 - ${cards.length}개 카드`);
       } else {
         console.log(`⚠️ [Cards JSON] 1차 파싱 성공하지만 cards 배열 없음`);
         console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
-        console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+        console.log(
+          `🔍 [Cards JSON] 전체 내용 (첫 500자):`,
+          JSON.stringify(parsed).substring(0, 500)
+        );
       }
     }
-    
+
     return cards;
   } catch (firstError) {
     console.log('🔄 [Cards JSON] 1차 파싱 실패, 정리 후 재시도...');
-    console.log(`🔍 [Cards JSON] 1차 에러: ${firstError instanceof Error ? firstError.message : String(firstError)}`);
-    
+    console.log(
+      `🔍 [Cards JSON] 1차 에러: ${firstError instanceof Error ? firstError.message : String(firstError)}`
+    );
+
     try {
       // 2차 시도: 강화된 마크다운 코드 블록 제거
       let cleanContent = content;
-      
+
       // 다양한 마크다운 블록 패턴 처리
       if (content.includes('```json')) {
         const jsonStart = content.indexOf('```json');
         const afterJsonTag = jsonStart + 7; // '```json' 길이
-        
+
         // 첫 번째 줄바꿈까지 건너뛰기
         let startIndex = afterJsonTag;
         if (content.charAt(startIndex) === '\n') {
           startIndex++;
         }
-        
+
         const endIndex = content.indexOf('```', afterJsonTag);
         if (endIndex !== -1) {
           cleanContent = content.substring(startIndex, endIndex).trim();
@@ -511,21 +590,23 @@ function parseCardsJSON(content: string): any[] {
           cleanContent = content.substring(actualStart, endIndex).trim();
         }
       }
-      
+
       cleanContent = cleanContent
         .replace(/[\u201C\u201D]/g, '"')
         .replace(/[\u2018\u2019]/g, "'")
         .replace(/,(\s*[}\]])/g, '$1')
         .trim();
-      
+
       console.log(`🔍 [Cards JSON] 정리 후 첫 100자: ${cleanContent.substring(0, 100)}`);
-      console.log(`🔍 [Cards JSON] 정리 후 마지막 100자: ${cleanContent.substring(cleanContent.length - 100)}`);
-      
+      console.log(
+        `🔍 [Cards JSON] 정리 후 마지막 100자: ${cleanContent.substring(cleanContent.length - 100)}`
+      );
+
       const parsed = JSON.parse(cleanContent);
-      
+
       // 2차 파싱에서도 다양한 구조 지원 (강화된 버전)
       let cards: any[] = [];
-      
+
       if (parsed.cards && Array.isArray(parsed.cards)) {
         cards = parsed.cards;
         console.log(`✅ [Cards JSON] 2차 파싱 성공 (cards 구조) - ${cards.length}개 카드`);
@@ -545,42 +626,51 @@ function parseCardsJSON(content: string): any[] {
         // 최후의 수단: solution.steps를 cards로 변환 시도
         if (parsed.solution && parsed.solution.steps && Array.isArray(parsed.solution.steps)) {
           console.log(`🔄 [Cards JSON] 2차 파싱에서 solution.steps를 cards로 변환 시도`);
-          cards = [{
-            type: "flow",
-            title: parsed.solution.title || "자동화 가이드",
-            content: parsed.solution.description || "",
-            description: parsed.solution.description || "",
-            steps: parsed.solution.steps,
-            status: "converted"
-          }];
-          console.log(`✅ [Cards JSON] 2차 파싱에서 solution.steps 변환 성공 - ${cards.length}개 카드`);
+          cards = [
+            {
+              type: 'flow',
+              title: parsed.solution.title || '자동화 가이드',
+              content: parsed.solution.description || '',
+              description: parsed.solution.description || '',
+              steps: parsed.solution.steps,
+              status: 'converted',
+            },
+          ];
+          console.log(
+            `✅ [Cards JSON] 2차 파싱에서 solution.steps 변환 성공 - ${cards.length}개 카드`
+          );
         } else {
           console.log(`⚠️ [Cards JSON] 2차 파싱 성공하지만 cards 배열 없음`);
           console.log(`🔍 [Cards JSON] JSON 구조:`, Object.keys(parsed));
-          console.log(`🔍 [Cards JSON] 전체 내용 (첫 500자):`, JSON.stringify(parsed).substring(0, 500));
+          console.log(
+            `🔍 [Cards JSON] 전체 내용 (첫 500자):`,
+            JSON.stringify(parsed).substring(0, 500)
+          );
         }
       }
-      
+
       return cards;
     } catch (secondError) {
       console.log('🔄 [Cards JSON] 2차 파싱 실패, 3차 복구 시도...');
-      console.log(`🔍 [Cards JSON] 2차 에러: ${secondError instanceof Error ? secondError.message : String(secondError)}`);
-      
+      console.log(
+        `🔍 [Cards JSON] 2차 에러: ${secondError instanceof Error ? secondError.message : String(secondError)}`
+      );
+
       try {
         // 3차 시도: JSON 복구 (Unterminated string 등의 문제 해결)
         // 다시 원본에서 시작해서 강화된 정리 수행
         let repairContent = content;
-        
+
         // 마크다운 블록 제거 (3차)
         if (content.includes('```json')) {
           const jsonStart = content.indexOf('```json');
           const afterJsonTag = jsonStart + 7;
-          
+
           let startIndex = afterJsonTag;
           if (content.charAt(startIndex) === '\n') {
             startIndex++;
           }
-          
+
           const endIndex = content.indexOf('```', afterJsonTag);
           if (endIndex !== -1) {
             repairContent = content.substring(startIndex, endIndex).trim();
@@ -598,11 +688,11 @@ function parseCardsJSON(content: string): any[] {
             repairContent = content.substring(actualStart, endIndex).trim();
           }
         }
-        
+
         // Unterminated string 문제 해결
         if (secondError instanceof Error && secondError.message.includes('Unterminated string')) {
           console.log('🔧 [Cards JSON] Unterminated string 복구 시도');
-          
+
           // 마지막 완전한 객체나 배열까지만 잘라내기
           const lastCompleteIndex = findLastCompleteJson(repairContent);
           if (lastCompleteIndex > 0) {
@@ -610,24 +700,24 @@ function parseCardsJSON(content: string): any[] {
             console.log(`🔧 [Cards JSON] JSON을 ${lastCompleteIndex}자까지 자름`);
           }
         }
-        
+
         // 기본적인 JSON 복구 시도
         repairContent = repairContent
-          .replace(/,(\s*[}\]])/g, '$1')  // trailing comma 제거
-          .replace(/\n/g, '\\n')  // 줄바꿈 처리
+          .replace(/,(\s*[}\]])/g, '$1') // trailing comma 제거
+          .replace(/\n/g, '\\n') // 줄바꿈 처리
           .trim();
-        
+
         // 마지막에 닫는 괄호들이 누락된 경우 추가
         if (!repairContent.endsWith('}') && !repairContent.endsWith(']')) {
           if (repairContent.includes('"cards":[')) {
-            repairContent += ']}'
+            repairContent += ']}';
             console.log('🔧 [Cards JSON] 누락된 ]} 추가');
           }
         }
-        
+
         const parsed = JSON.parse(repairContent);
         console.log('✅ [Cards JSON] 3차 복구 성공');
-        
+
         // 복구된 데이터에서 cards 추출
         let cards: any[] = [];
         if (parsed.cards && Array.isArray(parsed.cards)) {
@@ -635,18 +725,21 @@ function parseCardsJSON(content: string): any[] {
         } else if (Array.isArray(parsed)) {
           cards = parsed;
         }
-        
+
         console.log(`✅ [Cards JSON] 복구 완료 - ${cards.length}개 카드`);
         return cards;
-        
       } catch (thirdError) {
         console.error('❌ [Cards JSON] 3차 복구도 실패, 기본 카드 반환');
-        console.log(`🔍 [Cards JSON] 3차 에러: ${thirdError instanceof Error ? thirdError.message : String(thirdError)}`);
-        
+        console.log(
+          `🔍 [Cards JSON] 3차 에러: ${thirdError instanceof Error ? thirdError.message : String(thirdError)}`
+        );
+
         // 디버깅용 원본 내용 출력
         console.log(`🔍 [Cards JSON] 원본 첫 200자: ${content.substring(0, 200)}`);
-        console.log(`🔍 [Cards JSON] 원본 마지막 200자: ${content.substring(content.length - 200)}`);
-        
+        console.log(
+          `🔍 [Cards JSON] 원본 마지막 200자: ${content.substring(content.length - 200)}`
+        );
+
         return [];
       }
     }
@@ -661,29 +754,29 @@ function findLastCompleteJson(content: string): number {
   let inString = false;
   let escaped = false;
   let lastCompleteIndex = 0;
-  
+
   for (let i = 0; i < content.length; i++) {
     const char = content[i];
-    
+
     if (escaped) {
       escaped = false;
       continue;
     }
-    
+
     if (char === '\\') {
       escaped = true;
       continue;
     }
-    
+
     if (char === '"') {
       inString = !inString;
       continue;
     }
-    
+
     if (inString) {
       continue;
     }
-    
+
     if (char === '{' || char === '[') {
       depth++;
     } else if (char === '}' || char === ']') {
@@ -693,13 +786,13 @@ function findLastCompleteJson(content: string): number {
       }
     }
   }
-  
+
   return lastCompleteIndex;
 }
 
 function extractToolsFromCards(cards: any[]): string[] {
   const tools = new Set<string>();
-  
+
   cards.forEach(card => {
     if (card.type === 'flow' && card.steps) {
       card.steps.forEach((step: any) => {
@@ -708,14 +801,14 @@ function extractToolsFromCards(cards: any[]): string[] {
       });
     }
   });
-  
+
   return Array.from(tools);
 }
 
 function extractURLsFromCards(cards: any[]): string[] {
   const urls = new Set<string>();
   const urlRegex = /https?:\/\/[^\s\)]+/g;
-  
+
   const searchInObject = (obj: any) => {
     if (typeof obj === 'string') {
       const matches = obj.match(urlRegex);
@@ -724,7 +817,7 @@ function extractURLsFromCards(cards: any[]): string[] {
       Object.values(obj).forEach(searchInObject);
     }
   };
-  
+
   cards.forEach(searchInObject);
   return Array.from(urls);
 }
@@ -733,9 +826,9 @@ function calculateCost(tokens: number, model: string): number {
   const costs = {
     'gpt-4o-mini': 0.00015,
     'gpt-4o-2024-11-20': 0.0025,
-    'gpt-4o': 0.0025
+    'gpt-4o': 0.0025,
   };
-  
+
   return tokens * (costs[model as keyof typeof costs] || 0.0025);
 }
 
@@ -744,20 +837,20 @@ function countPersonalizationElements(cards: any[], followupAnswers: any): numbe
   let count = 0;
   const answersStr = JSON.stringify(followupAnswers).toLowerCase();
   const cardsStr = JSON.stringify(cards).toLowerCase();
-  
+
   Object.keys(followupAnswers || {}).forEach(key => {
     if (cardsStr.includes(followupAnswers[key]?.toLowerCase?.())) {
       count++;
     }
   });
-  
+
   return count;
 }
 
 function countActionableSteps(cards: any[]): number {
   // 실행 가능한 단계 개수 계산
   let count = 0;
-  
+
   cards.forEach(card => {
     if (card.type === 'flow' && card.steps) {
       count += card.steps.length;
@@ -766,21 +859,21 @@ function countActionableSteps(cards: any[]): number {
       count += card.content.detailedSteps.length;
     }
   });
-  
+
   return count;
 }
 
 function calculateCreativityScore(cards: any[]): number {
   // 창의성 점수 계산 (기본 구현)
   let score = 0;
-  
+
   cards.forEach(card => {
     if (card.type === 'expansion') score += 2;
     if (card.title?.includes('🚀') || card.title?.includes('💡')) score += 1;
     if (card.content && typeof card.content === 'object') score += 1;
   });
-  
-  return Math.min(score / cards.length * 10, 10); // 0-10 점수
+
+  return Math.min((score / cards.length) * 10, 10); // 0-10 점수
 }
 
 function getFallbackCards(userInput: string): any[] {
@@ -791,7 +884,7 @@ function getFallbackCards(userInput: string): any[] {
       surfaceRequest: userInput,
       realNeed: '사용자 요청에 대한 기본적인 자동화 솔루션',
       recommendedLevel: '반자동',
-      status: 'fallback'
+      status: 'fallback',
     },
     {
       type: 'flow',
@@ -801,20 +894,20 @@ function getFallbackCards(userInput: string): any[] {
         {
           id: '1',
           title: '첫 번째 단계',
-          subtitle: '기본 설정'
+          subtitle: '기본 설정',
         },
         {
           id: '2',
           title: '두 번째 단계',
-          subtitle: '실행'
+          subtitle: '실행',
         },
         {
           id: '3',
           title: '세 번째 단계',
-          subtitle: '완료'
-        }
+          subtitle: '완료',
+        },
       ],
-      status: 'fallback'
-    }
+      status: 'fallback',
+    },
   ];
 }
