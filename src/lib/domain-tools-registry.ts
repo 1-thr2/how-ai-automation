@@ -63,6 +63,28 @@ export const DOMAIN_TOOLS: DomainToolRegistry = {
         setupTime: '45분',
         description: '구글 생태계 완전 무료 데이터 수집',
         bestFor: ['구글광고', '애널리틱스', '시트통합']
+      },
+      {
+        name: 'Google Alerts',
+        category: 'free',
+        difficulty: 'easy',
+        apiSupport: false,
+        webhookSupport: false,
+        pricing: '완전 무료',
+        setupTime: '5분',
+        description: '브랜드 언급 무료 모니터링 서비스',
+        bestFor: ['브랜드모니터링', 'sns언급감지', '뉴스모니터링', '무료감지']
+      },
+      {
+        name: 'Mention.com',
+        category: 'freemium',
+        difficulty: 'easy',
+        apiSupport: true,
+        webhookSupport: true,
+        pricing: '무료 2개 키워드, $29/월~',
+        setupTime: '10분',
+        description: 'SNS/웹 브랜드 언급 전문 모니터링',
+        bestFor: ['브랜드모니터링', 'sns감지', '소셜리스닝', '경쟁사분석']
       }
     ],
     automation: [
@@ -504,8 +526,12 @@ export function detectDomain(userInput: string, followupAnswers?: any): string {
   const answers = JSON.stringify(followupAnswers || {}).toLowerCase();
   const content = `${input} ${answers}`;
 
-  // 광고/마케팅 키워드
-  const adKeywords = ['광고', '마케팅', '캠페인', 'roas', 'ctr', 'cpc', '페이스북', '구글광고', '네이버광고', '성과', '전환율'];
+  // 광고/마케팅 키워드 (SNS 모니터링 포함)
+  const adKeywords = [
+    '광고', '마케팅', '캠페인', 'roas', 'ctr', 'cpc', '페이스북', '구글광고', '네이버광고', '성과', '전환율',
+    'sns', '소셜미디어', '브랜드', '언급', '모니터링', '인스타그램', '네이버 블로그', '트위터', '유튜브', 
+    '홍보', 'pr', '브랜딩', '소셜마케팅', '바이럴', '인플루언서'
+  ];
   if (adKeywords.some(keyword => content.includes(keyword))) {
     return 'advertising';
   }
