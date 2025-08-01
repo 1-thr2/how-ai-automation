@@ -19,7 +19,7 @@ interface FlowDiagramSectionProps {
 const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepClick, cards = [], engine, flowMap, fallback, flowTitle, flowSubtitle }) => {
   const [activeSteps, setActiveSteps] = useState<number[]>([]);
   const [selectedStep, setSelectedStep] = useState<FlowStep | null>(null);
-  const [activeTab, setActiveTab] = useState<'guide' | 'faq' | 'troubleshoot'>('guide');
+
 
   useEffect(() => {
     // 단계별로 순차적으로 애니메이션 적용
@@ -32,7 +32,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
 
   const handleStepClick = (step: FlowStep) => {
     setSelectedStep(step);
-    setActiveTab('guide');
+
     onStepClick?.(step);
   };
 
@@ -288,25 +288,14 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
               </div>
             </div>
 
-            {/* 탭 네비게이션 */}
-            <div className={styles['modal-tabs']}>
-              <button 
-                className={`${styles['tab-btn']} ${activeTab === 'guide' ? styles['tab-active'] : ''}`}
-                onClick={() => setActiveTab('guide')}
-              >
-                📋 실행 가이드
-              </button>
-              <button 
-                className={`${styles['tab-btn']} ${activeTab === 'faq' ? styles['tab-active'] : ''}`}
-                onClick={() => setActiveTab('faq')}
-              >
-                ❓ 자주 묻는 질문
-              </button>
+            {/* 모달 제목만 표시 - 탭 제거 */}
+            <div className={styles['modal-header-only']}>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">📋 상세 가이드</h4>
             </div>
 
             {/* 깔끔한 가이드 섹션 */}
             <div className={styles['clean-modal-body']}>
-              {activeTab === 'guide' && stepData?.guide && (
+              {stepData?.guide ? (
                 <>
                   {/* 헤더 */}
                   <div className={styles['clean-header']}>
@@ -481,42 +470,47 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
                     </div>
                   )}
                 </>
-              )}
-
-              {/* FAQ 탭 섹션 */}
-              {activeTab === 'faq' && (
-                <div className={styles['faq-section']}>
-                  {(() => {
-                    const faqCard = cards.find((card: any) => card.type === 'faq');
-                    if (!faqCard) {
-                      return (
-                        <div className={styles['no-faq']}>
-                          <p>❓ 자주 묻는 질문이 아직 준비되지 않았습니다.</p>
+              ) : (
+                // stepData가 없는 경우 대체 콘텐츠 표시
+                <div className={styles['clean-fallback']}>
+                  <div className={styles['clean-header']}>
+                    <span className={styles['clean-icon']}>📋</span>
+                    <h3>{selectedStep?.title || '단계별 가이드'}</h3>
+                  </div>
+                  
+                  <div className={styles['clean-content']}>
+                    <p className={styles['clean-description']}>
+                      {selectedStep?.description || '이 단계에 대한 상세 가이드를 준비 중입니다.'}
+                    </p>
+                    
+                    <div className={styles['clean-steps']}>
+                      <h4>📝 기본 실행 단계:</h4>
+                      <div className={styles['clean-step']}>
+                        <span className={styles['clean-step-number']}>1</span>
+                        <div className={styles['clean-step-content']}>
+                          <h5>시작하기</h5>
+                          <p>해당 도구나 플랫폼에 접속합니다.</p>
                         </div>
-                      );
-                    }
-                    
-                    const faqs = faqCard.faqs || faqCard.questions || faqCard.items || [];
-                    
-                    return (
-                      <div className={styles['faq-list']}>
-                        {faqs.map((faq: any, index: number) => (
-                          <div key={index} className={styles['faq-item']}>
-                            <div className={styles['faq-question']}>
-                              <span className={styles['faq-icon']}>❓</span>
-                              Q. {faq.question || faq.q || '질문이 없습니다.'}
-                            </div>
-                            <div className={styles['faq-answer']}>
-                              <span className={styles['faq-icon']}>💡</span>
-                              A. {faq.answer || faq.a || '답변이 없습니다.'}
-                            </div>
-                          </div>
-                        ))}
                       </div>
-                    );
-                  })()}
+                      <div className={styles['clean-step']}>
+                        <span className={styles['clean-step-number']}>2</span>
+                        <div className={styles['clean-step-content']}>
+                          <h5>설정하기</h5>
+                          <p>필요한 설정을 진행합니다.</p>
+                        </div>
+                      </div>
+                      <div className={styles['clean-step']}>
+                        <span className={styles['clean-step-number']}>3</span>
+                        <div className={styles['clean-step-content']}>
+                          <h5>완료하기</h5>
+                          <p>설정을 저장하고 테스트합니다.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
+
             </div>
           </div>
         </div>

@@ -170,7 +170,7 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
     const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
     
     // 1순위: flow 카드의 제목 사용
-    if (flowCard?.title) {
+    if (flowCard?.title && flowCard.title !== '자동화 플로우' && flowCard.title !== '🚀 자동화 플로우') {
       return flowCard.title;
     }
     

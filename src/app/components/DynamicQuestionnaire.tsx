@@ -17,6 +17,12 @@ export interface DynamicQuestion {
   category: 'environment' | 'data' | 'goal';
   importance: 'high' | 'medium';
   description: string;
+  inputTriggers?: {
+    [optionText: string]: {
+      requiresInput: boolean;
+      inputPlaceholder?: string;
+    };
+  };
 }
 
 interface Props {
@@ -278,7 +284,8 @@ export default function DynamicQuestionnaire({ userInput, onSubmit }: Props) {
                         onClick={() => handleAnswer(option)}
                         className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-200 ${
                           (currentAnswer === option || 
-                           (option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')))
+                           (option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')) ||
+                           (currentQuestion.inputTriggers?.[option] && typeof currentAnswer === 'string' && currentAnswer.startsWith(`${option}:`)))
                             ? `border-blue-500 bg-blue-50 text-blue-700`
                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                         }`}
@@ -286,7 +293,8 @@ export default function DynamicQuestionnaire({ userInput, onSubmit }: Props) {
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{option}</span>
                           {(currentAnswer === option || 
-                            (option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:'))) && (
+                            (option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')) ||
+                            (currentQuestion.inputTriggers?.[option] && typeof currentAnswer === 'string' && currentAnswer.startsWith(`${option}:`))) && (
                             <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                               <div className="w-2 h-2 bg-white rounded-full"></div>
                             </div>
@@ -295,10 +303,11 @@ export default function DynamicQuestionnaire({ userInput, onSubmit }: Props) {
                       </motion.button>
 
                       {/* 바로 이 옵션 아래에 직접입력 칸 표시 */}
-                      {option === '기타 (직접입력)' && (
+                      {((option === '기타 (직접입력)' && (
                         currentAnswer === '기타 (직접입력)' || 
                         (typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:'))
-                      ) && (
+                      )) || 
+                      (currentQuestion.inputTriggers?.[option]?.requiresInput && currentAnswer === option)) && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -307,19 +316,32 @@ export default function DynamicQuestionnaire({ userInput, onSubmit }: Props) {
                         >
                           <input
                             type="text"
-                            placeholder="직접 입력해주세요..."
+                            placeholder={
+                              currentQuestion.inputTriggers?.[option]?.inputPlaceholder || 
+                              (option === '기타 (직접입력)' ? "직접 입력해주세요..." : "입력해주세요...")
+                            }
                             defaultValue={
-                              typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:') 
+                              option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:') 
                                 ? currentAnswer.replace('기타:', '') 
-                                : ''
+                                : (currentQuestion.inputTriggers?.[option] && typeof currentAnswer === 'string' && currentAnswer.includes(':'))
+                                  ? currentAnswer.split(':')[1] || ''
+                                  : ''
                             }
                             className="w-full p-3 border-2 border-blue-300 rounded-xl focus:border-blue-500 focus:outline-none"
                             onChange={(e) => {
                               const customValue = e.target.value.trim();
-                              if (customValue) {
-                                handleAnswer(`기타:${customValue}`);
-                              } else {
-                                handleAnswer('기타 (직접입력)');
+                              if (option === '기타 (직접입력)') {
+                                if (customValue) {
+                                  handleAnswer(`기타:${customValue}`);
+                                } else {
+                                  handleAnswer('기타 (직접입력)');
+                                }
+                              } else if (currentQuestion.inputTriggers?.[option]) {
+                                if (customValue) {
+                                  handleAnswer(`${option}:${customValue}`);
+                                } else {
+                                  handleAnswer(option);
+                                }
                               }
                             }}
                           />

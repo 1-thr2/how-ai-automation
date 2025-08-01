@@ -107,6 +107,28 @@ export const FOLLOWUP_DRAFT = `# Draft 단계: 사용자 특화 후속질문 초
 - "기타 (직접입력)" 옵션  
 - "잘모름 (AI가 추천)" 옵션
 
+예시 구조:
+{
+  "key": "channel_name",
+  "question": "슬랙에서 보고서를 보낼 채널 이름은 무엇인가요?",
+  "type": "single",
+  "options": ["#general", "#marketing", "#reports", "네, 채널이름이 무엇인가요?", "기타 (직접입력)", "잘모름 (AI가 추천)"],
+  "inputTriggers": {
+    "네, 채널이름이 무엇인가요?": {
+      "requiresInput": true,
+      "inputPlaceholder": "채널명을 입력해주세요 (예: #data-reports)"
+    },
+    "기타 (직접입력)": {
+      "requiresInput": true,
+      "inputPlaceholder": "구체적으로 어떤 상황인가요?"
+    },
+    "잘모름 (AI가 추천)": {
+      "requiresInput": true,
+      "inputPlaceholder": "현재 상황을 간단히 설명해주세요"
+    }
+  }
+}
+
 각 트리거는 requiresInput: true와 적절한 inputPlaceholder를 포함해야 합니다.
 
 ### ⚡ 핵심 원칙:
@@ -167,7 +189,29 @@ Draft 질문들을 실제 업무에서 바로 적용 가능한 구체적이고 �
 - question: 개선된 실무 중심 질문  
 - type: "single" 또는 "multiple"
 - options: 선택지 배열 (마지막에 "기타 (직접입력)", "잘모름 (AI가 추천)" 포함)
-- 입력트리거: 입력창이 필요한 옵션들에 대한 설정
+- inputTriggers: 입력창이 필요한 옵션들에 대한 설정
+
+예시:
+{
+  "key": "slack_webhook_url",
+  "question": "슬랙 웹훅 URL을 이미 설정하신 상태인가요?",
+  "type": "single",
+  "options": ["설정 완료", "URL 있음 (입력 필요)", "설정 방법 모름", "기타 (직접입력)", "잘모름 (AI가 추천)"],
+  "inputTriggers": {
+    "URL 있음 (입력 필요)": {
+      "requiresInput": true,
+      "inputPlaceholder": "웹훅 URL을 입력해주세요 (https://hooks.slack.com/...)"
+    },
+    "기타 (직접입력)": {
+      "requiresInput": true,
+      "inputPlaceholder": "구체적인 상황을 설명해주세요"
+    },
+    "잘모름 (AI가 추천)": {
+      "requiresInput": true,
+      "inputPlaceholder": "현재 상황을 간단히 설명해주세요"
+    }
+  }
+}
 
 ## 출력 형식 (필수):
 응답 형식: 반드시 유효한 JSON 배열로만 응답하세요. 마크다운 블록이나 다른 텍스트는 절대 포함하지 마세요.
@@ -435,10 +479,22 @@ export const ORCHESTRATOR_STEP_C = `# Step C: 초보자도 5분만에 따라할 
 ## 🚨 절대 준수사항
 
 ### ✅ 반드시 생성해야 할 카드들:
-1. **1개 flow 카드**: 전체 개요
+1. **1개 flow 카드**: 전체 개요 (🚨 개인화된 제목 필수!)
 2. **3-4개 guide 카드**: 각 메인 단계별 상세 가이드 (stepId: "1", "2", "3", "4")
 3. **1개 faq 카드**: 사용자 입력에 특화된 실제 질문들 (목데이터 절대 금지!)
 4. **1개 expansion 카드**: 구체적인 확장 아이디어들
+
+### 🎯 flow 카드 제목 생성 규칙 (매우 중요!):
+**❌ 금지**: "자동화 플로우", "워크플로우", "자동화 가이드" 같은 일반적 제목
+**✅ 필수**: 사용자 요청에 특화된 구체적 제목
+
+**올바른 제목 예시들**:
+- "원티드 지원서 → 스프레드시트 → 슬랙 분석 자동화"
+- "구글시트 데이터 실시간 시각화 대시보드" 
+- "이메일 첨부파일 자동 분류 및 저장"
+- "잡코리아 채용공고 자동 수집 및 분석"
+
+flow 카드의 title은 반드시 사용자의 실제 니즈를 반영한 맞춤형 제목이어야 합니다!
 
 ### ❌ 절대 금지사항:
 - 목데이터나 샘플 내용 사용 금지
