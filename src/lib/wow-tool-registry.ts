@@ -35,22 +35,74 @@ export const WOW_TOOL_REGISTRY: WowTool[] = [
   {
     name: 'Google Apps Script',
     type: 'workflow',
-    wowScore: 9,
-    bestFor: ['구글', '무료', '워크스페이스', '시트', '드라이브', 'gmail', '자동화'],
-    description: '구글 생태계 완전 무료 자동화',
-    how: '스크립트 에디터 → 코드 작성 → 트리거 설정 → 실행',
+    wowScore: 10,
+    bestFor: ['구글', '무료', '워크스페이스', '시트', '드라이브', 'gmail', '자동화', '스크립트'],
+    description: '구글 생태계 완전 무료 자동화 - 무제한 실행',
+    how: 'script.google.com → 새 프로젝트 → 코드 붙여넣기 → 저장 → 실행',
     url: 'https://script.google.com',
     pricing: '완전 무료',
     koreanSupport: true,
     difficulty: 'medium',
-    setupTime: '30분',
+    setupTime: '15분',
   },
   {
-    name: 'Zapier 무료 플랜',
+    name: 'IFTTT',
+    type: 'workflow',
+    wowScore: 9,
+    bestFor: ['간단한', '무료', '트리거', '액션', '자동화', 'iot', '웹훅', '소셜미디어'],
+    description: 'If This Then That - 가장 쉬운 자동화 도구',
+    how: '앱릿 생성 → 트리거 선택 → 액션 설정 → 활성화',
+    url: 'https://ifttt.com',
+    pricing: '무료 5개, 유료 $2/월',
+    koreanSupport: true,
+    difficulty: 'easy',
+    setupTime: '5분',
+  },
+  {
+    name: 'Pipedream',
+    type: 'workflow',
+    wowScore: 9,
+    bestFor: ['개발자', '무료', 'api', '웹훅', '코딩', '실시간', '고급자동화'],
+    description: '개발자 친화적 무료 자동화 플랫폼',
+    how: '워크플로우 생성 → 트리거 → 코드/액션 → 배포',
+    url: 'https://pipedream.com',
+    pricing: '무료 100,000회/월',
+    koreanSupport: false,
+    difficulty: 'medium',
+    setupTime: '20분',
+  },
+  {
+    name: 'Slack Workflow Builder',
     type: 'workflow',
     wowScore: 8,
-    bestFor: ['자동화', '연동', '간단한', '미국', '앱연동', '트리거', '액션'],
-    description: '앱 간 자동화 연결 (무료 100회/월)',
+    bestFor: ['슬랙', '팀', '무료', '간단한', '내장', '승인', '알림'],
+    description: '슬랙에 내장된 무료 워크플로우 도구',
+    how: '슬랙 → 도구 → 워크플로우 빌더 → 트리거 → 단계 → 게시',
+    url: 'https://slack.com/features/workflow-automation',
+    pricing: '슬랙 플랜에 포함',
+    koreanSupport: true,
+    difficulty: 'easy',
+    setupTime: '10분',
+  },
+  {
+    name: 'Microsoft Power Automate',
+    type: 'workflow',
+    wowScore: 8,
+    bestFor: ['마이크로소프트', '오피스', '팀즈', '무료', '엑셀', '아웃룩'],
+    description: '마이크로소프트 생태계 자동화',
+    how: 'flow.microsoft.com → 템플릿 선택 → 연결 → 테스트',
+    url: 'https://flow.microsoft.com',
+    pricing: '오피스365 포함, 무료 플랜',
+    koreanSupport: true,
+    difficulty: 'medium',
+    setupTime: '15분',
+  },
+  {
+    name: 'Zapier',
+    type: 'workflow',
+    wowScore: 7,
+    bestFor: ['자동화', '연동', '앱연동', '트리거', '액션', '비즈니스'],
+    description: '앱 간 자동화 연결 (유료)',
     how: 'Zap 생성 → 트리거 앱 → 액션 앱 → 테스트',
     url: 'https://zapier.com',
     pricing: '무료 100회/월, 유료 $20/월',
@@ -360,6 +412,11 @@ export function selectOptimalTool(userInput: string, followupAnswers?: any): Wow
       score = totalMatchCount * tool.wowScore;
     }
 
+    // 🆓 무료 도구 우선 보너스 (가장 높은 가중치)
+    if (tool.pricing.includes('무료') || tool.pricing.includes('완전 무료') || tool.pricing.includes('포함')) {
+      score += 5; // 무료 도구 대폭 우선
+    }
+
     // 한국어 지원 보너스
     if (tool.koreanSupport) score += 1;
 
@@ -382,9 +439,9 @@ export function selectOptimalTool(userInput: string, followupAnswers?: any): Wow
     .filter(item => item.score > 0) // 매칭된 것만
     .sort((a, b) => b.score - a.score)[0];
 
-  // 매칭된 툴이 없으면 기본값 (Make.com)
+  // 매칭된 툴이 없으면 기본값 (Google Apps Script - 무료 우선)
   if (!bestMatch) {
-    return tools.find(tool => tool.name === 'Make.com')!;
+    return tools.find(tool => tool.name === 'Google Apps Script')!;
   }
 
   return bestMatch.tool;

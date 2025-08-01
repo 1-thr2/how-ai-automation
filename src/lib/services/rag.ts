@@ -112,95 +112,131 @@ export async function checkToolIntegration(
   platformName: string = 'Zapier'
 ): Promise<ToolIntegrationStatus> {
   try {
-    console.log(`🔍 [도구연동] 확인 시작: ${toolName} ↔ ${platformName}`);
+    console.log(`🔍 [도구연동] 확인 시작: ${toolName}`);
 
-    // 1차: 공식 연동 가능성 검색
-    const integrationQuery = `${toolName} ${platformName} integration official support`;
-    const integrationResults = await searchWithRAG(integrationQuery, { maxResults: 3 });
+    // 🆓 간편 도구부터 우선 검색
+    const easyToolsQuery = `${toolName} automation IFTTT "Google Apps Script" Pipedream free tools`;
+    const easyToolsResults = await searchWithRAG(easyToolsQuery, { maxResults: 3 });
 
-    // 2차: 문제점 및 제한사항 검색
-    const limitationQuery = `${toolName} ${platformName} integration problems limitations`;
-    const limitationResults = await searchWithRAG(limitationQuery, { maxResults: 2 });
+    // 🔧 No-code 플랫폼 검색  
+    const noCodeQuery = `${toolName} Zapier Make "Microsoft Power Automate" no-code integration`;
+    const noCodeResults = await searchWithRAG(noCodeQuery, { maxResults: 2 });
+
+    // 🔍 API/고급 도구 검색
+    const advancedQuery = `${toolName} API direct integration webhook custom script`;
+    const advancedResults = await searchWithRAG(advancedQuery, { maxResults: 2 });
 
     // 결과 분석
-    const allContent = [...integrationResults, ...limitationResults]
+    const allContent = [...easyToolsResults, ...noCodeResults, ...advancedResults]
       .map(r => `${r.title} ${r.content}`)
       .join(' ')
       .toLowerCase();
 
-    // 지원 여부 판단 키워드
-    const supportKeywords = ['official', 'supported', 'integration', 'connector', 'available'];
-    const unsupportKeywords = [
-      'not supported',
-      'not available',
-      'discontinued',
-      'deprecated',
-      'limited',
-      'unofficial',
-    ];
+    // 🎯 다양한 도구 옵션 분석
+    const easyOptions = ['ifttt', 'google apps script', 'pipedream', 'slack workflow'];
+    const noCodeOptions = ['zapier', 'make', 'power automate', 'integromat'];
+    const advancedOptions = ['api', 'webhook', 'script', 'custom'];
 
-    const supportScore = supportKeywords.reduce((score, keyword) => {
-      return score + (allContent.includes(keyword) ? 1 : 0);
-    }, 0);
+    const foundEasyTools = easyOptions.filter(tool => allContent.includes(tool));
+    const foundNoCodeTools = noCodeOptions.filter(tool => allContent.includes(tool));
+    const foundAdvancedTools = advancedOptions.filter(tool => allContent.includes(tool));
 
-    const unsupportScore = unsupportKeywords.reduce((score, keyword) => {
-      return score + (allContent.includes(keyword) ? 2 : 0); // 부정 키워드에 더 높은 가중치
-    }, 0);
-
-    const isSupported = supportScore > unsupportScore && integrationResults.length > 0;
-    const confidence = Math.min(Math.max((supportScore - unsupportScore) / 10, 0), 1);
+    // 지원 여부는 어떤 옵션이라도 있으면 true
+    const isSupported = foundEasyTools.length > 0 || foundNoCodeTools.length > 0 || foundAdvancedTools.length > 0;
+    const confidence = Math.min((foundEasyTools.length + foundNoCodeTools.length + foundAdvancedTools.length) / 5, 1);
 
     let result: ToolIntegrationStatus = {
       isSupported,
       toolName,
       confidence,
       reason: isSupported
-        ? `${platformName}에서 ${toolName} 공식 연동이 지원됩니다.`
-        : `${toolName}은 ${platformName}과 직접 연동이 제한적이거나 지원되지 않습니다.`,
+        ? `${toolName} 자동화를 위한 다양한 도구 옵션이 있습니다.`
+        : `${toolName} 자동화는 제한적이지만 대안 도구를 검토해보겠습니다.`,
     };
 
-    // 공식 URL 추가
-    if (isSupported && integrationResults.length > 0) {
-      result.officialUrl = integrationResults[0].url;
+    // 공식 URL 추가 (가장 높은 점수의 결과에서)
+    const allResults = [...easyToolsResults, ...noCodeResults, ...advancedResults];
+    if (isSupported && allResults.length > 0) {
+      const bestResult = allResults.sort((a, b) => b.score - a.score)[0];
+      result.officialUrl = bestResult.url;
     }
 
-    // 연동이 불가능한 경우, 💰 무료/저렴한 대안 우선 검색
-    if (!isSupported) {
-      console.log(`🔄 [도구연동] 무료/저렴한 대안 검색 중: ${toolName}`);
+    // 더 나은 대안 검색 (지원되지 않는 경우든 상관없이 다양한 옵션 제공)
+    console.log(`🔄 [도구연동] 다양한 자동화 대안 검색 중: ${toolName}`);
 
-      const alternativeQueries = [
-        `free alternative to ${toolName} ${platformName} integration low cost`,
-        `${toolName} automation free Pipedream Make.com Google Apps Script`,
-        `connect ${toolName} webhook API automation free`,
-        `${toolName} integration free third party tools no cost`,
-      ];
+    const alternativeQueries = [
+      `${toolName} "Google Apps Script" automation free tutorial guide`,
+      `${toolName} IFTTT Pipedream free integration webhook`,
+      `${toolName} "Slack Workflow Builder" "Microsoft Power Automate" free`,
+      `${toolName} open source free automation tools RPA`,
+    ];
 
       const alternativeResults = await Promise.all(
         alternativeQueries.map(query => searchWithRAG(query, { maxResults: 2 }))
       );
 
-      // 대안 도구 추출 및 구조화
-      const alternatives = alternativeResults
-        .flat()
-        .slice(0, 4) // 최대 4개 대안
-        .map((result, index) => {
-          // 대안 도구명 추출 로직
-          let altName = 'API 기반 연동';
-          if (result.title.toLowerCase().includes('pipedream')) altName = 'Pipedream';
-          else if (result.title.toLowerCase().includes('make')) altName = 'Make.com';
-          else if (result.title.toLowerCase().includes('webhook')) altName = 'Webhook 연동';
-          else if (result.title.toLowerCase().includes('zapier')) altName = 'Zapier 우회 방법';
+    // 🎯 우선순위 기반 대안 도구 구조화
+    const alternatives = alternativeResults
+      .flat()
+      .slice(0, 5) // 최대 5개 대안
+      .map((result, index) => {
+        // 🆓 무료 도구 우선 추출
+        let altName = 'Custom Script/API';
+        let pricing = '개발 시간 필요';
+        let difficulty: 'easy' | 'medium' | 'advanced' = 'advanced';
+        
+        const content = (result.title + ' ' + result.content).toLowerCase();
+        
+        if (content.includes('google apps script') || content.includes('google script')) {
+          altName = 'Google Apps Script';
+          pricing = '완전 무료';
+          difficulty = 'medium';
+        } else if (content.includes('ifttt')) {
+          altName = 'IFTTT';
+          pricing = '무료 (제한적)';
+          difficulty = 'easy';
+        } else if (content.includes('pipedream')) {
+          altName = 'Pipedream';
+          pricing = '무료 플랜 있음';
+          difficulty = 'easy';
+        } else if (content.includes('slack workflow')) {
+          altName = 'Slack Workflow Builder';
+          pricing = '슬랙 플랜에 포함';
+          difficulty = 'easy';
+        } else if (content.includes('power automate')) {
+          altName = 'Microsoft Power Automate';
+          pricing = '오피스365 포함';
+          difficulty = 'medium';
+        } else if (content.includes('zapier')) {
+          altName = 'Zapier';
+          pricing = '유료 ($20/월~)';
+          difficulty = 'easy';
+        } else if (content.includes('make') || content.includes('integromat')) {
+          altName = 'Make.com';
+          pricing = '유료 ($9/월~)';
+          difficulty = 'medium';
+        }
 
-          const difficulty = index < 2 ? 'easy' : index < 3 ? 'medium' : 'advanced';
-
-          return {
-            name: altName,
-            url: result.url,
-            description: result.content.substring(0, 120) + '...',
-            difficulty: difficulty as 'easy' | 'medium' | 'advanced',
-            pricing: extractPricingFromContent(result.content),
-          };
-        });
+        return {
+          name: altName,
+          url: result.url,
+          description: result.content.substring(0, 100) + '...',
+          difficulty,
+          pricing,
+        };
+      })
+      .sort((a, b) => {
+        // 🆓 무료 도구 우선 정렬
+        const freeKeywords = ['무료', '완전 무료', '포함'];
+        const aIsFree = freeKeywords.some(keyword => a.pricing.includes(keyword));
+        const bIsFree = freeKeywords.some(keyword => b.pricing.includes(keyword));
+        if (aIsFree && !bIsFree) return -1;
+        if (!aIsFree && bIsFree) return 1;
+        
+        // 난이도 순 정렬 (easy > medium > advanced)
+        const difficultyOrder = { easy: 0, medium: 1, advanced: 2 };
+        return difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty];
+      });
 
       result.alternatives = alternatives;
       console.log(`✅ [도구연동] 대안 ${alternatives.length}개 발견`);
