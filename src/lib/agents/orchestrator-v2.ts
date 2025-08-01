@@ -247,7 +247,15 @@ RAG 검증 정보:
 개인화된 솔루션, 즉시 실행 가능성, 확장 비전, 창의적 대안을 모두 포함하세요.
 한국어 톤앤매너로 친근하고 확신에 찬 표현을 사용하세요.
 
-중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
+🚨 절대 준수사항:
+1. 반드시 {"cards": [...]} 형식의 JSON으로만 응답
+2. 마크다운 블록 절대 사용 금지
+3. 다른 설명이나 텍스트 포함 금지
+4. JSON 내부 문자열에서 줄바꿈은 \\n으로 처리
+5. 큰따옴표는 \\"로 escape 처리
+
+올바른 형식: {"cards": [...]}
+잘못된 형식: 마크다운 코드블록 사용`;
 
     // 토큰 추정 및 모델 선택 (C단계는 품질 우선으로 gpt-4o 사용)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
@@ -555,16 +563,138 @@ function parseCardsJSON(content: string): any[] {
       
       return cards;
     } catch (secondError) {
-      console.error('❌ [Cards JSON] 2차 파싱도 실패, 기본 카드 반환');
+      console.log('🔄 [Cards JSON] 2차 파싱 실패, 3차 복구 시도...');
       console.log(`🔍 [Cards JSON] 2차 에러: ${secondError instanceof Error ? secondError.message : String(secondError)}`);
       
-      // 디버깅용 원본 내용 출력
-      console.log(`🔍 [Cards JSON] 원본 첫 200자: ${content.substring(0, 200)}`);
-      console.log(`🔍 [Cards JSON] 원본 마지막 200자: ${content.substring(content.length - 200)}`);
-      
-      return [];
+      try {
+        // 3차 시도: JSON 복구 (Unterminated string 등의 문제 해결)
+        // 다시 원본에서 시작해서 강화된 정리 수행
+        let repairContent = content;
+        
+        // 마크다운 블록 제거 (3차)
+        if (content.includes('```json')) {
+          const jsonStart = content.indexOf('```json');
+          const afterJsonTag = jsonStart + 7;
+          
+          let startIndex = afterJsonTag;
+          if (content.charAt(startIndex) === '\n') {
+            startIndex++;
+          }
+          
+          const endIndex = content.indexOf('```', afterJsonTag);
+          if (endIndex !== -1) {
+            repairContent = content.substring(startIndex, endIndex).trim();
+          } else {
+            repairContent = content.substring(startIndex).trim();
+          }
+        } else if (content.includes('```')) {
+          const startIndex = content.indexOf('```') + 3;
+          let actualStart = startIndex;
+          if (content.charAt(actualStart) === '\n') {
+            actualStart++;
+          }
+          const endIndex = content.indexOf('```', startIndex);
+          if (endIndex !== -1) {
+            repairContent = content.substring(actualStart, endIndex).trim();
+          }
+        }
+        
+        // Unterminated string 문제 해결
+        if (secondError instanceof Error && secondError.message.includes('Unterminated string')) {
+          console.log('🔧 [Cards JSON] Unterminated string 복구 시도');
+          
+          // 마지막 완전한 객체나 배열까지만 잘라내기
+          const lastCompleteIndex = findLastCompleteJson(repairContent);
+          if (lastCompleteIndex > 0) {
+            repairContent = repairContent.substring(0, lastCompleteIndex);
+            console.log(`🔧 [Cards JSON] JSON을 ${lastCompleteIndex}자까지 자름`);
+          }
+        }
+        
+        // 기본적인 JSON 복구 시도
+        repairContent = repairContent
+          .replace(/,(\s*[}\]])/g, '$1')  // trailing comma 제거
+          .replace(/\n/g, '\\n')  // 줄바꿈 처리
+          .trim();
+        
+        // 마지막에 닫는 괄호들이 누락된 경우 추가
+        if (!repairContent.endsWith('}') && !repairContent.endsWith(']')) {
+          if (repairContent.includes('"cards":[')) {
+            repairContent += ']}'
+            console.log('🔧 [Cards JSON] 누락된 ]} 추가');
+          }
+        }
+        
+        const parsed = JSON.parse(repairContent);
+        console.log('✅ [Cards JSON] 3차 복구 성공');
+        
+        // 복구된 데이터에서 cards 추출
+        let cards: any[] = [];
+        if (parsed.cards && Array.isArray(parsed.cards)) {
+          cards = parsed.cards;
+        } else if (Array.isArray(parsed)) {
+          cards = parsed;
+        }
+        
+        console.log(`✅ [Cards JSON] 복구 완료 - ${cards.length}개 카드`);
+        return cards;
+        
+      } catch (thirdError) {
+        console.error('❌ [Cards JSON] 3차 복구도 실패, 기본 카드 반환');
+        console.log(`🔍 [Cards JSON] 3차 에러: ${thirdError instanceof Error ? thirdError.message : String(thirdError)}`);
+        
+        // 디버깅용 원본 내용 출력
+        console.log(`🔍 [Cards JSON] 원본 첫 200자: ${content.substring(0, 200)}`);
+        console.log(`🔍 [Cards JSON] 원본 마지막 200자: ${content.substring(content.length - 200)}`);
+        
+        return [];
+      }
     }
   }
+}
+
+/**
+ * JSON에서 마지막으로 완전한 구조가 끝나는 위치 찾기
+ */
+function findLastCompleteJson(content: string): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let lastCompleteIndex = 0;
+  
+  for (let i = 0; i < content.length; i++) {
+    const char = content[i];
+    
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (inString) {
+      continue;
+    }
+    
+    if (char === '{' || char === '[') {
+      depth++;
+    } else if (char === '}' || char === ']') {
+      depth--;
+      if (depth === 0) {
+        lastCompleteIndex = i + 1;
+      }
+    }
+  }
+  
+  return lastCompleteIndex;
 }
 
 function extractToolsFromCards(cards: any[]): string[] {
