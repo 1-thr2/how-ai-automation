@@ -701,6 +701,8 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
             engine={flowCard?.engine}
             flowMap={flowCard?.flowMap}
             fallback={flowCard?.fallback}
+            flowTitle={getDynamicTitle()}
+            flowSubtitle={getDynamicSubtitle()}
           />
         )}
         
@@ -711,7 +713,7 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               'tool_recommendation', 'slide_guide', 'video_guide',
               'landing_guide', 'dashboard_guide', 'creative_guide',
               'audio_guide', 'chatbot_guide', 'wow_preview',
-              'needs_analysis', 'faq'
+              'needs_analysis'
             ].includes(card.type))
             .map((card: any, index: number) => {
               // 방어 코드: card가 유효한지 확인
@@ -726,6 +728,8 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               );
             })}
         </div>
+        
+
         
         {/* 확장 아이디어 섹션 */}
         {expansionCard && (
@@ -804,22 +808,27 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               <p className="faq-subtitle">단계별로 따라하시면 자동화가 완성됩니다</p>
             </div>
             <div className="faq-body">
-              {faqCard?.items?.map((item: any, index: number) => (
-                <div key={index} className="faq-item">
-                  <div className="faq-question">
-                    <span className="faq-q-icon">
-                      Q
-                    </span>
-                    <span className="faq-q-text">{item.question || item.q}</span>
-                  </div>
-                  <div className="faq-answer">
-                    <span className="faq-a-icon">A</span>
-                    <div className="faq-a-content">
-                      <span className="faq-a-text">{item.answer || item.a}</span>
+              {(faqCard?.faqs || faqCard?.questions || faqCard?.items) && Array.isArray(faqCard.faqs || faqCard.questions || faqCard.items) && (faqCard.faqs || faqCard.questions || faqCard.items).length > 0 ? (
+                (faqCard.faqs || faqCard.questions || faqCard.items).map((item: any, index: number) => {
+                  if (!item) return null;
+                  return (
+                    <div key={index} className="faq-item">
+                      <div className="faq-question">
+                        <span className="faq-q-icon">
+                          Q
+                        </span>
+                        <span className="faq-q-text">{item.question || item.q || '질문이 없습니다.'}</span>
+                      </div>
+                      <div className="faq-answer">
+                        <span className="faq-a-icon">A</span>
+                        <div className="faq-a-content">
+                          <span className="faq-a-text">{item.answer || item.a || '답변이 없습니다.'}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )) || (
+                  );
+                })
+              ) : (
                 <>
                   <div className="faq-item">
                     <div className="faq-question">

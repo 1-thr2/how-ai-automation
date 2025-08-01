@@ -12,9 +12,11 @@ interface FlowDiagramSectionProps {
     method: string;
     reason: string;
   };
+  flowTitle?: string;
+  flowSubtitle?: string;
 }
 
-const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepClick, cards = [], engine, flowMap, fallback }) => {
+const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepClick, cards = [], engine, flowMap, fallback, flowTitle, flowSubtitle }) => {
   const [activeSteps, setActiveSteps] = useState<number[]>([]);
   const [selectedStep, setSelectedStep] = useState<FlowStep | null>(null);
   const [activeTab, setActiveTab] = useState<'guide' | 'faq' | 'troubleshoot'>('guide');
@@ -180,20 +182,20 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-bold text-gray-900">
-              🚀 {engine === 'make' ? '자동화 시나리오 설정 가이드' : 
+              🚀 {flowTitle || (engine === 'make' ? '자동화 시나리오 설정 가이드' : 
                    engine === 'zapier' ? '워크플로우 연결 가이드' :
                    engine === 'apps_script' ? 'Google 스크립트 가이드' : 
-                   '자동화 플로우 가이드'}
+                   '자동화 플로우 가이드')}
             </h3>
             <div className="text-sm text-purple-700 bg-purple-100 px-2 py-1 rounded">
               단계별 진행
             </div>
           </div>
           <p className="text-sm text-gray-600">
-            {engine === 'make' ? 'Make.com에서 자동화를 만들어보세요' :
+            {flowSubtitle || (engine === 'make' ? 'Make.com에서 자동화를 만들어보세요' :
              engine === 'zapier' ? 'Zapier로 연결 자동화를 구축하세요' :
              engine === 'apps_script' ? 'Google Apps Script로 맞춤 자동화를 만드세요' :
-             '자동화 플랫폼에서 워크플로우를 구성하세요'}
+             '자동화 플랫폼에서 워크플로우를 구성하세요')}
           </p>
           {fallback && (
             <div className="mt-2 text-sm text-amber-700 bg-amber-100 rounded px-3 py-2 border-l-4 border-amber-400">
@@ -286,9 +288,25 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
               </div>
             </div>
 
+            {/* 탭 네비게이션 */}
+            <div className={styles['modal-tabs']}>
+              <button 
+                className={`${styles['tab-btn']} ${activeTab === 'guide' ? styles['tab-active'] : ''}`}
+                onClick={() => setActiveTab('guide')}
+              >
+                📋 실행 가이드
+              </button>
+              <button 
+                className={`${styles['tab-btn']} ${activeTab === 'faq' ? styles['tab-active'] : ''}`}
+                onClick={() => setActiveTab('faq')}
+              >
+                ❓ 자주 묻는 질문
+              </button>
+            </div>
+
             {/* 깔끔한 가이드 섹션 */}
             <div className={styles['clean-modal-body']}>
-              {stepData?.guide && (
+              {activeTab === 'guide' && stepData?.guide && (
                 <>
                   {/* 헤더 */}
                   <div className={styles['clean-header']}>
@@ -463,6 +481,41 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
                     </div>
                   )}
                 </>
+              )}
+
+              {/* FAQ 탭 섹션 */}
+              {activeTab === 'faq' && (
+                <div className={styles['faq-section']}>
+                  {(() => {
+                    const faqCard = cards.find((card: any) => card.type === 'faq');
+                    if (!faqCard) {
+                      return (
+                        <div className={styles['no-faq']}>
+                          <p>❓ 자주 묻는 질문이 아직 준비되지 않았습니다.</p>
+                        </div>
+                      );
+                    }
+                    
+                    const faqs = faqCard.faqs || faqCard.questions || faqCard.items || [];
+                    
+                    return (
+                      <div className={styles['faq-list']}>
+                        {faqs.map((faq: any, index: number) => (
+                          <div key={index} className={styles['faq-item']}>
+                            <div className={styles['faq-question']}>
+                              <span className={styles['faq-icon']}>❓</span>
+                              Q. {faq.question || faq.q || '질문이 없습니다.'}
+                            </div>
+                            <div className={styles['faq-answer']}>
+                              <span className={styles['faq-icon']}>💡</span>
+                              A. {faq.answer || faq.a || '답변이 없습니다.'}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
             </div>
           </div>
