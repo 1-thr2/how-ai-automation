@@ -688,9 +688,13 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
       
       <div className="container">
         {/* 헤더 */}
-        <div className="header">
-          <h1>{getDynamicTitle()}</h1>
-          <p>{getDynamicSubtitle()}</p>
+        <div className="header text-center mb-8">
+          <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold mb-3 leading-tight">{getDynamicTitle()}</h1>
+          </div>
+          <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-xl px-6 py-3 inline-block">
+            <p className="text-lg font-medium text-gray-700">{getDynamicSubtitle()}</p>
+          </div>
         </div>
 
         {/* 플로우 다이어그램 */}
@@ -808,8 +812,14 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               <p className="faq-subtitle">단계별로 따라하시면 자동화가 완성됩니다</p>
             </div>
             <div className="faq-body">
-              {(faqCard?.faqs || faqCard?.questions || faqCard?.items) && Array.isArray(faqCard.faqs || faqCard.questions || faqCard.items) && (faqCard.faqs || faqCard.questions || faqCard.items).length > 0 ? (
-                (faqCard.faqs || faqCard.questions || faqCard.items).map((item: any, index: number) => {
+              {/* 🔍 FAQ 디버깅 */}
+              {console.log('🔍 [FAQ Debug] faqCard:', faqCard)}
+              {console.log('🔍 [FAQ Debug] faqCard?.items:', faqCard?.items)}
+              {console.log('🔍 [FAQ Debug] faqCard?.faqs:', faqCard?.faqs)}
+              {console.log('🔍 [FAQ Debug] faqCard?.questions:', faqCard?.questions)}
+              
+              {faqCard?.items && Array.isArray(faqCard.items) && faqCard.items.length > 0 ? (
+                faqCard.items.map((item: any, index: number) => {
                   if (!item) return null;
                   return (
                     <div key={index} className="faq-item">

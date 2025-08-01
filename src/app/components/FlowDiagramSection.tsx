@@ -111,20 +111,28 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
   const getCurrentStepData = () => {
     if (!selectedStep) return null;
     
-    // 1순위: 전용 guide 카드 찾기 (기존 로직)
+    // 1순위: 전용 guide 카드 찾기 (실제 데이터 구조에 맞게 수정)
     const guideCard = cards.find((card: any) => 
       card.type === 'guide' && card.stepId === String(selectedStep.id)
     );
     
-    if (guideCard?.content?.detailedSteps) {
+    console.log('🔍 [getCurrentStepData] guideCard:', guideCard);
+    console.log('🔍 [getCurrentStepData] selectedStep.id:', selectedStep.id);
+    
+    if (guideCard) {
+      // 실제 데이터 구조에 맞게 수정
+      const detailedSteps = guideCard.detailedSteps || guideCard.content?.detailedSteps || [];
+      const practicalTips = guideCard.practicalTips || guideCard.content?.practicalTips || [];
+      const commonMistakes = guideCard.commonMistakes || guideCard.content?.commonMistakes || [];
+      
       return {
         guide: {
           title: guideCard.title,
           subtitle: guideCard.subtitle,
-          steps: guideCard.content.detailedSteps,
-          executableCode: guideCard.content.executableCode || null,
-          tips: guideCard.content.practicalTips || [],
-          errorSolutions: guideCard.content.errorSolutions || []
+          steps: detailedSteps,
+          executableCode: guideCard.content?.executableCode || null,
+          tips: practicalTips,
+          errorSolutions: commonMistakes
         }
       };
     }
