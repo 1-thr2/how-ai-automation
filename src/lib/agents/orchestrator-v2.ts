@@ -104,7 +104,8 @@ async function executeStepA(
         totalTokens = response.usage?.total_tokens || estimatedTokens;
 
         console.log(`✅ [Step A] 성공 - ${cards.length}개 카드, ${totalTokens} 토큰, ${latency}ms (${model})`);
-
+        
+        // 🎯 카드 개수는 복잡도에 따라 유연하게 - 강제 제한 제거
         return {
           cards,
           tokens: totalTokens,
@@ -230,37 +231,37 @@ async function executeStepB(
     // 2. RAG 컨텍스트 생성 (도메인 인식 강화)
     const ragContext = await generateRAGContext(userInput, mentionedTools, userInput);
 
-    // 3. 도구별 상세 정보 수집 (최대 3개 도구, 동시성 제한)
-    const toolInfoPromises = mentionedTools.slice(0, 3).map(tool => searchToolInfo(tool));
-    const toolInfoResults = await pMap(toolInfoPromises, async promise => promise, {
-      concurrency: 2, // OpenAI Rate-Limit 보호
-    });
+    // 3. ⚡ 중복 검색 제거 (generateRAGContext에서 이미 통합 검색 완료)
+    console.log(`⚡ [Step B] 도구 정보는 RAG 컨텍스트에서 이미 수집됨 - 중복 검색 생략`);
+    const toolInfoResults: any[] = []; // 빈 배열로 대체
 
-    // 4. 🔧 도구 연동 가능성 확인 (핵심 신기능!)
-    console.log(`🔍 [Step B] 도구 연동 가능성 확인 중...`);
-    const toolIntegrationPromises = mentionedTools
-      .slice(0, 3)
-      .map(tool => checkToolIntegration(tool));
-    const toolIntegrationResults = await pMap(toolIntegrationPromises, async promise => promise, {
-      concurrency: 2, // API 부담 최소화
-    });
+    // 4. 🔧 도구 연동 가능성 확인 (조건부 실행으로 성능 최적화)
+    let toolIntegrationResults: any[] = [];
+    
+    // ⚡ 성능 최적화: 특정 키워드가 있을 때만 연동 검사 실행
+    const hasIntegrationKeywords = userInput.toLowerCase().includes('연동') || 
+                                  userInput.toLowerCase().includes('integration') || 
+                                  userInput.toLowerCase().includes('zapier') || 
+                                  userInput.toLowerCase().includes('make');
+    
+    if (hasIntegrationKeywords && mentionedTools.length > 0) {
+      console.log(`🔍 [Step B] 연동 키워드 감지 → 도구 연동 검사 실행`);
+      const toolIntegrationPromises = mentionedTools
+        .slice(0, 2) // 최대 2개만 검사로 제한
+        .map(tool => checkToolIntegration(tool));
+      toolIntegrationResults = await pMap(toolIntegrationPromises, async promise => promise, {
+        concurrency: 1, // 더 안전하게 1개씩
+      });
 
-    // 연동 불가능한 도구와 대안 정리
-    const unsupportedTools = toolIntegrationResults.filter(result => !result.isSupported);
-    const supportedTools = toolIntegrationResults.filter(result => result.isSupported);
-
-    console.log(
-      `📊 [Step B] 연동 현황: ${supportedTools.length}개 지원, ${unsupportedTools.length}개 불가`
-    );
-    if (unsupportedTools.length > 0) {
+      // 연동 현황 로깅
+      const unsupportedTools = toolIntegrationResults.filter(result => !result.isSupported);
+      const supportedTools = toolIntegrationResults.filter(result => result.isSupported);
+      
       console.log(
-        `⚠️ [Step B] 연동 불가 도구:`,
-        unsupportedTools.map(t => t.toolName)
+        `📊 [Step B] 연동 현황: ${supportedTools.length}개 지원, ${unsupportedTools.length}개 불가`
       );
-      console.log(
-        `🔄 [Step B] 발견된 대안:`,
-        unsupportedTools.flatMap(t => t.alternatives?.map(a => a.name) || [])
-      );
+    } else {
+      console.log(`⚡ [Step B] 연동 키워드 없음 → 도구 연동 검사 생략 (성능 최적화)`);
     }
 
     // 5. URL 검증 (언급된 링크들)

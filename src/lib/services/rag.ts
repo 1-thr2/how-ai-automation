@@ -271,29 +271,20 @@ export async function checkToolIntegration(
  * 도구/서비스 관련 최신 정보 검색
  */
 export async function searchToolInfo(toolName: string): Promise<RAGResult[]> {
-  const queries = [
-    `${toolName} 공식 가이드 튜토리얼 2024`,
-    `${toolName} API 문서 사용법`,
-    `${toolName} 최신 업데이트 기능`,
-  ];
-
   try {
     console.log(`🔧 [RAG] 도구 정보 검색: ${toolName}`);
 
-    // 병렬 검색으로 속도 향상
-    const searchPromises = queries.map(query => searchWithRAG(query, { maxResults: 2 }));
+    // ⚡ 성능 최적화: 3번 검색 → 1번 통합 검색으로 변경
+    const query = `${toolName} 공식 가이드 API 문서 튜토리얼 2024 최신 기능 사용법`;
+    console.log(`🔍 [RAG] 통합 검색: "${query}"`);
+    
+    const results = await searchWithRAG(query, { maxResults: 3 }); // 3개로 충분
+    
+    // 점수 기준 정렬
+    const sortedResults = results.sort((a, b) => b.score - a.score);
 
-    const allResults = await Promise.all(searchPromises);
-    const flatResults = allResults.flat();
-
-    // 점수 기준 정렬 및 중복 제거
-    const uniqueResults = flatResults
-      .filter((result, index, self) => self.findIndex(r => r.url === result.url) === index)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5); // 상위 5개만
-
-    console.log(`✅ [RAG] 도구 정보 수집 완료: ${uniqueResults.length}개`);
-    return uniqueResults;
+    console.log(`✅ [RAG] 도구 정보 수집 완료: ${sortedResults.length}개`);
+    return sortedResults;
   } catch (error) {
     console.error(`❌ [RAG] 도구 정보 검색 실패 (${toolName}):`, error);
     return [];
@@ -326,8 +317,11 @@ export async function validateURL(url: string): Promise<boolean> {
   }
 }
 
+// 🚀 세션별 RAG 캐시 (중복 검색 방지)
+const ragSessionCache = new Map<string, any>();
+
 /**
- * 컨텍스트 주입용 RAG 정보 생성 (도메인 인식 강화)
+ * 컨텍스트 주입용 RAG 정보 생성 (성능 최적화 + 캐싱)
  */
 export async function generateRAGContext(
   userInput: string,
@@ -343,71 +337,61 @@ export async function generateRAGContext(
     const detectedDomain = detectDomain(userInput, followupAnswers);
     console.log(`🎯 [RAG] 감지된 도메인: ${detectedDomain}`);
 
+    // ⚡ 캐시 키 생성 (세션 내 중복 방지)
+    const cacheKey = `${detectedDomain}_${mentionedTools.sort().join('_')}_${userInput.length}`;
+    
+    if (ragSessionCache.has(cacheKey)) {
+      console.log(`⚡ [RAG] 캐시 히트! 빠른 응답 제공`);
+      return ragSessionCache.get(cacheKey);
+    }
+
     // 🛠️ 도메인별 최적 도구 추천
     const optimalTools = [
       ...getOptimalToolsForDomain(detectedDomain, 'dataCollection', true),
       ...getOptimalToolsForDomain(detectedDomain, 'automation', true),
       ...getOptimalToolsForDomain(detectedDomain, 'reporting', true)
-    ].slice(0, 5); // 최대 5개
+    ].slice(0, 3); // 최대 3개로 축소
 
     console.log(`💡 [RAG] 도메인 최적 도구들:`, optimalTools.map(t => t.name));
 
-    // 1. 사용자 요청 관련 최신 정보 검색 (도메인 특화)
-    const domainSpecificQuery = `${userInput} ${detectedDomain} 자동화 최신 방법 2024`;
-    const userResults = await searchWithRAG(domainSpecificQuery, { maxResults: 2 });
+    // ⚡ 1회 통합 검색으로 최적화 (기존 6회 → 1회)
+    const allTools = [...mentionedTools, ...optimalTools.map(t => t.name)];
+    const uniqueTools = [...new Set(allTools)]; // 중복 제거
+    
+    const unifiedQuery = `${userInput} ${detectedDomain} 자동화 ${uniqueTools.slice(0, 4).join(' ')} 튜토리얼 가이드 2024`;
+    console.log(`🔍 [RAG] 통합 검색 (1회): "${unifiedQuery}"`);
+    
+    const searchResults = await searchWithRAG(unifiedQuery, { maxResults: 4 });
+    const allToolResults = searchResults; // 단일 검색 결과 사용
 
-    // 2. 도메인 최적 도구들의 정보 수집
-    const domainToolResults = await Promise.all(
-      optimalTools.slice(0, 3).map(tool => searchToolInfo(tool.name))
-    );
-
-    // 3. 언급된 도구들 정보도 수집 (기존 로직 유지)
-    const toolResults = await Promise.all(
-      mentionedTools.slice(0, 2).map(tool => searchToolInfo(tool))
-    );
-
-    const allToolResults = [...domainToolResults, ...toolResults].flat();
-
-    // 3. 컨텍스트 문자열 생성
+    // 3. 컨텍스트 문자열 생성 (최적화된)
     let context = '';
 
-    // 🎯 도메인 정보 추가
+    // 🎯 도메인 정보 추가 (간소화)
     if (detectedDomain !== 'general') {
-      context += `## 🎯 감지된 도메인: ${detectedDomain}\n`;
-      context += `## 💡 도메인 최적 도구들:\n`;
-      optimalTools.forEach((tool, index) => {
-        context += `${index + 1}. **${tool.name}** (${tool.category}, ${tool.difficulty})\n`;
-        context += `   - 설명: ${tool.description}\n`;
-        context += `   - 가격: ${tool.pricing}\n`;
-        context += `   - 설정시간: ${tool.setupTime}\n\n`;
-      });
+      context += `## 🎯 도메인: ${detectedDomain}\n`;
+      context += `## 💡 추천 도구: ${optimalTools.map(t => t.name).join(', ')}\n\n`;
     }
 
-    if (userResults.length > 0) {
-      context += '## 📊 최신 동향 정보:\n';
-      userResults.forEach((result, index) => {
-        context += `${index + 1}. **${result.title}**\n`;
-        context += `   - 출처: ${result.url}\n`;
-        context += `   - 요약: ${result.content.substring(0, 150)}...\n\n`;
-      });
-    }
-
+    // 📊 통합된 최신 정보 (기존 2개 섹션 → 1개로 통합)
     if (allToolResults.length > 0) {
-      context += '## 🛠️ 도구별 최신 정보:\n';
-      allToolResults.forEach((result, index) => {
+      context += '## 📊 관련 정보 & 도구 가이드:\n';
+      allToolResults.slice(0, 3).forEach((result, index) => { // 최대 3개만
         context += `${index + 1}. **${result.title}**\n`;
-        context += `   - 도구: ${mentionedTools.find(tool => result.title.toLowerCase().includes(tool.toLowerCase())) || '기타'}\n`;
         context += `   - 링크: ${result.url}\n`;
-        context += `   - 내용: ${result.content.substring(0, 100)}...\n\n`;
+        context += `   - 요약: ${result.content.substring(0, 120)}...\n\n`;
       });
     }
 
-    if (!context) {
-      context =
-        '## ℹ️ RAG 정보: 관련 최신 정보를 찾지 못했습니다. 기본 지식을 활용하여 답변드립니다.\n\n';
+    if (!context || context.length < 50) {
+      context = '## ℹ️ 기본 지식을 활용하여 최적의 자동화 솔루션을 제공합니다.\n\n';
     }
 
-    console.log(`✅ [RAG] 컨텍스트 생성 완료 (${context.length}자)`);
+    // 💾 캐시 저장 (5분간 유지)
+    ragSessionCache.set(cacheKey, context);
+    setTimeout(() => ragSessionCache.delete(cacheKey), 5 * 60 * 1000);
+
+    console.log(`✅ [RAG] 컨텍스트 생성 완료 (${context.length}자) - 캐시 저장됨`);
     return context;
   } catch (error) {
     console.error('❌ [RAG] 컨텍스트 생성 실패:', error);
