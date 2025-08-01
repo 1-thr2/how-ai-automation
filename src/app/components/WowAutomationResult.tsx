@@ -289,9 +289,13 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
         
         .expansion-content {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
           gap: 20px;
           margin-bottom: 24px;
+        }
+        
+        .expansion-content.has-both {
+          grid-template-columns: 1fr 1fr;
         }
         
         .expansion-possibilities, .expansion-future {
@@ -704,10 +708,10 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
         <div className="guide-cards-section">
           {cardData
             .filter((card: any) => [
-              'tool_recommendation', 'guide', 'slide_guide', 'video_guide',
+              'tool_recommendation', 'slide_guide', 'video_guide',
               'landing_guide', 'dashboard_guide', 'creative_guide',
               'audio_guide', 'chatbot_guide', 'wow_preview',
-              'needs_analysis', 'faq', 'expansion'
+              'needs_analysis', 'faq'
             ].includes(card.type))
             .map((card: any, index: number) => {
               // 방어 코드: card가 유효한지 확인
@@ -730,7 +734,11 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               <h3>🚀 이제 여기서 한 단계 더!</h3>
               <p>지금 만든 자동화를 더 스마트하게 업그레이드하는 방법</p>
             </div>
-            <div className="expansion-content">
+            <div className={`expansion-content ${
+              expansionCard.ideas && Array.isArray(expansionCard.ideas) && expansionCard.ideas.length > 0 && 
+              expansionCard.futureVision && expansionCard.futureVision.length > 0 
+                ? 'has-both' : ''
+            }`}>
               {expansionCard.ideas && Array.isArray(expansionCard.ideas) && expansionCard.ideas.length > 0 && (
                 <div className="expansion-possibilities">
                   <h4>🚀 이렇게 더 발전시켜보세요!</h4>
