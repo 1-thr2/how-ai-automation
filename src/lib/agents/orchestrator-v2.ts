@@ -220,6 +220,7 @@ async function executeStepB(
   tokens: number;
   latency: number;
   ragMetadata: any;
+  model: string; // 사용된 모델 정보 추가
 }> {
   const startTime = Date.now();
   console.log('🔍 [Step B] RAG 검증 및 정보 강화 시작...');
@@ -319,9 +320,9 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
 
 중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
-    // 7. gpt-4o-mini로 처리 (B단계도 비용 효율적)
-    const model = 'gpt-4o-mini';
-    console.log(`📊 [Step B] 모델: ${model}`);
+    // 7. gpt-4o-2024-11-20로 처리 (Step B는 품질이 가장 중요)
+    const model = 'gpt-4o-2024-11-20';
+    console.log(`📊 [Step B] 모델: ${model} (품질 우선)`);
 
     const response = await openai.chat.completions.create({
       model,
@@ -329,8 +330,8 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 1200,
-      temperature: 0.3, // 정확성 우선
+      max_tokens: 2000, // 더 상세한 검증을 위해 증가
+      temperature: 0.2, // 검증의 정확성 최우선
     });
 
     const content = response.choices[0]?.message?.content;
@@ -369,6 +370,7 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
       tokens: actualTokens,
       latency,
       ragMetadata,
+      model, // 사용된 모델 정보 추가
     };
   } catch (error) {
     console.error('❌ [Step B] 실패:', error);
@@ -380,6 +382,7 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
       tokens: 0,
       latency: Date.now() - startTime,
       ragMetadata: { error: 'RAG 처리 실패' },
+      model: 'gpt-4o-2024-11-20', // 에러 시에도 모델 정보 제공
     };
   }
 }
@@ -620,7 +623,7 @@ export async function generate3StepAutomation(
     metrics.costBreakdown.stepB = {
       tokens: stepBResult.tokens,
       ragCalls: metrics.ragSearches,
-      cost: calculateCost(stepBResult.tokens, 'gpt-4o-mini') + metrics.ragSearches * 0.001, // RAG 비용 추정
+      cost: calculateCost(stepBResult.tokens, stepBResult.model) + metrics.ragSearches * 0.001, // RAG 비용 추정
     };
 
     // Step C: WOW 마감 (1초 대기 후 실행)
@@ -1038,13 +1041,15 @@ function extractURLsFromCards(cards: any[]): string[] {
 }
 
 function calculateCost(tokens: number, model: string): number {
+  // OpenAI 실제 가격 ($/1M tokens)를 토큰당 가격으로 변환
   const costs = {
-    'gpt-4o-mini': 0.00015,
-    'gpt-4o-2024-11-20': 0.0025,
-    'gpt-4o': 0.0025,
+    'gpt-4o-mini': 0.150 / 1000000,        // $0.150/1M tokens
+    'gpt-4o-2024-11-20': 2.50 / 1000000,   // $2.50/1M tokens  
+    'gpt-4o': 2.50 / 1000000,              // $2.50/1M tokens
+    'gpt-3.5-turbo': 0.50 / 1000000,       // $0.50/1M tokens
   };
 
-  return tokens * (costs[model as keyof typeof costs] || 0.0025);
+  return tokens * (costs[model as keyof typeof costs] || 2.50 / 1000000);
 }
 
 function countPersonalizationElements(cards: any[], followupAnswers: any): number {
