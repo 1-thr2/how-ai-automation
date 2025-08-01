@@ -76,9 +76,10 @@ async function executeStepA(
   let lastError: Error | null = null;
   let totalTokens = 0;
 
-  for (const [index, model] of modelSequence.entries()) {
+  for (let index = 0; index < modelSequence.length; index++) {
+    const model = modelSequence[index];
     try {
-      console.log(`🔄 [Step A] 시도 ${index + 1}/2 - 모델: ${model}`);
+      console.log(`🔄 [Step A] 시도 ${index + 1}/${modelSequence.length} - 모델: ${model}`);
 
       const response = await openai.chat.completions.create({
         model,
@@ -237,6 +238,8 @@ async function executeStepB(
 
     // 4. 🔧 도구 연동 가능성 확인 (조건부 실행으로 성능 최적화)
     let toolIntegrationResults: any[] = [];
+    let supportedTools: any[] = []; // 🔧 미리 초기화
+    let unsupportedTools: any[] = []; // 🔧 미리 초기화
     
     // ⚡ 성능 최적화: 특정 키워드가 있을 때만 연동 검사 실행
     const hasIntegrationKeywords = userInput.toLowerCase().includes('연동') || 
@@ -253,9 +256,9 @@ async function executeStepB(
         concurrency: 1, // 더 안전하게 1개씩
       });
 
-      // 연동 현황 로깅
-      const unsupportedTools = toolIntegrationResults.filter(result => !result.isSupported);
-      const supportedTools = toolIntegrationResults.filter(result => result.isSupported);
+      // 연동 현황 분석
+      unsupportedTools = toolIntegrationResults.filter(result => !result.isSupported);
+      supportedTools = toolIntegrationResults.filter(result => result.isSupported);
       
       console.log(
         `📊 [Step B] 연동 현황: ${supportedTools.length}개 지원, ${unsupportedTools.length}개 불가`
@@ -286,7 +289,7 @@ async function executeStepB(
           const alternatives =
             result.alternatives
               ?.slice(0, 2)
-              .map(alt => alt.name)
+              .map((alt: any) => alt.name)
               .join(', ') || '없음';
           return `❌ ${result.toolName}: 연동 불가 → 대안: ${alternatives}`;
         }
@@ -879,11 +882,51 @@ function parseCardsJSON(content: string): any[] {
           .replace(/\n/g, '\\n') // 줄바꿈 처리
           .trim();
 
-        // 마지막에 닫는 괄호들이 누락된 경우 추가
+        // 🔧 강화된 JSON 복구 로직
+        // 1. expansion 카드의 복잡한 구조 단순화
+        if (repairContent.includes('"expansion"') && repairContent.includes('"ideas":[')) {
+          console.log('🔧 [Cards JSON] expansion 카드 복구 시도');
+          
+          // expansion 카드의 ideas 배열 부분을 단순화
+          const expansionStart = repairContent.indexOf('"type":"expansion"');
+          if (expansionStart !== -1) {
+            const afterExpansion = repairContent.substring(expansionStart);
+            const expansionEnd = afterExpansion.indexOf('}]}') + expansionStart;
+            
+            if (expansionEnd > expansionStart) {
+              // expansion 카드를 단순한 형태로 교체
+              const simpleExpansion = `{"type":"expansion","title":"🌱 확장 아이디어","content":"추가 기능과 확장 가능성을 탐색할 수 있습니다."}`;
+              repairContent = repairContent.substring(0, expansionStart) + simpleExpansion + repairContent.substring(expansionEnd + 3);
+              console.log('🔧 [Cards JSON] expansion 카드 단순화 완료');
+            }
+          }
+        }
+
+        // 2. 기본적인 괄호 복구
         if (!repairContent.endsWith('}') && !repairContent.endsWith(']')) {
           if (repairContent.includes('"cards":[')) {
-            repairContent += ']}';
-            console.log('🔧 [Cards JSON] 누락된 ]} 추가');
+            // 열린 괄호의 개수를 세어서 적절히 닫기
+            const openBraces = (repairContent.match(/\{/g) || []).length;
+            const closeBraces = (repairContent.match(/\}/g) || []).length;
+            const openBrackets = (repairContent.match(/\[/g) || []).length;
+            const closeBrackets = (repairContent.match(/\]/g) || []).length;
+            
+            let closingNeeded = '';
+            
+            // 배열이 먼저 닫혀야 하는 경우
+            if (openBrackets > closeBrackets) {
+              closingNeeded += ']';
+            }
+            
+            // 객체가 닫혀야 하는 경우  
+            if (openBraces > closeBraces) {
+              closingNeeded += '}';
+            }
+            
+            if (closingNeeded) {
+              repairContent += closingNeeded;
+              console.log(`🔧 [Cards JSON] 누락된 ${closingNeeded} 추가`);
+            }
           }
         }
 

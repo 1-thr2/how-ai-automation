@@ -143,15 +143,18 @@ function autoEmailSort() {
 
 **핵심**: 사용자의 진짜 걱정(비용, 실패, 복잡성)을 구체적 수치와 안심시키는 톤으로 답변
 
-### 🚀 expansion → "꿈의 업그레이드"
+### 🚀 expansion → "꿈의 업그레이드" (단순 구조 사용)
+🚨 **JSON 안정성을 위해 expansion 카드는 단순한 구조로 제한합니다.**
+
+```json
+{
+  "type": "expansion", 
+  "title": "🌱 확장 아이디어",
+  "content": "🎯 1단계 확장: 고객 감정 분석 추가 → 화난 고객 메일 즉시 감지\n🎯 2단계 확장: 자동 답변 생성 → 80% 문의는 AI가 자동 답변\n🎯 3단계 확장: 예측 분석 → 고객 이탈 위험을 미리 경고\n\n→ 결과: 고객 만족도 40% 상승, CS 업무 시간 70% 절약!"
+}
 ```
-Before: "다른 기능도 추가할 수 있습니다"
-After: "🎯 1단계 확장: 고객 감정 분석 추가 → 화난 고객 메일 즉시 감지
-       🎯 2단계 확장: 자동 답변 생성 → 80% 문의는 AI가 자동 답변
-       🎯 3단계 확장: 예측 분석 → 고객 이탈 위험을 미리 경고
-       
-       → 결과: 고객 만족도 40% 상승, CS 업무 시간 70% 절약!"
-```
+
+❌ **절대 사용 금지**: `ideas` 배열, 중첩된 객체 구조
 
 ## 최종 품질 기준
 
@@ -167,24 +170,32 @@ After: "🎯 1단계 확장: 고객 감정 분석 추가 → 화난 고객 메�
 3. 복잡함: "너무 어려워 보인다"
 4. 제한적: "이것만으로는 부족해"
 
-## 최종 JSON 형식
+## 최종 JSON 형식 (간소화)
+🚨 **중요**: JSON 파싱 안정성을 위해 복잡한 중첩 구조를 피하고 단순한 형식을 사용하세요.
+
 ```json
 {
   "cards": [
     {
       "type": "needs_analysis",
       "title": "🎯 진짜 니즈 발견",
-      "wow_factor": "hidden_potential_revealed",
-      "user_excitement_level": "high"
+      "content": "단순 텍스트 내용"
+    },
+    {
+      "type": "flow", 
+      "title": "🚀 실행 가이드",
+      "content": "단계별 설명"
+    },
+    {
+      "type": "expansion",
+      "title": "🌱 확장 아이디어", 
+      "content": "확장 가능성 설명"
     }
-  ],
-  "wow_metadata": {
-    "personalization_score": 9.2,
-    "actionability_score": 9.5,
-    "creativity_score": 8.8,
-    "korean_tone_quality": "excellent"
-  }
+  ]
 }
 ```
+
+❌ **절대 금지**: 배열 중첩, 복잡한 객체 구조, `ideas` 배열
+✅ **권장**: 단순한 `content` 문자열 사용
 
 이 단계가 끝나면 사용자는 "와! AI가 나보다 나를 더 잘 아는 것 같아!"라고 느끼게 됩니다.
