@@ -56,13 +56,12 @@ async function executeStepA(
   const startTime = Date.now();
   console.log('📝 [Step A] 카드 뼈대 초안 생성 시작...');
 
-  try {
-    // Blueprint 읽기
-    const stepABlueprint = await BlueprintReader.read('orchestrator/step_a_draft.md');
+  // Blueprint 읽기
+  const stepABlueprint = await BlueprintReader.read('orchestrator/step_a_draft.md');
 
-    // 프롬프트 구성
-    const systemPrompt = stepABlueprint;
-    const userPrompt = `사용자 요청: "${userInput}"
+  // 프롬프트 구성
+  const systemPrompt = stepABlueprint;
+  const userPrompt = `사용자 요청: "${userInput}"
 후속 답변: ${JSON.stringify(followupAnswers || {})}
 
 위 정보를 바탕으로 자동화 카드들의 기본 뼈대를 빠르게 생성하세요.
@@ -70,44 +69,142 @@ async function executeStepA(
 
 중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
-    // 토큰 추정 및 모델 선택 (A단계는 항상 mini 사용)
-    const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
-    const model = 'gpt-4o-mini'; // A단계는 비용 효율성 우선
+  const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
 
-    console.log(`📊 [Step A] 예상 토큰: ${estimatedTokens}, 모델: ${model}`);
+  // 🛡️ 백업 모델 시퀀스: gpt-4o-mini → gpt-3.5-turbo → fallback
+  const modelSequence = ['gpt-4o-mini', 'gpt-3.5-turbo'];
+  let lastError: Error | null = null;
+  let totalTokens = 0;
 
-    const response = await openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 600, // A단계는 제한적
-      temperature: 0.8, // 창의성 우선
-    });
+  for (const [index, model] of modelSequence.entries()) {
+    try {
+      console.log(`🔄 [Step A] 시도 ${index + 1}/2 - 모델: ${model}`);
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Step A 응답이 비어있습니다');
+      const response = await openai.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 600,
+        temperature: 0.4, // 🔧 안정성을 위해 0.8 → 0.4로 낮춤
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error(`${model} 응답이 비어있습니다`);
+      }
+
+      // JSON 파싱 시도
+      const cards = parseCardsJSON(content);
+      
+      // ✅ 파싱 성공 및 카드 개수 검증
+      if (cards.length > 0) {
+        const latency = Date.now() - startTime;
+        totalTokens = response.usage?.total_tokens || estimatedTokens;
+
+        console.log(`✅ [Step A] 성공 - ${cards.length}개 카드, ${totalTokens} 토큰, ${latency}ms (${model})`);
+
+        return {
+          cards,
+          tokens: totalTokens,
+          latency,
+          model,
+        };
+      } else {
+        throw new Error(`${model}에서 유효한 카드 생성 실패 (0개)`);
+      }
+
+    } catch (error) {
+      console.warn(`⚠️ [Step A] ${model} 실패:`, error);
+      lastError = error as Error;
+      
+      // 다음 모델이 있으면 계속, 없으면 중단
+      if (index < modelSequence.length - 1) {
+        console.log(`🔄 [Step A] ${model} 실패, 다음 모델로 시도...`);
+        continue;
+      }
     }
-
-    // JSON 파싱 (개선된 로직 사용)
-    const cards = parseCardsJSON(content);
-    const latency = Date.now() - startTime;
-    const actualTokens = response.usage?.total_tokens || estimatedTokens;
-
-    console.log(`✅ [Step A] 완료 - ${cards.length}개 카드, ${actualTokens} 토큰, ${latency}ms`);
-
-    return {
-      cards,
-      tokens: actualTokens,
-      latency,
-      model,
-    };
-  } catch (error) {
-    console.error('❌ [Step A] 실패:', error);
-    throw error;
   }
+
+  // 🚨 모든 모델 실패 시 Fallback 카드 생성
+  console.warn('🚨 [Step A] 모든 모델 실패, Fallback 카드 생성...');
+  
+  const fallbackCards = createFallbackCards(userInput, followupAnswers);
+  const latency = Date.now() - startTime;
+
+  console.log(`🛡️ [Step A] Fallback 완료 - ${fallbackCards.length}개 기본 카드, ${latency}ms`);
+
+  return {
+    cards: fallbackCards,
+    tokens: estimatedTokens, // 추정값 사용
+    latency,
+    model: 'fallback',
+  };
+}
+
+/**
+ * 🛡️ Fallback 카드 생성 (모든 모델 실패 시)
+ */
+function createFallbackCards(userInput: string, followupAnswers: any): any[] {
+  const timestamp = Date.now();
+  
+  return [
+    {
+      type: 'needs_analysis',
+      title: '🎯 니즈 분석',
+      surfaceRequest: userInput || '자동화 요청',
+      realNeed: '업무 효율성 향상을 위한 자동화',
+      recommendedLevel: '반자동',
+      status: 'draft',
+      id: `needs_${timestamp}`
+    },
+    {
+      type: 'flow',
+      title: '🚀 자동화 플로우',
+      subtitle: '기본 단계별 계획',
+      steps: [
+        {
+          id: '1',
+          title: '데이터 수집',
+          tool: '데이터 수집 도구'
+        },
+        {
+          id: '2',
+          title: '자동화 설정',
+          tool: '워크플로우 자동화 도구'
+        },
+        {
+          id: '3',
+          title: '결과 확인',
+          tool: '모니터링 도구'
+        }
+      ],
+      status: 'draft',
+      id: `flow_${timestamp}`
+    },
+    {
+      type: 'faq',
+      title: '❓ 자주 묻는 질문',
+      subtitle: '실전 궁금증 해결',
+      questions: [
+        {
+          question: '얼마나 시간이 절약되나요?',
+          answer: '기본적으로 반복 작업 시간을 50% 이상 절약할 수 있습니다.'
+        },
+        {
+          question: '비용이 얼마나 들까요?',
+          answer: '무료 도구부터 시작할 수 있으며, 필요에 따라 유료 플랜을 고려할 수 있습니다.'
+        },
+        {
+          question: '설정이 어렵나요?',
+          answer: '단계별 가이드를 따라하면 30분 내에 설정을 완료할 수 있습니다.'
+        }
+      ],
+      status: 'draft',
+      id: `faq_${timestamp}`
+    }
+  ];
 }
 
 /**
@@ -365,15 +462,18 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
 
 🚨 중요: 이 코드 템플릿을 활용해서 사용자가 바로 복사-붙여넣기할 수 있는 완전한 실행 코드를 제공하세요!` : ''}
 
-🚨 중요: 단순한 "구글시트 기본 사용법"이 아닌, 사용자가 "와! 이런 자동화가 가능하구나!"라고 감탄할 만한 창의적이고 실용적인 솔루션을 제공하세요.
+🚨 중요: **주어진 데이터 소스와 결과물을 기준으로 가장 효율적이고 쉽게 구현할 수 있는 솔루션을 선택**하세요.
 
-📊 특히 "캠페인 광고비 정리" 같은 요청은:
-✅ Zapier로 광고 플랫폼 API 연동하여 자동 데이터 수집
-✅ 구글시트 자동 업데이트 및 실시간 대시보드 생성  
-✅ 슬랙 알림으로 예산 초과 경고 자동화
-✅ 구글 앱스 스크립트로 월별 리포트 자동 생성
+🎯 자동화 솔루션 접근법:
+✅ 데이터 소스 자동 연결 (API, 웹훅, 파일 동기화 등)
+✅ 실시간 처리 및 변환 (필터링, 계산, 포맷팅)
+✅ 결과물 자동 생성 (대시보드, 리포트, 알림)
+✅ 모니터링 및 예외 처리 (오류 감지, 백업, 복구)
 
-이런 수준의 자동화 솔루션을 제공해야 합니다. 기본적인 스프레드시트 사용법이 아닌, 완전 자동화된 워크플로우를 만드세요!
+**필요 이상의 세분화는 피하고, 사용자 관점에서 따라 하기 쉬운 흐름으로 묶어 설명**하세요.
+- 계정 생성과 기본 설정 → 한 카드로 통합
+- 핵심 자동화 설정 → 한 카드로 통합  
+- 테스트 및 모니터링 → 한 카드로 통합
 
 🚨 절대 준수사항:
 1. 반드시 {"cards": [...]} 형식의 JSON으로만 응답

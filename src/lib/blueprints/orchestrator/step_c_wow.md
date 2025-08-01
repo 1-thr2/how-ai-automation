@@ -78,12 +78,26 @@ After: "사실 필요한 건 '데이터 변화를 놓치지 않는 시스템'이
 ```
 
 ### 🚀 flow → "복사-붙여넣기 완성 가이드"
+
+**🎯 UI 단계와 입력값을 구체적으로 명시하라**
+
+✅ **올바른 도구 사용법 설명:**
+- "Google Sheets 좌측 상단 '새로 만들기' → 'Google Sheets' 클릭"
+- "A1 셀에 '날짜', B1 셀에 '금액', C1 셀에 '카테고리' 입력"
+- "도구 > 스크립트 편집기 클릭 → 새 창이 열리면 아래 코드 붙여넣기"
+- "Ctrl+S로 저장 → 프로젝트명 '자동화스크립트' 입력 → 저장"
+
+❌ **피해야 할 모호한 설명:**
+- "적절히 설정하세요"
+- "필요한 정보를 입력하세요"
+- "스프레드시트를 만드세요"
+
 ```
 Before: "여러 방법이 있습니다: Zapier, Make.com, Google Apps Script..."
 After: "🎯 가장 쉬운 방법 (Google Apps Script 사용):
 
-📋 1단계: script.google.com 접속 → '새 프로젝트' 클릭
-📋 2단계: 아래 코드 전체 복사해서 붙여넣기:
+📋 1단계: script.google.com 접속 → 오른쪽 상단 '새 프로젝트' 클릭
+📋 2단계: 기본 코드 삭제 후 아래 코드 전체 복사해서 붙여넣기:
 ```javascript
 function autoEmailSort() {
   var label = GmailApp.getUserLabelByName('VIP고객');

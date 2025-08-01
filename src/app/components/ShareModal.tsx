@@ -23,18 +23,31 @@ export default function ShareModal({
   const [isGenerating, setIsGenerating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // 🔗 공유 링크 생성
-  useEffect(() => {
-    if (isOpen && !shareUrl) {
-      generateShareLink();
-    }
-  }, [isOpen]);
-
-  const generateShareLink = async () => {
+  const generateShareLink = useCallback(async () => {
     setIsGenerating(true);
 
     try {
       console.log('📤 [Share] 공유 링크 생성 시작...');
+
+      // 안전한 데이터 추출
+      const safeUserInput = userInput || result?.context?.userInput || result?.userInput || '';
+      const safeFollowupAnswers = result?.context?.followupAnswers || result?.followupAnswers || {};
+      
+      console.log('📊 [Share] 데이터 확인:', {
+        userInput: safeUserInput,
+        followupAnswers: safeFollowupAnswers,
+        cardData: cardData?.length || 0
+      });
+
+      // API가 기대하는 구조로 데이터 정리
+      const automationData = {
+        user_input: safeUserInput,
+        followup_answers: safeFollowupAnswers,
+        generated_cards: cardData || [],
+        user_session_id: `session_${Date.now()}`,
+        processing_time_ms: 0,
+        success: true,
+      };
 
       const response = await fetch('/api/share', {
         method: 'POST',
@@ -42,25 +55,25 @@ export default function ShareModal({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          automation_request: {
-            user_input: result.context.userInput,
-            followup_answers: result.context.followupAnswers || {},
-            generated_cards: cardData,
-            user_session_id: `session_${Date.now()}`,
-            processing_time_ms: 0,
-            success: true,
-          },
+          automationData: automationData,
+          // requestId는 없으므로 새로 생성됨
         }),
       });
 
       if (!response.ok) {
-        throw new Error('공유 링크 생성 실패');
+        const errorText = await response.text();
+        console.error('❌ [Share] API 응답 오류:', errorText);
+        throw new Error(`공유 링크 생성 실패: ${response.status}`);
       }
 
-      const { id, error } = await response.json();
-      if (error) throw new Error(error);
+      const responseData = await response.json();
+      console.log('📥 [Share] API 응답:', responseData);
+      
+      if (responseData.error) {
+        throw new Error(responseData.error);
+      }
 
-      const generatedUrl = `${window.location.origin}/s/${id}`;
+      const generatedUrl = `${window.location.origin}/s/${responseData.id}`;
       setShareUrl(generatedUrl);
 
       console.log('✅ [Share] 공유 링크 생성 완료:', generatedUrl);
@@ -70,7 +83,14 @@ export default function ShareModal({
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [userInput, result, cardData]);
+
+  // 🔗 공유 링크 생성
+  useEffect(() => {
+    if (isOpen && !shareUrl) {
+      generateShareLink();
+    }
+  }, [isOpen, shareUrl, generateShareLink]);
 
   const copyToClipboard = async () => {
     if (!shareUrl || shareUrl.includes('오류')) return;
