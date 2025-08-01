@@ -171,9 +171,9 @@ export async function checkToolIntegration(
       `${toolName} open source free automation tools RPA`,
     ];
 
-      const alternativeResults = await Promise.all(
-        alternativeQueries.map(query => searchWithRAG(query, { maxResults: 2 }))
-      );
+    const alternativeResults = await Promise.all(
+      alternativeQueries.map(query => searchWithRAG(query, { maxResults: 2 }))
+    );
 
     // 🎯 우선순위 기반 대안 도구 구조화
     const alternatives = alternativeResults
@@ -238,9 +238,8 @@ export async function checkToolIntegration(
         return difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty];
       });
 
-      result.alternatives = alternatives;
-      console.log(`✅ [도구연동] 대안 ${alternatives.length}개 발견`);
-    }
+    result.alternatives = alternatives;
+    console.log(`✅ [도구연동] 대안 ${alternatives.length}개 발견`);
 
     console.log(
       `✅ [도구연동] 분석 완료: ${toolName} - 지원여부: ${isSupported} (신뢰도: ${confidence.toFixed(2)})`
