@@ -707,13 +707,20 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               'tool_recommendation', 'guide', 'slide_guide', 'video_guide',
               'landing_guide', 'dashboard_guide', 'creative_guide',
               'audio_guide', 'chatbot_guide', 'wow_preview',
-              'needs_analysis', 'faq'
+              'needs_analysis', 'faq', 'expansion'
             ].includes(card.type))
-            .map((card: any, index: number) => (
-              <div key={index} className="guide-card-wrapper">
-                <WowCardRenderer card={card} />
-              </div>
-            ))}
+            .map((card: any, index: number) => {
+              // 방어 코드: card가 유효한지 확인
+              if (!card || !card.type) {
+                return null;
+              }
+              
+              return (
+                <div key={`card-${index}-${card.type}`} className="guide-card-wrapper">
+                  <WowCardRenderer card={card} />
+                </div>
+              );
+            })}
         </div>
         
         {/* 확장 아이디어 섹션 */}
@@ -724,15 +731,20 @@ export default function WowAutomationResult({ result, title, cards, isSharedView
               <p>지금 만든 자동화를 더 스마트하게 업그레이드하는 방법</p>
             </div>
             <div className="expansion-content">
-              {expansionCard.ideas && expansionCard.ideas.length > 0 && (
+              {expansionCard.ideas && Array.isArray(expansionCard.ideas) && expansionCard.ideas.length > 0 && (
                 <div className="expansion-possibilities">
                   <h4>🚀 이렇게 더 발전시켜보세요!</h4>
                   <ul>
-                    {expansionCard.ideas.map((idea: string, index: number) => (
-                      <li key={index} style={{ marginBottom: '8px', color: '#4f46e5' }}>
-                        💡 {idea}
-                      </li>
-                    ))}
+                    {expansionCard.ideas.map((idea: any, index: number) => {
+                      // idea가 문자열인지 객체인지 확인
+                      const ideaText = typeof idea === 'string' ? idea : (idea.title || idea.idea || idea.description || `아이디어 ${index + 1}`);
+                      
+                      return (
+                        <li key={`expansion-idea-${index}`} style={{ marginBottom: '8px', color: '#4f46e5' }}>
+                          💡 {ideaText}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}

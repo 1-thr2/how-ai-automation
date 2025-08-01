@@ -635,8 +635,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               🚀
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{expansionCard.title}</h3>
-              <p className="text-gray-600">{expansionCard.subtitle}</p>
+              <h3 className="text-xl font-bold text-gray-900">{expansionCard.title || '확장 아이디어'}</h3>
+              <p className="text-gray-600">{expansionCard.subtitle || '추가 발전 방향'}</p>
             </div>
           </div>
           
@@ -646,16 +646,27 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
           )}
           
-          {expansionCard.ideas && (
+          {expansionCard.ideas && Array.isArray(expansionCard.ideas) && (
             <div className="space-y-3">
-              {expansionCard.ideas.map((idea: any, index: number) => (
-                <div key={index} className="bg-white rounded-lg p-4 border border-green-100">
-                  <div className="font-semibold text-gray-900 mb-2">{idea.title || idea}</div>
-                  {idea.description && (
-                    <div className="text-sm text-gray-600">{idea.description}</div>
-                  )}
-                </div>
-              ))}
+              {expansionCard.ideas.map((idea: any, index: number) => {
+                // 방어 코드: idea가 유효한지 확인
+                if (!idea) {
+                  return null;
+                }
+                
+                // idea가 문자열인지 객체인지 확인
+                const ideaTitle = typeof idea === 'string' ? idea : (idea.title || idea.idea || `아이디어 ${index + 1}`);
+                const ideaDescription = typeof idea === 'object' ? idea.description : null;
+                
+                return (
+                  <div key={`idea-${index}`} className="bg-white rounded-lg p-4 border border-green-100">
+                    <div className="font-semibold text-gray-900 mb-2">{ideaTitle}</div>
+                    {ideaDescription && (
+                      <div className="text-sm text-gray-600">{ideaDescription}</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -671,8 +682,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               📋
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{guideCard.title}</h3>
-              <p className="text-gray-600">{guideCard.subtitle}</p>
+              <h3 className="text-xl font-bold text-gray-900">{guideCard.title || '가이드'}</h3>
+              <p className="text-gray-600">{guideCard.subtitle || '상세 안내'}</p>
             </div>
           </div>
           
@@ -683,54 +694,61 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
           )}
           
-          {guideCard.detailedSteps && (
+          {guideCard.detailedSteps && Array.isArray(guideCard.detailedSteps) && (
             <div className="space-y-4 mb-4">
               <h4 className="font-semibold text-gray-900">📝 상세 단계</h4>
-              {guideCard.detailedSteps.map((step: any, index: number) => (
-                <div key={index} className="bg-white rounded-lg p-4 border border-blue-100">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">
-                      {step.number || index + 1}
-                    </span>
-                    <h5 className="font-semibold text-gray-900">{step.title}</h5>
-                  </div>
-                  <div className="text-sm text-gray-700 mb-3 whitespace-pre-line">
-                    {step.description}
-                  </div>
-                  {step.expectedScreen && (
-                    <div className="bg-green-50 border border-green-200 rounded p-2 mb-2">
-                      <span className="text-green-700 text-xs font-medium">🖥️ 예상 화면: </span>
-                      <span className="text-green-600 text-xs">{step.expectedScreen}</span>
+              {guideCard.detailedSteps.map((step: any, index: number) => {
+                // 방어 코드: step이 객체인지 확인
+                if (!step || typeof step !== 'object') {
+                  return null;
+                }
+                
+                return (
+                  <div key={`step-${index}`} className="bg-white rounded-lg p-4 border border-blue-100">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">
+                        {step.number || index + 1}
+                      </span>
+                      <h5 className="font-semibold text-gray-900">{step.title || `단계 ${index + 1}`}</h5>
                     </div>
-                  )}
-                  {step.checkpoint && (
-                    <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                      <span className="text-blue-700 text-xs font-medium">✅ 성공 확인: </span>
-                      <span className="text-blue-600 text-xs">{step.checkpoint}</span>
+                    <div className="text-sm text-gray-700 mb-3 whitespace-pre-line">
+                      {step.description || '설명이 없습니다.'}
                     </div>
-                  )}
-                </div>
-              ))}
+                    {step.expectedScreen && (
+                      <div className="bg-green-50 border border-green-200 rounded p-2 mb-2">
+                        <span className="text-green-700 text-xs font-medium">🖥️ 예상 화면: </span>
+                        <span className="text-green-600 text-xs">{step.expectedScreen}</span>
+                      </div>
+                    )}
+                    {step.checkpoint && (
+                      <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                        <span className="text-blue-700 text-xs font-medium">✅ 성공 확인: </span>
+                        <span className="text-blue-600 text-xs">{step.checkpoint}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
           
-          {guideCard.commonMistakes && guideCard.commonMistakes.length > 0 && (
+          {guideCard.commonMistakes && Array.isArray(guideCard.commonMistakes) && guideCard.commonMistakes.length > 0 && (
             <div className="bg-red-50 rounded-lg p-4 mb-4 border border-red-200">
               <h4 className="font-semibold text-red-900 mb-2">⚠️ 자주하는 실수</h4>
               <ul className="space-y-1">
                 {guideCard.commonMistakes.map((mistake: string, index: number) => (
-                  <li key={index} className="text-sm text-red-700">• {mistake}</li>
+                  <li key={`mistake-${index}`} className="text-sm text-red-700">• {mistake || '내용이 없습니다.'}</li>
                 ))}
               </ul>
             </div>
           )}
           
-          {guideCard.practicalTips && guideCard.practicalTips.length > 0 && (
+          {guideCard.practicalTips && Array.isArray(guideCard.practicalTips) && guideCard.practicalTips.length > 0 && (
             <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
               <h4 className="font-semibold text-yellow-900 mb-2">💡 실용적 팁</h4>
               <ul className="space-y-1">
                 {guideCard.practicalTips.map((tip: string, index: number) => (
-                  <li key={index} className="text-sm text-yellow-700">• {tip}</li>
+                  <li key={`tip-${index}`} className="text-sm text-yellow-700">• {tip || '내용이 없습니다.'}</li>
                 ))}
               </ul>
             </div>
@@ -748,8 +766,8 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
               ❓
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">{faqCard.title}</h3>
-              <p className="text-gray-600">{faqCard.subtitle}</p>
+              <h3 className="text-xl font-bold text-gray-900">{faqCard.title || '자주 묻는 질문'}</h3>
+              <p className="text-gray-600">{faqCard.subtitle || 'FAQ'}</p>
             </div>
           </div>
           
@@ -759,14 +777,21 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
           )}
           
-          {(faqCard.faqs || faqCard.questions || faqCard.items) && (
+          {(faqCard.faqs || faqCard.questions || faqCard.items) && Array.isArray(faqCard.faqs || faqCard.questions || faqCard.items) && (
             <div className="space-y-4">
-              {(faqCard.faqs || faqCard.questions || faqCard.items).map((faq: any, index: number) => (
-                <div key={index} className="bg-white rounded-lg p-4 border border-orange-100">
-                  <div className="font-semibold text-gray-900 mb-2">Q. {faq.question || faq.q}</div>
-                  <div className="text-sm text-gray-600 leading-relaxed">A. {faq.answer || faq.a}</div>
-                </div>
-              ))}
+              {(faqCard.faqs || faqCard.questions || faqCard.items).map((faq: any, index: number) => {
+                // 방어 코드: faq가 유효한지 확인
+                if (!faq) {
+                  return null;
+                }
+                
+                return (
+                  <div key={`faq-${index}`} className="bg-white rounded-lg p-4 border border-orange-100">
+                    <div className="font-semibold text-gray-900 mb-2">Q. {faq.question || faq.q || '질문이 없습니다.'}</div>
+                    <div className="text-sm text-gray-600 leading-relaxed">A. {faq.answer || faq.a || '답변이 없습니다.'}</div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
