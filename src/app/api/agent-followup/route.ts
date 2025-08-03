@@ -66,9 +66,9 @@ export async function POST(request: Request) {
     const estimatedCost = (metrics.totalTokens * 0.00015); // gpt-4o-mini 기준
     console.log(`💰 [API] 예상 비용: $${estimatedCost.toFixed(4)} (${metrics.totalTokens} 토큰)`);
 
-    // 📋 질문 품질 검증
+    // 📋 질문 품질 검증 (Fast-Track 2개 옵션도 허용)
     const validQuestions = questions.filter(q => 
-      q.question && q.options && Array.isArray(q.options) && q.options.length >= 3
+      q.question && q.options && Array.isArray(q.options) && q.options.length >= 2
     );
 
     if (validQuestions.length === 0) {
