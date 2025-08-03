@@ -64,8 +64,9 @@ async function draftStepGen(userInput: string): Promise<{
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 600,
+      max_tokens: 500, // Draft 토큰 최적화
       temperature: 0.8, // Draft는 창의성 중시
+      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
     });
 
     const content = response.choices[0]?.message?.content;
@@ -143,8 +144,9 @@ ${JSON.stringify(draftQuestions, null, 2)}
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 800,
+      max_tokens: 600, // Refine 토큰 최적화
       temperature: 0.3, // Refine은 정확성 중시
+      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
     });
 
     const content = response.choices[0]?.message?.content;
@@ -344,7 +346,104 @@ function getFallbackQuestions(): any[] {
 }
 
 /**
- * 메인 2-Step 후속질문 생성 함수
+ * 🚀 단순 요청 감지 (Fast-Track 적용)
+ */
+function detectSimpleRequest(userInput: string): boolean {
+  const input = userInput.toLowerCase();
+  
+  // A→B 패턴 감지 (단일 소스 → 단일 목적지)
+  const simplePatterns = [
+    // SNS → 알림
+    /트위터.*슬랙|인스타.*슬랙|페이스북.*슬랙/,
+    /트위터.*알림|인스타.*알림|페이스북.*알림/,
+    
+    // 이메일 → 처리
+    /이메일.*스프레드시트|메일.*스프레드|gmail.*시트/,
+    /이메일.*슬랙|메일.*슬랙|gmail.*슬랙/,
+    
+    // 폼 → 알림
+    /구글.*폼.*슬랙|form.*슬랙|폼.*알림/,
+    /타입폼.*슬랙|typeform.*슬랙/,
+    
+    // 기타 단순 패턴
+    /언급.*알림|멘션.*알림|브랜드.*모니터/,
+    /새.*문의.*알림|고객.*문의.*슬랙/,
+  ];
+  
+  return simplePatterns.some(pattern => pattern.test(input));
+}
+
+/**
+ * ⚡ Fast-Track: 단순 요청용 1-Step 처리
+ */
+async function generateFastTrackQuestions(userInput: string): Promise<{
+  questions: any[];
+  tokens: number;
+  latency: number;
+}> {
+  const startTime = Date.now();
+  console.log('⚡ [Fast-Track] 단순 요청 빠른 처리 시작...');
+
+  // 🎯 축약된 프롬프트 (토큰 절약)
+  const systemPrompt = `자동화 전문가입니다. 단순한 요청에 대해 핵심 질문 1-2개만 생성하세요.`;
+  
+  const userPrompt = `요청: "${userInput}"
+
+이 요청을 위해 꼭 확인해야 할 핵심 질문 1-2개만 생성하세요.
+
+필수 확인 사항:
+- 계정/권한 (API 키, 연동 상태)  
+- 세부 설정 (채널명, 키워드, 필터 조건)
+
+JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "options": [...], "category": "integration", "importance": "high"}]`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 300, // Fast-Track 더욱 축소
+      temperature: 0.5,
+      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Fast-Track 응답이 비어있습니다');
+    }
+
+    const questions = parseJSON(content);
+    const latency = Date.now() - startTime;
+    const tokens = response.usage?.total_tokens || 200;
+
+    console.log(`✅ [Fast-Track] 완료 - ${questions.length}개 질문, ${tokens} 토큰, ${latency}ms`);
+
+    return { questions, tokens, latency };
+  } catch (error) {
+    console.error('❌ [Fast-Track] 실패:', error);
+    
+    // 폴백: 미리 정의된 간단한 질문
+    return {
+      questions: [
+        {
+          key: 'integration_status',
+          question: '사용할 도구들(Zapier, 슬랙 등)의 계정은 이미 준비되어 있나요?',
+          type: 'single',
+          options: ['모두 준비됨', '일부 준비됨', '준비 안됨', '잘모름 (AI가 추천)'],
+          category: 'integration',
+          importance: 'high'
+        }
+      ],
+      tokens: 50,
+      latency: Date.now() - startTime
+    };
+  }
+}
+
+/**
+ * 메인 2-Step 후속질문 생성 함수 (스마트 라우팅 적용)
  */
 export async function generate2StepFollowup(userInput: string): Promise<{
   questions: any[];
@@ -362,6 +461,28 @@ export async function generate2StepFollowup(userInput: string): Promise<{
 
   try {
     console.log('🚀 [2-Step] 후속질문 생성 시작');
+
+    // 🎯 단순 요청 감지 및 Fast-Track 적용
+    if (detectSimpleRequest(userInput)) {
+      console.log('⚡ [Routing] 단순 요청 감지 → Fast-Track 모드');
+      
+      const fastResult = await generateFastTrackQuestions(userInput);
+      metrics.stepsUsed.push('fast-track');
+      metrics.totalTokens = fastResult.tokens;
+      metrics.latencyMs = Date.now() - overallStartTime;
+      metrics.success = true;
+
+      console.log(`✅ [Fast-Track] 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.latencyMs}ms`);
+      console.log(`🚀 [Speed] ${100 - Math.round((metrics.latencyMs / 24000) * 100)}% 빨라짐!`);
+
+      return {
+        questions: fastResult.questions,
+        metrics,
+      };
+    }
+
+    // 🔄 복잡한 요청은 기존 2-Step 프로세스
+    console.log('🔄 [Routing] 복잡한 요청 감지 → 전체 2-Step 모드');
 
     // Step 1: Draft
     const draftResult = await draftStepGen(userInput);

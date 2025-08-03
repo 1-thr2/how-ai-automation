@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import pMap from 'p-map';
+import { z } from 'zod';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
 import {
   generateRAGContext,
@@ -72,7 +73,9 @@ async function executeStepA(
   const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
 
   // 🛡️ 백업 모델 시퀀스: gpt-4o-mini → gpt-3.5-turbo → fallback
-  const modelSequence = ['gpt-4o-mini', 'gpt-3.5-turbo'];
+  // 🔧 비용 최적화: 간단한 요청은 mini만 사용
+  const isSimpleRequest = userInput.length < 100 && Object.keys(followupAnswers || {}).length < 3;
+  const modelSequence = isSimpleRequest ? ['gpt-4o-mini'] : ['gpt-4o-mini', 'gpt-3.5-turbo'];
   let lastError: Error | null = null;
   let totalTokens = 0;
 
@@ -87,8 +90,9 @@ async function executeStepA(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 600,
+        max_tokens: 500, // Step A 토큰 최적화
         temperature: 0.4, // 🔧 안정성을 위해 0.8 → 0.4로 낮춤
+        response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
       });
 
       const content = response.choices[0]?.message?.content;
@@ -97,7 +101,7 @@ async function executeStepA(
       }
 
       // JSON 파싱 시도
-      const cards = parseCardsJSON(content);
+      const cards = await parseCardsJSON(content);
       
       // ✅ 파싱 성공 및 카드 개수 검증
       if (cards.length > 0) {
@@ -320,9 +324,10 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
 
 중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
-    // 7. gpt-4o-2024-11-20로 처리 (Step B는 품질이 가장 중요)
-    const model = 'gpt-4o-2024-11-20';
-    console.log(`📊 [Step B] 모델: ${model} (품질 우선)`);
+    // 7. 모델 선택 최적화 (복잡할 때만 gpt-4o)
+    const isComplexVerification = mentionedTools.length > 3 || ragContext.length > 1000;
+    const model = isComplexVerification ? 'gpt-4o-2024-11-20' : 'gpt-3.5-turbo';
+    console.log(`📊 [Step B] 모델: ${model} (${isComplexVerification ? '복잡한 검증' : '간단한 검증'})`);
 
     const response = await openai.chat.completions.create({
       model,
@@ -330,8 +335,9 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 2000, // 더 상세한 검증을 위해 증가
+      max_tokens: 1200, // Step B 토큰 제한으로 안정성 확보
       temperature: 0.2, // 검증의 정확성 최우선
+      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
     });
 
     const content = response.choices[0]?.message?.content;
@@ -340,7 +346,7 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
     }
 
     // JSON 파싱
-    const cards = parseCardsJSON(content);
+    const cards = await parseCardsJSON(content);
     const latency = Date.now() - startTime;
     const actualTokens = response.usage?.total_tokens || 0;
 
@@ -403,7 +409,17 @@ async function executeStepC(
   wowMetadata: any;
 }> {
   const startTime = Date.now();
-  console.log('🎨 [Step C] 한국어 WOW 마감 처리 시작...');
+  console.log('🎨 [Step C] 2-Pass WOW 카드 생성 시작...');
+  
+  // 🎯 품질 vs 성능 균형점: 복잡한 요청은 2-Pass, 간단한 요청은 1-Pass
+  const isComplexRequest = verifiedCards.length > 3 || userInput.length > 150 || Object.keys(followupAnswers || {}).length > 2;
+  
+  if (isComplexRequest) {
+    console.log('🔄 [Step C] 복잡한 요청 감지 → 2-Pass 전략 사용');
+    return await execute2PassStepC(verifiedCards, userInput, followupAnswers, ragMetadata, startTime);
+  } else {
+    console.log('⚡ [Step C] 간단한 요청 → 1-Pass 전략 사용');
+  }
 
   try {
     // 🎯 도메인 감지 및 최적 도구 선택
@@ -492,9 +508,10 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
 올바른 형식: {"cards": [...]}
 잘못된 형식: 마크다운 코드블록 사용`;
 
-    // 토큰 추정 및 모델 선택 (C단계는 품질 우선으로 gpt-4o 사용)
+    // 토큰 추정 및 모델 선택 (비용 최적화: 복잡할 때만 gpt-4o)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
-    const model = estimatedTokens > 3000 ? 'gpt-4o-2024-11-20' : 'gpt-4o-2024-11-20'; // C단계는 항상 4o
+    const isComplexRequest = verifiedCards.length > 4 || userInput.length > 200;
+    const model = isComplexRequest ? 'gpt-4o-2024-11-20' : 'gpt-3.5-turbo'; // 🎯 비용 최적화
 
     console.log(`📊 [Step C] 예상 토큰: ${estimatedTokens}, 모델: ${model}`);
 
@@ -504,8 +521,9 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 2000, // C단계는 충분히 길게
+      max_tokens: 1500, // C단계 토큰 제한으로 JSON 안정성 확보
       temperature: 0.7, // 창의성과 정확성의 균형
+      response_format: { type: 'json_object' }, // 🎯 마크다운 블록 자동 억제
     });
 
     const content = response.choices[0]?.message?.content;
@@ -514,7 +532,7 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
     }
 
     // JSON 파싱
-    const cards = parseCardsJSON(content);
+    const cards = await parseCardsJSON(content);
     const latency = Date.now() - startTime;
     const actualTokens = response.usage?.total_tokens || estimatedTokens;
 
@@ -677,14 +695,262 @@ export async function generate3StepAutomation(
   }
 }
 
+// 🔧 Zod 스키마 정의
+const CardSchema = z.object({
+  type: z.string(),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  content: z.any().optional(),
+  status: z.string().optional(),
+});
+
+const CardsResponseSchema = z.object({
+  cards: z.array(CardSchema).min(1).max(8), // 최소 1개, 최대 8개 카드
+});
+
+// 🔧 Self-heal JSON 복구 함수
+async function selfHealJSON(brokenContent: string, context: string): Promise<any[]> {
+  console.log('🚑 [Self-Heal] JSON 복구 시도...');
+  
+  const healPrompt = `다음 JSON이 깨져있습니다. 올바른 JSON으로 복구해주세요:
+
+${brokenContent.substring(0, 2000)}...
+
+원래 의도: ${context}
+
+올바른 JSON 형식으로 복구하되, cards 배열만 포함하고 최대 4개 카드로 제한하세요.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'JSON 복구 전문가입니다. 깨진 JSON을 올바른 형식으로 복구하세요.' },
+        { role: 'user', content: healPrompt },
+      ],
+      max_tokens: 800,
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    });
+
+    const healedContent = response.choices[0]?.message?.content;
+    if (healedContent) {
+      const parsed = JSON.parse(healedContent);
+      const validated = CardsResponseSchema.parse(parsed);
+      console.log(`✅ [Self-Heal] JSON 복구 성공 - ${validated.cards.length}개 카드`);
+      return validated.cards;
+    }
+  } catch (error) {
+    console.error('❌ [Self-Heal] JSON 복구 실패:', error);
+  }
+  
+  return getFallbackCards('복구 실패');
+}
+
+// 🔧 2-Pass Step C 전략 (품질 우선)
+async function execute2PassStepC(
+  verifiedCards: any[],
+  userInput: string,
+  followupAnswers: any,
+  ragMetadata: any,
+  startTime: number
+): Promise<{
+  cards: any[];
+  tokens: number;
+  latency: number;
+  model: string;
+  wowMetadata: any;
+}> {
+  console.log('📋 [Step C-1] Pass 1: Skeleton 카드 구조 생성...');
+  
+  // 🎯 도메인 감지 및 최적 도구 선택
+  const detectedDomain = detectDomain(userInput, followupAnswers);
+  const optimalTools = getOptimalToolsForDomain(detectedDomain, 'automation', true);
+  
+  // 1️⃣ Pass 1: Skeleton JSON만 생성 (JSON 안정성 우선)
+  const skeletonPrompt = `사용자 요청에 대한 카드 구조만 생성하세요.
+
+사용자 요청: ${userInput}
+검증된 카드들: ${JSON.stringify(verifiedCards)}
+후속답변: ${JSON.stringify(followupAnswers || {})}
+
+🎯 **Skeleton JSON만** 생성하세요 (상세 내용은 Pass 2에서):
+
+{
+  "cards": [
+    {
+      "type": "flow|guide|faq|expansion", 
+      "title": "카드 제목",
+      "contentId": "unique_id_1",
+      "status": "skeleton"
+    }
+  ]
+}
+
+- 카드는 최대 4개
+- contentId는 고유값
+- 실제 내용은 비워두고 구조만`;
+
+  const skeletonResponse = await openai.chat.completions.create({
+    model: 'gpt-4o-mini', // Skeleton은 mini로 충분
+    messages: [
+      { role: 'system', content: 'JSON 구조 설계 전문가입니다. 간단한 카드 구조만 생성하세요.' },
+      { role: 'user', content: skeletonPrompt },
+    ],
+    max_tokens: 800,
+    temperature: 0.3,
+    response_format: { type: 'json_object' },
+  });
+
+  const skeletonContent = skeletonResponse.choices[0]?.message?.content;
+  if (!skeletonContent) {
+    throw new Error('Skeleton 생성 실패');
+  }
+
+  const skeletonCards = await parseCardsJSON(skeletonContent);
+  console.log(`✅ [Step C-1] Skeleton 완료 - ${skeletonCards.length}개 카드`);
+
+  // 2️⃣ Pass 2: 각 카드별 상세 내용 생성 (품질 우선, 제한 없음)
+  console.log('🎨 [Step C-2] Pass 2: 상세 내용 생성...');
+  
+  const enrichedCards = [];
+  let totalPass2Tokens = 0;
+
+  for (const skeletonCard of skeletonCards) {
+    const detailPrompt = `${skeletonCard.title} 카드의 상세 내용을 생성하세요.
+
+카드 타입: ${skeletonCard.type}
+사용자 요청: ${userInput}
+후속답변: ${JSON.stringify(followupAnswers || {})}
+최적 도구들: ${optimalTools.map(t => t.name).join(', ')}
+
+🎯 **초보자도 따라할 수 있는 상세 가이드** 생성:
+- UI 버튼 위치까지 명시 (예: "좌측 상단 파란색 '+ 새 Zap' 버튼")
+- 코드는 완전히 실행 가능한 형태로
+- API 키 발급 과정 상세히
+- 파일 저장 위치까지 명시 (예: "code.gs 파일로 저장")
+
+제한 없이 **완벽한 품질**로 작성하세요.`;
+
+    const detailResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-2024-11-20', // 품질 우선
+      messages: [
+        { role: 'system', content: `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
+        { role: 'user', content: detailPrompt },
+      ],
+      max_tokens: 2000, // 품질 우선으로 충분한 토큰
+      temperature: 0.4,
+    });
+
+    const detailContent = detailResponse.choices[0]?.message?.content;
+    totalPass2Tokens += detailResponse.usage?.total_tokens || 0;
+
+    // 카드에 상세 내용 추가
+    const enrichedCard = {
+      ...skeletonCard,
+      content: detailContent,
+      status: 'complete'
+    };
+
+    // 카드 타입별 특별 처리
+    if (skeletonCard.type === 'guide' && detailContent) {
+      enrichedCard.codeBlocks = extractCodeBlocks(detailContent);
+    } else if (skeletonCard.type === 'faq' && detailContent) {
+      enrichedCard.items = extractFAQItems(detailContent);
+    }
+
+    enrichedCards.push(enrichedCard);
+  }
+
+  const totalTokens = (skeletonResponse.usage?.total_tokens || 0) + totalPass2Tokens;
+  const latency = Date.now() - startTime;
+
+  console.log(`✅ [Step C-2] 2-Pass 완료 - ${enrichedCards.length}개 카드, ${totalTokens} 토큰, ${latency}ms`);
+
+  return {
+    cards: enrichedCards,
+    tokens: totalTokens,
+    latency,
+    model: 'gpt-4o-2024-11-20',
+    wowMetadata: {
+      strategy: '2-Pass',
+      domain: detectedDomain,
+      optimalTools: optimalTools.slice(0, 3),
+    },
+  };
+}
+
+// 🔧 코드 블록 추출 헬퍼
+function extractCodeBlocks(content: string): any[] {
+  const codeBlocks = [];
+  const codeRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  let match;
+  let index = 1;
+
+  while ((match = codeRegex.exec(content)) !== null) {
+    codeBlocks.push({
+      title: `코드 ${index}`,
+      language: match[1] || 'text',
+      code: match[2].trim(),
+      copyInstructions: `이 코드를 복사해서 사용하세요`,
+      saveLocation: match[1] === 'javascript' ? 'code.gs' : '설정 파일'
+    });
+    index++;
+  }
+
+  return codeBlocks;
+}
+
+// 🔧 FAQ 아이템 추출 헬퍼  
+function extractFAQItems(content: string): any[] {
+  const faqItems = [];
+  const lines = content.split('\n');
+  let currentQ = '';
+  let currentA = '';
+  let isAnswer = false;
+
+  for (const line of lines) {
+    if (line.startsWith('Q:') || line.startsWith('질문:')) {
+      if (currentQ && currentA) {
+        faqItems.push({ question: currentQ, answer: currentA.trim() });
+      }
+      currentQ = line.replace(/^(Q:|질문:)\s*/, '');
+      currentA = '';
+      isAnswer = false;
+    } else if (line.startsWith('A:') || line.startsWith('답변:')) {
+      isAnswer = true;
+      currentA = line.replace(/^(A:|답변:)\s*/, '');
+    } else if (isAnswer && line.trim()) {
+      currentA += '\n' + line;
+    }
+  }
+
+  if (currentQ && currentA) {
+    faqItems.push({ question: currentQ, answer: currentA.trim() });
+  }
+
+  return faqItems.length > 0 ? faqItems : [
+    { question: '이 자동화가 실패할 수 있나요?', answer: '네트워크 연결이나 API 한도 초과시 실패할 수 있습니다.' },
+    { question: '비용이 발생하나요?', answer: '사용하는 서비스의 요금제에 따라 비용이 발생할 수 있습니다.' }
+  ];
+}
+
 // 유틸리티 함수들
-function parseCardsJSON(content: string): any[] {
+async function parseCardsJSON(content: string): Promise<any[]> {
   console.log(`🔍 [Cards JSON] 파싱 시작 - 원본 길이: ${content.length}`);
 
   try {
     const parsed = JSON.parse(content);
 
-    // 다양한 JSON 구조 지원 (강화된 버전)
+    // 🔧 Zod 스키마 검증 시도
+    try {
+      const validated = CardsResponseSchema.parse(parsed);
+      console.log(`✅ [Cards JSON] Zod 검증 성공 - ${validated.cards.length}개 카드`);
+      return validated.cards;
+    } catch (zodError) {
+      console.log('⚠️ [Cards JSON] Zod 검증 실패, 호환성 파싱 시도...');
+    }
+
+    // 다양한 JSON 구조 지원 (기존 로직 유지)
     let cards: any[] = [];
 
     if (parsed.cards && Array.isArray(parsed.cards)) {
@@ -729,10 +995,16 @@ function parseCardsJSON(content: string): any[] {
 
     return cards;
   } catch (firstError) {
-    console.log('🔄 [Cards JSON] 1차 파싱 실패, 정리 후 재시도...');
+    console.log('🔄 [Cards JSON] 1차 파싱 실패, Self-Heal 시도...');
     console.log(
       `🔍 [Cards JSON] 1차 에러: ${firstError instanceof Error ? firstError.message : String(firstError)}`
     );
+
+    // 🚑 Self-Heal 시도
+    const healedCards = await selfHealJSON(content, '자동화 카드 생성');
+    if (healedCards.length > 0) {
+      return healedCards;
+    }
 
     try {
       // 2차 시도: 강화된 마크다운 코드 블록 제거

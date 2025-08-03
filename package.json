@@ -21,6 +21,7 @@
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "^1.1.5",
     "@supabase/supabase-js": "^2.53.0",
+    "@tavily/core": "^0.5.10",
     "@types/react-icons": "^2.2.7",
     "axios": "^1.6.7",
     "class-variance-authority": "^0.7.0",
@@ -45,7 +46,6 @@
     "tailwind-merge": "^2.2.1",
     "tailwindcss": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
-    "@tavily/core": "^0.5.10",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
