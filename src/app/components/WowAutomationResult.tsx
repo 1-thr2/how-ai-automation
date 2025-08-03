@@ -732,6 +732,10 @@ export default function WowAutomationResult({
                 'audio_guide',
                 'chatbot_guide',
                 'wow_preview',
+                'needs_analysis',  // 🔧 니즈 분석 카드 추가
+                'guide',           // 🔧 가이드 카드 추가  
+                'share',          // 🔧 공유 카드 추가
+                'expansion',      // 🔧 확장 카드 추가
               ].includes(card.type)
             )
             .map((card: any, index: number) => {

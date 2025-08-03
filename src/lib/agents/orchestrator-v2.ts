@@ -411,8 +411,8 @@ async function executeStepC(
   const startTime = Date.now();
   console.log('🎨 [Step C] 2-Pass WOW 카드 생성 시작...');
   
-  // 🎯 품질 최우선: 모든 요청에 대해 2-Pass 전략 또는 고품질 1-Pass 적용
-  const shouldUse2Pass = verifiedCards.length > 2 || userInput.length > 100 || Object.keys(followupAnswers || {}).length > 1;
+  // 🎯 성능 vs 품질 균형: 복잡한 요청만 2-Pass 적용
+  const shouldUse2Pass = verifiedCards.length > 4 || userInput.length > 200 || Object.keys(followupAnswers || {}).length > 3;
   
   if (shouldUse2Pass) {
     console.log('🎨 [Step C] 품질 우선 → 2-Pass 전략 사용 (상세 가이드 생성)');
@@ -851,7 +851,7 @@ async function execute2PassStepC(
         { role: 'system', content: `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
         { role: 'user', content: detailPrompt },
       ],
-      max_tokens: 3000, // 🎨 품질 최우선: 매우 상세한 가이드 생성
+      max_tokens: 1500, // 🔧 성능 vs 품질 균형 조정
       temperature: 0.4,
     });
 
