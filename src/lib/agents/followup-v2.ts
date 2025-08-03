@@ -200,9 +200,14 @@ function parseQuestionsJSON(content: string): any[] {
       // questions 객체로 감싸진 경우
       console.log('📋 [JSON] 1차 - questions 객체 형태 응답 감지');
       return parsed.questions;
+    } else if (parsed.key && parsed.question) {
+      // 🔧 단일 질문 객체인 경우 (Draft 단계에서 자주 발생)
+      console.log('📋 [JSON] 1차 - 단일 질문 객체 감지, 배열로 변환');
+      return [parsed];
     } else {
       // 기타 구조
       console.log('📋 [JSON] 1차 - 알 수 없는 구조, 빈 배열 반환');
+      console.log('🔍 [JSON] 파싱된 구조:', Object.keys(parsed));
       return [];
     }
   } catch (firstError) {
