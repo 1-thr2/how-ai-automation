@@ -625,9 +625,16 @@ async function execute2PassStepC(
 {
   "cards": [
     {
-      "type": "flow|guide|faq|expansion", 
-      "title": "카드 제목",
-      "contentId": "unique_id_1",
+      "type": "flow", 
+      "title": "🚀 자동화 플로우",
+      "steps": ["1단계", "2단계", "3단계"],
+      "contentId": "flow_1",
+      "status": "skeleton"
+    },
+    {
+      "type": "guide", 
+      "title": "📋 상세 가이드",
+      "contentId": "guide_1",
       "status": "skeleton"
     }
   ]
