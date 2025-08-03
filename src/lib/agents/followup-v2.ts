@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
+import { parseJSON } from './utils';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -404,8 +405,8 @@ JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 300, // Fast-Track 더욱 축소
-      temperature: 0.5,
+      max_tokens: 200, // ⚡ Fast-Track 최대한 축소
+      temperature: 0.3, // 🎯 더 결정적으로
       response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
     });
 

@@ -90,8 +90,8 @@ async function executeStepA(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 500, // Step A 토큰 최적화
-        temperature: 0.4, // 🔧 안정성을 위해 0.8 → 0.4로 낮춤
+        max_tokens: 300, // ⚡ Step A 더욱 축소
+        temperature: 0.3, // 🔧 더 결정적으로
         response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
       });
 
@@ -335,7 +335,7 @@ ${urls.map((url, idx) => `- ${url}: ${urlValidationResults[idx] ? '✅ 유효' :
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 1200, // Step B 토큰 제한으로 안정성 확보
+      max_tokens: 800, // ⚡ Step B 토큰 축소
       temperature: 0.2, // 검증의 정확성 최우선
       response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
     });
@@ -411,14 +411,14 @@ async function executeStepC(
   const startTime = Date.now();
   console.log('🎨 [Step C] 2-Pass WOW 카드 생성 시작...');
   
-  // 🎯 품질 vs 성능 균형점: 복잡한 요청은 2-Pass, 간단한 요청은 1-Pass
-  const isComplexRequest = verifiedCards.length > 3 || userInput.length > 150 || Object.keys(followupAnswers || {}).length > 2;
+  // 🎯 품질 최우선: 모든 요청에 대해 2-Pass 전략 또는 고품질 1-Pass 적용
+  const shouldUse2Pass = verifiedCards.length > 2 || userInput.length > 100 || Object.keys(followupAnswers || {}).length > 1;
   
-  if (isComplexRequest) {
-    console.log('🔄 [Step C] 복잡한 요청 감지 → 2-Pass 전략 사용');
+  if (shouldUse2Pass) {
+    console.log('🎨 [Step C] 품질 우선 → 2-Pass 전략 사용 (상세 가이드 생성)');
     return await execute2PassStepC(verifiedCards, userInput, followupAnswers, ragMetadata, startTime);
   } else {
-    console.log('⚡ [Step C] 간단한 요청 → 1-Pass 전략 사용');
+    console.log('🎨 [Step C] 품질 우선 → 고품질 1-Pass 전략 사용');
   }
 
   try {
@@ -508,10 +508,9 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
 올바른 형식: {"cards": [...]}
 잘못된 형식: 마크다운 코드블록 사용`;
 
-    // 토큰 추정 및 모델 선택 (비용 최적화: 복잡할 때만 gpt-4o)
+    // 토큰 추정 및 모델 선택 (품질 우선: 항상 gpt-4o 사용)
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
-    const isComplexRequest = verifiedCards.length > 4 || userInput.length > 200;
-    const model = isComplexRequest ? 'gpt-4o-2024-11-20' : 'gpt-3.5-turbo'; // 🎯 비용 최적화
+    const model = 'gpt-4o-2024-11-20'; // 🎨 품질 우선: 항상 최고 모델 사용
 
     console.log(`📊 [Step C] 예상 토큰: ${estimatedTokens}, 모델: ${model}`);
 
@@ -521,8 +520,8 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 1500, // C단계 토큰 제한으로 JSON 안정성 확보
-      temperature: 0.7, // 창의성과 정확성의 균형
+      max_tokens: 2000, // 🎨 품질 우선: 충분한 토큰으로 상세 가이드 생성
+      temperature: 0.6, // 🎨 창의성과 정확성의 균형
       response_format: { type: 'json_object' }, // 🎯 마크다운 블록 자동 억제
     });
 
@@ -545,6 +544,21 @@ ${codeTemplate ? `💻 실행 가능한 코드 템플릿 정보:
     };
 
     console.log(`✅ [Step C] 완료 - ${cards.length}개 카드, ${actualTokens} 토큰, ${latency}ms`);
+    
+    // 🔍 디버깅: 생성된 카드 내용 확인
+    console.log('🔍 [Step C] 생성된 카드들:');
+    cards.forEach((card, index) => {
+      console.log(`📄 [카드 ${index + 1}] 타입: ${card.type}, 제목: ${card.title || 'N/A'}`);
+      if (card.content) {
+        console.log(`📝 [카드 ${index + 1}] 내용 길이: ${typeof card.content === 'string' ? card.content.length : 'object'}자`);
+      }
+      if (card.codeBlocks && Array.isArray(card.codeBlocks)) {
+        console.log(`💻 [카드 ${index + 1}] 코드블록: ${card.codeBlocks.length}개`);
+      }
+      if (card.items && Array.isArray(card.items)) {
+        console.log(`❓ [카드 ${index + 1}] FAQ: ${card.items.length}개`);
+      }
+    });
     console.log(`🎨 [Step C] WOW 통계:`, wowMetadata);
 
     return {
@@ -837,7 +851,7 @@ async function execute2PassStepC(
         { role: 'system', content: `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
         { role: 'user', content: detailPrompt },
       ],
-      max_tokens: 2000, // 품질 우선으로 충분한 토큰
+      max_tokens: 3000, // 🎨 품질 최우선: 매우 상세한 가이드 생성
       temperature: 0.4,
     });
 

@@ -133,14 +133,15 @@ export class MetricsCollector {
    * 모델별 토큰 비용 계산
    */
   private calculateCost(model: string, tokens: number): number {
+    // 🔧 올바른 토큰당 비용 계산 ($/토큰)
     const costs: { [model: string]: number } = {
-      'gpt-4o-mini': 0.00015,           // $0.15 / 1M 토큰
-      'gpt-4o-2024-11-20': 0.0025,     // $2.50 / 1M 토큰
-      'gpt-4o': 0.0025,                // $2.50 / 1M 토큰
-      'gpt-3.5-turbo': 0.0015          // $1.50 / 1M 토큰
+      'gpt-4o-mini': 0.150 / 1000000,        // $0.150 / 1M 토큰
+      'gpt-4o-2024-11-20': 2.50 / 1000000,   // $2.50 / 1M 토큰
+      'gpt-4o': 2.50 / 1000000,              // $2.50 / 1M 토큰
+      'gpt-3.5-turbo': 0.50 / 1000000        // $0.50 / 1M 토큰
     };
     
-    return tokens * (costs[model] || 0.0025); // 기본값은 gpt-4o 가격
+    return tokens * (costs[model] || 2.50 / 1000000); // 기본값은 gpt-4o 가격
   }
 }
 
