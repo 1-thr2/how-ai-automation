@@ -415,9 +415,24 @@ JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "
       throw new Error('Fast-Track 응답이 비어있습니다');
     }
 
-    const questions = parseJSON(content);
+    const parsedResult = parseJSON(content);
     const latency = Date.now() - startTime;
     const tokens = response.usage?.total_tokens || 200;
+
+    // 🔧 배열 형태로 변환 (JSON 구조 다양성 대응)
+    let questions = [];
+    
+    if (Array.isArray(parsedResult)) {
+      questions = parsedResult;
+    } else if (parsedResult.questions && Array.isArray(parsedResult.questions)) {
+      questions = parsedResult.questions;
+    } else if (parsedResult.items && Array.isArray(parsedResult.items)) {
+      questions = parsedResult.items;
+    } else {
+      console.log('⚠️ [Fast-Track] 예상치 못한 JSON 구조:', parsedResult);
+      // 단일 객체를 배열로 변환
+      questions = [parsedResult];
+    }
 
     console.log(`✅ [Fast-Track] 완료 - ${questions.length}개 질문, ${tokens} 토큰, ${latency}ms`);
 
