@@ -858,8 +858,10 @@ export default function WowAutomationResult({
               {console.log('🔍 [FAQ Debug] faqCard?.faqs:', faqCard?.faqs)}
               {console.log('🔍 [FAQ Debug] faqCard?.questions:', faqCard?.questions)}
 
-              {faqCard?.items && Array.isArray(faqCard.items) && faqCard.items.length > 0 ? (
-                faqCard.items.map((item: any, index: number) => {
+              {(faqCard?.items || faqCard?.questions) && 
+               Array.isArray(faqCard.items || faqCard.questions) && 
+               (faqCard.items || faqCard.questions).length > 0 ? (
+                (faqCard.items || faqCard.questions).map((item: any, index: number) => {
                   if (!item) return null;
                   return (
                     <div key={index} className="faq-item">

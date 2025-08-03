@@ -85,9 +85,47 @@
 
 ## JSON 출력 형식
 반드시 유효한 JSON 형식으로 출력하세요. 마크다운 코드블록 없이 순수 JSON만.
+
+### 📋 카드별 필수 구조 예시:
+
+#### 1. FAQ 카드 구조 (필수):
+```json
+{
+  "type": "faq",
+  "title": "❓ 자주 묻는 질문",
+  "subtitle": "실전 궁금증 해결",
+  "items": [
+    {
+      "question": "구체적인 질문",
+      "answer": "실용적인 답변"
+    }
+  ],
+  "status": "draft"
+}
+```
+
+#### 2. Flow 카드 구조:
+```json
+{
+  "type": "flow", 
+  "title": "🚀 자동화 플로우",
+  "subtitle": "단계별 계획",
+  "steps": [
+    {
+      "id": "1",
+      "title": "단계 제목",
+      "subtitle": "단계 설명"
+    }
+  ],
+  "status": "draft"
+}
+```
+
+### 🚨 중요 규칙:
 - 문자열은 반드시 큰따옴표 사용
 - 배열과 객체 구조 정확히 준수  
 - 모든 카드에 "status": "draft" 포함
+- FAQ 카드는 반드시 `items` 배열 사용 (question, answer 필드)
 - JSON 파싱 오류를 방지하기 위해 특수문자 이스케이프 주의
 
 ## 중요사항

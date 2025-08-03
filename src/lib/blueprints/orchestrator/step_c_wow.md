@@ -96,56 +96,200 @@ After: "사실 필요한 건 '데이터 변화를 놓치지 않는 시스템'이
 
 ✅ **절대 실패하지 않는 단계별 가이드:**
 
-### 1. **정확한 접속 방법**
+### 1. **Apps Script 정확한 접속 및 설정**
+
+**Step 1: 접속하기**
 ```
-❌ 잘못된 방법: "구글 드라이브에서 스크립트 편집기 선택"
-✅ 올바른 방법: 
-   - 새 탭 열기
-   - 주소창에 "https://script.google.com" 입력
-   - 엔터 키 누르기
+🌐 브라우저: 크롬 권장
+📍 주소: https://script.google.com (정확히 입력)
+🔑 로그인: 구글 계정으로 로그인
 ```
 
-### 2. **화면별 상세 클릭 가이드**
+**Step 2: 새 프로젝트 만들기**
 ```
-🖥️ 첫 화면: script.google.com
-👆 클릭할 곳: 좌측 상단 "새 프로젝트" (파란색 버튼)
-👀 예상 결과: 코드 편집기 화면 나타남
+🖥️ 첫 화면이 나오면:
+👆 클릭: 좌측 상단 "새 프로젝트" (파란색 + 버튼)
+👀 결과: 새 탭에서 편집기 열림
 
-🖥️ 편집 화면: 코드 입력란 
-👆 할 일: 기존 코드 전체 선택 (Ctrl+A) → 삭제 → 아래 코드 붙여넣기
+💡 만약 "새 프로젝트" 버튼이 안 보이면:
+   - 중앙의 "새 프로젝트 시작하기" 클릭
+   - 또는 "빈 프로젝트" 클릭
+```
+
+**Step 3: 코드 입력하기**
+```
+🖥️ 편집기 화면:
+📂 좌측: "code.gs" 탭이 선택된 상태
+📝 우측: 코드 입력 영역 (기본 코드 있음)
+
+👆 해야 할 일:
+1. 기존 코드 전체 선택 (Ctrl+A)
+2. 삭제 (Delete 키)
+3. 아래 완성 코드 붙여넣기 (Ctrl+V)
+4. 저장 (Ctrl+S) → 프로젝트 이름 입력: "PDF자동요약"
+```
+
+**Step 4: 권한 설정**
+```
+🔐 처음 저장 시:
+👆 팝업: "승인 검토" 버튼 클릭
+👆 다음: "고급" 클릭 → "PDF자동요약(안전하지 않음)으로 이동" 클릭
+👆 마지막: "허용" 클릭
+
+⚠️ 주의: "안전하지 않음" 메시지는 정상입니다 (본인이 만든 스크립트라서)
 ```
 
 ### 3. **복붙용 완성 코드 (개인화 적용)**
+
+**📂 code.gs 파일에 붙여넣을 완전한 코드:**
 ```javascript
 // 📁 '계약서' 폴더 모니터링 → ChatGPT 요약 → 개인 DM 전송
-function monitorContractFolder() {
-  const FOLDER_ID = "1ABC..."; // 설정: 계약서 폴더 ID
-  const OPENAI_API_KEY = "sk-..."; // 설정: OpenAI API 키
-  const SLACK_WEBHOOK = "https://hooks.slack.com/..."; // 설정: 개인 DM 웹훅
+function checkNewPDFs() {
+  // ⚙️ 여기에 본인 정보 입력 (3개 필수)
+  const FOLDER_ID = "1ABC_YOUR_FOLDER_ID_HERE"; // ← 계약서 폴더 ID
+  const OPENAI_API_KEY = "sk-proj-YOUR_API_KEY_HERE"; // ← OpenAI API 키
+  const SLACK_WEBHOOK = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"; // ← 슬랙 웹훅
   
-  // 실제 실행 코드
-  const folder = DriveApp.getFolderById(FOLDER_ID);
-  // ... 완전한 실행 가능 코드
+  try {
+    // 폴더에서 PDF 파일 가져오기
+    const folder = DriveApp.getFolderById(FOLDER_ID);
+    const files = folder.getFiles();
+    
+    while (files.hasNext()) {
+      const file = files.next();
+      if (file.getMimeType() === 'application/pdf') {
+        // PDF 내용 읽기
+        const blob = file.getBlob();
+        const content = blob.getDataAsString();
+        
+        // ChatGPT로 요약 생성
+        const summary = summarizeWithChatGPT(content, OPENAI_API_KEY);
+        
+        // 슬랙으로 전송
+        sendToSlack(file.getName(), summary, SLACK_WEBHOOK);
+      }
+    }
+  } catch (error) {
+    console.log('오류:', error);
+  }
+}
+
+function summarizeWithChatGPT(content, apiKey) {
+  const url = 'https://api.openai.com/v1/chat/completions';
+  const payload = {
+    model: 'gpt-3.5-turbo',
+    messages: [
+      {role: 'user', content: `다음 PDF 내용을 3-4줄로 요약해주세요: ${content.substring(0, 2000)}`}
+    ],
+    max_tokens: 200
+  };
+  
+  const options = {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + apiKey,
+      'Content-Type': 'application/json'
+    },
+    payload: JSON.stringify(payload)
+  };
+  
+  const response = UrlFetchApp.fetch(url, options);
+  const data = JSON.parse(response.getContentText());
+  return data.choices[0].message.content;
+}
+
+function sendToSlack(fileName, summary, webhookUrl) {
+  const message = {
+    text: `📄 새 계약서 요약: ${fileName}\n\n${summary}`
+  };
+  
+  const options = {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    payload: JSON.stringify(message)
+  };
+  
+  UrlFetchApp.fetch(webhookUrl, options);
 }
 ```
 
-### 4. **설정값 찾기 가이드**
+**🎯 복붙 방법:**
+1. 위 코드 전체를 선택 (Ctrl+A)
+2. 복사 (Ctrl+C)  
+3. Apps Script의 code.gs 탭에서 기존 코드 삭제
+4. 붙여넣기 (Ctrl+V)
+5. 저장 (Ctrl+S)
+
+### 4. **설정값 찾기 가이드 (복붙용)**
+
+#### **📁 Step 1: 구글 드라이브 폴더 ID 찾기**
 ```
-📁 구글 드라이브 폴더 ID 찾기:
-1. 드라이브에서 '계약서' 폴더 클릭
-2. 주소창 URL에서 folders/ 뒤의 긴 문자열 복사
-3. 위 코드의 FOLDER_ID에 붙여넣기
+🌐 drive.google.com 접속
+📂 '계약서' 폴더 찾기 (없으면 새로 만들기)
+👆 폴더 이름 클릭 (더블클릭 말고 한 번만)
+📍 주소창 확인: 
+   https://drive.google.com/drive/folders/1BxXXXXXXXXXXXX
+                                          ↑ 이 부분이 폴더 ID
 
-🔑 OpenAI API 키 발급:
-1. https://platform.openai.com/api-keys 접속
-2. '+ Create new secret key' 클릭
-3. 키 복사 → 위 코드의 OPENAI_API_KEY에 붙여넣기
-⚠️ 비용: 월 최소 $20 충전 필요, 토큰당 $0.002
+📋 복사 방법:
+1. folders/ 뒤의 긴 문자열 전체 복사
+2. 코드 125번째 줄로 이동
+3. "1ABC_YOUR_FOLDER_ID_HERE" 삭제
+4. 복사한 ID 붙여넣기
 
-📱 슬랙 개인 DM 웹훅:
-1. 슬랙 워크스페이스에서 앱 추가 > Incoming Webhooks 검색
-2. 채널 선택에서 "나에게 직접 메시지" 선택
-3. 생성된 URL → 위 코드의 SLACK_WEBHOOK에 붙여넣기
+✅ 완성 예시: const FOLDER_ID = "1BxXXXXXXXXXXXX";
+```
+
+#### **🔑 Step 2: OpenAI API 키 발급 (⚠️ 유료)**
+```
+💰 중요 비용 정보:
+- 월 최소 $20 충전 필수 (신용카드 등록)
+- 토큰당 $0.002 과금 (요약 1회당 약 $0.01-0.05)
+- 월 예상 비용: $25-50 (사용량에 따라)
+
+🔗 https://platform.openai.com/api-keys 접속
+🔐 OpenAI 계정 생성/로그인
+💳 Billing → Add payment method → 신용카드 정보 입력
+💰 Credits → Add credits → 최소 $20 충전
+
+🔑 API 키 생성:
+1. 좌측 "API keys" 클릭
+2. "Create new secret key" (초록색 버튼) 클릭
+3. Name: "PDF요약용" 입력
+4. "Create secret key" 클릭
+5. 나타나는 키 전체 복사 (sk-proj-로 시작)
+
+📋 코드에 입력:
+1. 코드 126번째 줄로 이동
+2. "sk-proj-YOUR_API_KEY_HERE" 삭제
+3. 복사한 키 붙여넣기
+
+⚠️ 주의: API 키는 한 번만 보여주므로 꼭 복사해두세요!
+```
+
+#### **📱 Step 3: 슬랙 개인 DM 웹훅 설정**
+```
+🏢 슬랙 워크스페이스 접속 (app.slack.com)
+🔧 좌측 하단 "앱" 클릭
+🔍 "Incoming Webhooks" 검색 → "추가" 클릭
+⚙️ "Slack에 추가" → "허용" 클릭
+
+📬 채널 설정:
+👆 "채널 선택" 드롭다운 클릭
+👤 "나에게 직접 메시지 (본인이름)" 선택
+✅ "Incoming Webhook 통합 추가" 클릭
+
+🔗 웹훅 URL 복사:
+📍 "Webhook URL" 섹션에서 긴 URL 복사
+   https://hooks.slack.com/services/TXXXXXXX/BXXXXXXX/XXXXXXXXX
+
+📋 코드에 입력:
+1. 코드 127번째 줄로 이동
+2. "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" 삭제
+3. 복사한 URL 붙여넣기
+
+🧪 테스트: 웹훅 설정 페이지에서 "샘플 요청 보내기" 클릭
+✅ 슬랙 DM에 메시지 도착하면 성공!
 ```
 
 ### 5. **테스트 및 완료 확인**
@@ -190,29 +334,76 @@ function autoEmailSort() {
 ```
 
 ### ❓ faq → "실전 고민 해결"
+
+**🎯 실제 사용자 상황에 맞는 FAQ 생성 원칙:**
+- 후속답변에서 언급된 구체적 상황 반영 (계약서 폴더, 개인 DM)
+- 기술적 문제 해결 방법 포함  
+- 비용/보안 관련 실질적 우려사항 다루기
+- "복사-붙여넣기" 과정에서 발생할 수 있는 오류 대응
+
 ```json
 {
   "type": "faq",
   "title": "❓ 자주 묻는 질문",
   "subtitle": "실전 궁금증 해결",
-  "questions": [
+  "items": [
     {
-      "question": "메일이 너무 많아서 제대로 분류될까요?",
-      "answer": "걱정 마세요! Gmail은 하루 1만 통도 실시간으로 처리해요. 오히려 많을수록 AI가 더 정확하게 학습합니다 👍"
+      "question": "코드를 붙여넣었는데 오류가 나요",
+      "answer": "1) code.gs 탭에 붙여넣었는지 확인 2) 기존 코드를 완전히 삭제했는지 확인 3) 따옴표가 깨지지 않았는지 확인하세요"
     },
     {
-      "question": "비용이 얼마나 들까요?",
-      "answer": "Google Apps Script는 완전 무료입니다! 월 실행 한도를 넘지 않는 한 추가 비용이 전혀 없어요."
+      "question": "폴더 ID를 어디서 찾나요?",
+      "answer": "드라이브에서 '계약서' 폴더를 한 번만 클릭(더블클릭X) → 주소창의 folders/ 뒤 긴 문자열이 ID입니다"
     },
     {
-      "question": "실패하면 어떻게 하나요?",
-      "answer": "단계별로 테스트하면서 진행하니까 안전해요. 실패 지점을 바로 파악할 수 있고, 언제든 되돌릴 수 있습니다."
+      "question": "OpenAI API 비용이 너무 비싸지 않나요?",
+      "answer": "PDF 요약 1회당 약 $0.01-0.05입니다. 월 50개 요약해도 $2-3 수준이니 $20 충전으로 충분합니다"
+    },
+    {
+      "question": "개인 DM으로 메시지가 안 와요",
+      "answer": "웹훅 URL이 정확한지 확인 → 슬랙에서 '나에게 직접 메시지' 선택했는지 확인 → 웹훅 테스트 먼저 실행해보세요"
     }
   ]
 }
 ```
 
-**핵심**: 사용자의 진짜 걱정(비용, 실패, 복잡성)을 구체적 수치와 안심시키는 톤으로 답변
+**🚨 FAQ 생성 필수 조건:**
+- 사용자 입력과 후속답변에서 언급된 구체적 도구/채널/폴더명 반영
+- 코드 복붙 과정에서 실제 발생할 수 있는 오류 포함
+
+### 📋 guide → "복사-붙여넣기 완전정복"
+
+**🎯 실행 가능한 코드 블록 생성 필수:**
+모든 guide 카드에는 반드시 `codeBlocks` 배열을 포함하여 사용자가 바로 복사-붙여넣기할 수 있는 코드를 제공하세요.
+
+```json
+{
+  "type": "guide",
+  "stepId": "1", 
+  "title": "Google Apps Script 설정 완벽 가이드",
+  "subtitle": "초보자도 5분만에 완료",
+  "content": "상세 설명...",
+  "codeBlocks": [
+    {
+      "title": "PDF 자동 요약 스크립트",
+      "language": "javascript",
+      "code": "function processPDF() {\n  // 실제 실행 가능한 코드\n  const folder = DriveApp.getFolderById('YOUR_FOLDER_ID');\n  const files = folder.getFiles();\n  \n  while (files.hasNext()) {\n    const file = files.next();\n    console.log('처리 중: ' + file.getName());\n  }\n}",
+      "copyInstructions": "이 코드를 Apps Script 편집기의 code.gs 파일에 붙여넣으세요",
+      "saveLocation": "Google Apps Script > 새 프로젝트 > code.gs"
+    }
+  ],
+  "status": "verified"
+}
+```
+
+**🚨 codeBlocks 필수 구조:**
+- title: 코드 블록 제목
+- language: 프로그래밍 언어 (javascript, python 등)
+- code: 실제 실행 가능한 코드 (이스케이프 처리 필수)
+- copyInstructions: 붙여넣기 방법 안내
+- saveLocation: 저장 위치 가이드
+- 비용/권한/설정 관련 실질적 문제 해결방법 제시
+- "내 개인 DM", "계약서 폴더" 등 개인화된 내용으로 질문 구성
 
 ### 🚀 expansion → "꿈의 업그레이드" (단순 구조 사용)
 🚨 **JSON 안정성을 위해 expansion 카드는 단순한 구조로 제한합니다.**
