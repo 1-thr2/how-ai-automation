@@ -67,11 +67,23 @@ async function draftStepGen(userInput: string): Promise<{
       ],
       max_tokens: 500, // Draft 토큰 최적화
       temperature: 0.8, // Draft는 창의성 중시
-      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
+      // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
     });
 
+    // 🔍 OpenAI 응답 상세 로깅
+    console.log('🔍 [Draft] OpenAI 전체 응답:', JSON.stringify(response, null, 2));
+    console.log('🔍 [Draft] response.choices 길이:', response.choices?.length);
+    console.log('🔍 [Draft] response.choices[0]:', response.choices?.[0]);
+    console.log('🔍 [Draft] response.usage:', response.usage);
+
     const content = response.choices[0]?.message?.content;
+    console.log('🔍 [Draft] 추출된 content:', content);
+    console.log('🔍 [Draft] content 타입:', typeof content);
+    console.log('🔍 [Draft] content 길이:', content?.length);
+    
     if (!content) {
+      console.error('❌ [Draft] OpenAI 응답에서 content가 null/undefined입니다');
+      console.error('❌ [Draft] response.choices[0]?.message:', response.choices?.[0]?.message);
       throw new Error('Draft 응답이 비어있습니다');
     }
 
@@ -147,7 +159,7 @@ ${JSON.stringify(draftQuestions, null, 2)}
       ],
       max_tokens: 600, // Refine 토큰 최적화
       temperature: 0.3, // Refine은 정확성 중시
-      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
+      // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
     });
 
     const content = response.choices[0]?.message?.content;
@@ -404,7 +416,7 @@ JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "
       ],
       max_tokens: 200, // ⚡ Fast-Track 최대한 축소
       temperature: 0.3, // 🎯 더 결정적으로
-      response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
+      // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
     });
 
     const content = response.choices[0]?.message?.content;
@@ -421,10 +433,10 @@ JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "
     
     if (Array.isArray(parsedResult)) {
       questions = parsedResult;
-    } else if (parsedResult.questions && Array.isArray(parsedResult.questions)) {
-      questions = parsedResult.questions;
-    } else if (parsedResult.items && Array.isArray(parsedResult.items)) {
-      questions = parsedResult.items;
+    } else if (parsedResult && typeof parsedResult === 'object' && 'questions' in parsedResult && Array.isArray((parsedResult as any).questions)) {
+      questions = (parsedResult as any).questions;
+    } else if (parsedResult && typeof parsedResult === 'object' && 'items' in parsedResult && Array.isArray((parsedResult as any).items)) {
+      questions = (parsedResult as any).items;
     } else {
       console.log('⚠️ [Fast-Track] 예상치 못한 JSON 구조:', parsedResult);
       // 단일 객체를 배열로 변환
