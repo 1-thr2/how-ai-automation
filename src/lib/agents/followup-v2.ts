@@ -65,21 +65,19 @@ async function draftStepGen(userInput: string): Promise<{
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 500, // Draft 토큰 최적화
+      max_tokens: 800, // Draft JSON 완성을 위해 증가
       temperature: 0.8, // Draft는 창의성 중시
       // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
     });
 
-    // 🔍 OpenAI 응답 상세 로깅
-    console.log('🔍 [Draft] OpenAI 전체 응답:', JSON.stringify(response, null, 2));
-    console.log('🔍 [Draft] response.choices 길이:', response.choices?.length);
-    console.log('🔍 [Draft] response.choices[0]:', response.choices?.[0]);
-    console.log('🔍 [Draft] response.usage:', response.usage);
-
+    // 🔍 OpenAI 응답 간소 로깅
     const content = response.choices[0]?.message?.content;
-    console.log('🔍 [Draft] 추출된 content:', content);
-    console.log('🔍 [Draft] content 타입:', typeof content);
-    console.log('🔍 [Draft] content 길이:', content?.length);
+    console.log('🔍 [Draft] 결과:', {
+      choices: response.choices?.length,
+      usage: response.usage,
+      finish_reason: response.choices?.[0]?.finish_reason,
+      content_length: content?.length
+    });
     
     if (!content) {
       console.error('❌ [Draft] OpenAI 응답에서 content가 null/undefined입니다');
@@ -157,7 +155,7 @@ ${JSON.stringify(draftQuestions, null, 2)}
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 600, // Refine 토큰 최적화
+      max_tokens: 700, // Refine JSON 완성을 위해 약간 증가
       temperature: 0.3, // Refine은 정확성 중시
       // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
     });
@@ -414,7 +412,7 @@ JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 200, // ⚡ Fast-Track 최대한 축소
+      max_tokens: 300, // ⚡ Fast-Track JSON 완성을 위해 증가
       temperature: 0.3, // 🎯 더 결정적으로
       // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
     });
@@ -426,7 +424,7 @@ JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "
 
     const parsedResult = parseJSON(content);
     const latency = Date.now() - startTime;
-    const tokens = response.usage?.total_tokens || 200;
+    const tokens = response.usage?.total_tokens || 300;
 
     // 🔧 배열 형태로 변환 (JSON 구조 다양성 대응)
     let questions = [];

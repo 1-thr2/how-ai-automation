@@ -847,29 +847,20 @@ export default function WowAutomationResult({
           </div>
         </div>
 
-        {/* 플로우 다이어그램 - 🚨 flow 카드가 있으면 무조건 표시 */}
-        {(processedFlowSteps.length > 0 || flowCard) && (
-          <>
-            {console.log('🔍 [WowAutomationResult] FlowDiagramSection 렌더링 시작')}
-            {console.log('🔍 [WowAutomationResult] 전달할 props:', {
-              steps: processedFlowSteps,
-              cards: cardData,
-              cardsLength: cardData?.length,
-              hasGuideCard: cardData?.some((c: any) => c.type === 'guide')
-            })}
-            <FlowDiagramSection
-              steps={processedFlowSteps}
-              cards={cardData}
-              engine={flowCard?.engine}
-              flowMap={flowCard?.flowMap}
-              fallback={flowCard?.fallback}
-              flowTitle={getDynamicTitle()}
-              flowSubtitle={getDynamicSubtitle()}
-            />
-          </>
+        {/* 플로우 다이어그램 */}
+        {processedFlowSteps.length > 0 && (
+          <FlowDiagramSection
+            steps={processedFlowSteps}
+            cards={cardData}
+            engine={flowCard?.engine}
+            flowMap={flowCard?.flowMap}
+            fallback={flowCard?.fallback}
+            flowTitle={getDynamicTitle()}
+            flowSubtitle={getDynamicSubtitle()}
+          />
         )}
 
-        {/* 추가 가이드 카드들 (guide는 FlowDiagramSection에서 처리) */}
+        {/* 상세 가이드 카드들 */}
         <div className="guide-cards-section">
           {cardData
             .filter((card: any) =>
@@ -883,16 +874,9 @@ export default function WowAutomationResult({
                 'audio_guide',
                 'chatbot_guide',
                 'wow_preview',
-                // 🚨 guide 제거: FlowDiagramSection의 StepDetails에서 처리됨
-                // needs_analysis, share, expansion은 메인 플로우가 더 중요함
               ].includes(card.type)
             )
             .map((card: any, index: number) => {
-              // 방어 코드: card가 유효한지 확인
-              if (!card || !card.type) {
-                return null;
-              }
-
               return (
                 <div key={`card-${index}-${card.type}`} className="guide-card-wrapper">
                   <WowCardRenderer card={card} />

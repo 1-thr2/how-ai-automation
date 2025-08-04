@@ -62,8 +62,8 @@ export async function POST(request: Request) {
       questionsGenerated: questions.length
     });
 
-    // 💰 비용 정보 로깅
-    const estimatedCost = (metrics.totalTokens * 0.00015); // gpt-4o-mini 기준
+    // 💰 비용 정보 로깅 (수정된 계산)
+    const estimatedCost = (metrics.totalTokens / 1000 * 0.00015); // gpt-4o-mini 기준: $0.00015 per 1K tokens
     console.log(`💰 [API] 예상 비용: $${estimatedCost.toFixed(4)} (${metrics.totalTokens} 토큰)`);
 
     // 📋 질문 품질 검증 (Fast-Track 2개 옵션도 허용)
