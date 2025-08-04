@@ -465,37 +465,59 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
   // 실제 마크다운 content에서 단계 추출
   const parseMarkdownSteps = (content: string) => {
     console.log('🔍 [parseMarkdownSteps] 파싱 시작 - 길이:', content.length);
+    console.log('🔍 [parseMarkdownSteps] Content 전체 구조:');
+    console.log(content);
     
-    const steps = [];
+    // 여러 패턴 시도 - 실제 content 구조에 맞게 유연하게 파싱
+    let patterns = [
+      // 패턴 1: ### **1️⃣ 형태
+      /### \*\*(\d+)️⃣\s*\*?\*?\s*([^#\n]+)([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
+      // 패턴 2: ## ✅ **방법 1: 형태  
+      /## ✅ \*\*방법 (\d+): ([^#\n]+)([\s\S]*?)(?=## ✅|\n---|\n## |$)/g,
+      // 패턴 3: ### **1️⃣ (더 유연한 버전)
+      /### \*\*(\d+)️⃣.*?([^#\n]+)([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
+      // 패턴 4: ### 1️⃣ **제목** 형태
+      /### (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \d+️⃣|\n---|\n## |$)/g
+    ];
     
-    // ## 📌 X단계: 제목 형태 찾기
-    const stepPattern = /## 📌 (\d+)단계: ([^#\n]+)([\s\S]*?)(?=## 📌|\n## |$)/g;
-    let match;
+    let steps = [];
     let stepNumber = 1;
     
-    while ((match = stepPattern.exec(content)) !== null) {
-      let title = match[2]?.trim() || '';
-      let description = match[3]?.trim() || '';
+    // 각 패턴을 순서대로 시도
+    for (let pattern of patterns) {
+      pattern.lastIndex = 0; // regex 상태 초기화
+      let match;
       
-      // 제목에서도 마크다운 제거
-      title = title.replace(/\*\*([^*]+)\*\*/g, '$1'); // **텍스트** → 텍스트
+      while ((match = pattern.exec(content)) !== null) {
+        let title = match[2]?.trim() || '';
+        let description = match[3]?.trim() || '';
+        
+        // 제목에서 마크다운 제거
+        title = title.replace(/\*\*([^*]+)\*\*/g, '$1');
+        
+        // 설명에서 불필요한 마크다운 제거
+        description = description
+          .replace(/\*\*([^*]+)\*\*/g, '$1')
+          .replace(/### ([^#\n]+)/g, '$1')
+          .replace(/\n\n+/g, '\n')
+          .substring(0, 300);
+        
+        if (title) {
+          steps.push({
+            number: stepNumber,
+            title: `${stepNumber}단계: ${title}`,
+            description: description || `${title}에 대한 상세 설명입니다.`,
+            expectedScreen: `${title} 완료 후 확인할 수 있는 화면`,
+            checkpoint: `${title}이 정상적으로 완료되었는지 확인`
+          });
+          stepNumber++;
+        }
+      }
       
-      // 설명에서 불필요한 마크다운 제거
-      description = description
-        .replace(/\*\*([^*]+)\*\*/g, '$1') // **텍스트** → 텍스트
-        .replace(/### ([^#\n]+)/g, '$1') // ### 제목 → 제목
-        .replace(/\n\n+/g, '\n') // 연속 줄바꿈 정리
-        .substring(0, 300); // 길이 제한
-      
-      if (title) {
-        steps.push({
-          number: stepNumber,
-          title: `${stepNumber}단계: ${title}`,
-          description: description || `${title}에 대한 상세 설명입니다.`,
-          expectedScreen: `${title} 완료 후 확인할 수 있는 화면`,
-          checkpoint: `${title}이 정상적으로 완료되었는지 확인`
-        });
-        stepNumber++;
+      // 하나의 패턴에서 단계를 찾았으면 중단
+      if (steps.length > 0) {
+        console.log(`✅ [parseMarkdownSteps] 패턴 ${patterns.indexOf(pattern) + 1} 성공 - ${steps.length}개 단계`);
+        break;
       }
     }
     
@@ -738,9 +760,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     <div className={styles.container}>
       {/* 중복 제목 제거 - 상위 컴포넌트에서 이미 렌더링됨 */}
       
-      <div className={styles['impact-bar']}>
-        <strong>🚀 {steps.length}단계로 완성되는 자동화 시스템</strong>
-      </div>
+      {/* impact-bar 제거 - 중복 표시 */}
 
       <div className={styles['flow-container']}>
         <div className={styles['progress-line']}>
