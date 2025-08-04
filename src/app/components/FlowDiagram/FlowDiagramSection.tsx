@@ -474,8 +474,11 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     let stepNumber = 1;
     
     while ((match = stepPattern.exec(content)) !== null) {
-      const title = match[2]?.trim();
+      let title = match[2]?.trim() || '';
       let description = match[3]?.trim() || '';
+      
+      // 제목에서도 마크다운 제거
+      title = title.replace(/\*\*([^*]+)\*\*/g, '$1'); // **텍스트** → 텍스트
       
       // 설명에서 불필요한 마크다운 제거
       description = description
@@ -733,11 +736,8 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>자동화 플로우</h1>
-        <p>단계별로 따라하시면 자동화가 완성됩니다</p>
-      </div>
-
+      {/* 중복 제목 제거 - 상위 컴포넌트에서 이미 렌더링됨 */}
+      
       <div className={styles['impact-bar']}>
         <strong>🚀 {steps.length}단계로 완성되는 자동화 시스템</strong>
       </div>
@@ -761,8 +761,12 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
             >
               <div className={styles['step-number']}>{index + 1}</div>
               <div className={styles['step-icon']}>{step.icon || '✨'}</div>
-              <div className={styles['step-title']}>{step.title}</div>
-              <div className={styles['step-subtitle']}>{step.subtitle || ''}</div>
+              <div className={styles['step-title']}>
+                {step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+              </div>
+              <div className={styles['step-subtitle']}>
+                {step.subtitle?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+              </div>
               <div className={styles['step-duration']}>{step.duration || '5분'}</div>
               {step.preview && (
                 <div className={styles['step-preview']}>{step.preview}</div>
@@ -785,7 +789,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                 ✕
               </button>
               <h2 className={styles['modal-title']}>
-                {selectedStep.title}
+                {selectedStep.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
               </h2>
               <p className={styles['modal-subtitle']}>
                 단계별 실행 가이드
@@ -808,7 +812,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                     <div key={i} className={styles['guide-step']}>
                       <div className={styles['guide-number']}>{step.number}</div>
                       <div className={styles['guide-content']}>
-                        <h3>{step.title}</h3>
+                        <h3>{step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</h3>
                         <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
                           {step.description}
                         </div>
