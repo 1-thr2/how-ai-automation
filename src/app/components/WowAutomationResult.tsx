@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import ShareModal from './ShareModal';
-import FlowDiagramSection from './FlowDiagramSection';
+import FlowDiagramSection from './FlowDiagram/FlowDiagramSection';
 import WowCardRenderer from './WowCardRenderer';
 
 interface WowAutomationResultProps {
