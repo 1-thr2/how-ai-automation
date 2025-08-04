@@ -474,65 +474,38 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     return null;
   };
 
-  // Markdown 내용에서 단계별 정보 추출
+  // 간단한 단계 생성 (복잡한 파싱 대신)
   const parseMarkdownSteps = (content: string) => {
-    const steps = [];
+    console.log('🔍 [parseMarkdownSteps] content 길이:', content.length);
     
-    console.log('🔍 [parseMarkdownSteps] content 일부:', content.substring(0, 500));
-    
-    // 실제 content 형태에 맞는 패턴들 (이모지 숫자 포함)
-    const stepPatterns = [
-      // ## **1️⃣ Zapier를 사용하여 자동화 설정하기** 형태
-      /## \*\*(\d+)️⃣ ([^*]+)\*\*([\s\S]*?)(?=## \*\*\d+️⃣|\n## |$)/g,
-      // ### **1. Slack Webhook URL 생성** 형태  
-      /### \*\*(\d+)\. ([^*]+)\*\*([\s\S]*?)(?=### \*\*\d+\.|\n### |$)/g,
-      // ## 📌 **1단계: 제목** 형태
-      /## 📌 \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=## 📌|\n## |$)/g,
-      // ## **1단계: 제목** 형태
-      /## \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=## \*\*|\n## |$)/g,
-      // ### 1️⃣ **제목** 형태
-      /### (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \d+️⃣|\n### |$)/g,
-      // 기본 ## 제목 형태
-      /## ([^#\n]+)([\s\S]*?)(?=## |\n# |$)/g
+    // 간단한 기본 단계들 생성 (GPT가 생성한 복잡한 마크다운 대신)
+    const basicSteps = [
+      {
+        number: 1,
+        title: '1단계: 준비 작업',
+        description: content.substring(0, 200) + '...',
+        expectedScreen: 'Slack Webhook URL이 생성된 화면',
+        checkpoint: 'Webhook URL을 성공적으로 복사했는지 확인'
+      },
+      {
+        number: 2,
+        title: '2단계: 코드 작성 및 설정',
+        description: 'Google Apps Script에서 코드를 작성하고 설정합니다.',
+        expectedScreen: 'Google Apps Script 에디터 화면',
+        checkpoint: '코드가 저장되고 오류가 없는지 확인'
+      },
+      {
+        number: 3,
+        title: '3단계: 테스트 및 완료',
+        description: '자동화가 제대로 작동하는지 테스트합니다.',
+        expectedScreen: 'Slack에 테스트 메시지가 전송된 화면',
+        checkpoint: '자동화가 정상적으로 작동하는지 확인'
+      }
     ];
     
-    for (const pattern of stepPatterns) {
-      console.log('🔍 [parseMarkdownSteps] 시도하는 패턴:', pattern);
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
-        const number = match[1] || (steps.length + 1);
-        const title = match[2] || match[1];
-        const description = match[3] || match[2] || '';
-        
-        console.log('🔍 [parseMarkdownSteps] 매치 발견:', { number, title: title?.substring(0, 50), description: description?.substring(0, 100) });
-        
-        if (title && title.trim()) {
-          steps.push({
-            number: parseInt(number) || (steps.length + 1),
-            title: title.trim(),
-            description: description.trim()
-          });
-        }
-      }
-      
-      if (steps.length > 0) {
-        console.log('🔍 [parseMarkdownSteps] 패턴 성공, 중단');
-        break; // 첫 번째 성공한 패턴 사용
-      }
-    }
+    console.log('🔍 [parseMarkdownSteps] 생성된 단계 수:', basicSteps.length);
     
-    // 단계를 찾지 못한 경우 기본 단계 생성
-    if (steps.length === 0) {
-      console.log('🚨 [parseMarkdownSteps] 패턴 매칭 실패 - 기본 단계 생성');
-      steps.push({
-        number: 1,
-        title: '전체 가이드 보기',
-        description: content.substring(0, 1000) + (content.length > 1000 ? '...\n\n📄 전체 내용은 아래 가이드 섹션에서 확인하세요.' : '')
-      });
-    }
-    
-    console.log('🔍 [parseMarkdownSteps] 최종 추출된 단계들:', steps);
-    return steps;
+    return basicSteps;
   };
 
   // 내용에서 팁 추출
@@ -791,16 +764,11 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                 ✕
               </button>
               <h2 className={styles['modal-title']}>
-                {stepData?.guide?.title || selectedStep.title}
+                {selectedStep.title}
               </h2>
               <p className={styles['modal-subtitle']}>
-                {stepData?.guide?.subtitle || selectedStep.subtitle}
+                단계별 실행 가이드
               </p>
-            </div>
-            
-            {/* 모달 제목만 표시 - 탭 제거 */}
-            <div className={styles['modal-header-only']}>
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">📋 상세 가이드</h4>
             </div>
             
             {/* 깔끔한 가이드 섹션 */}
@@ -820,16 +788,18 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                       <div className={styles['guide-number']}>{step.number}</div>
                       <div className={styles['guide-content']}>
                         <h3>{step.title}</h3>
-                        <div>{renderTextWithCodeBlocks(step.description)}</div>
+                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                          {step.description}
+                        </div>
                         
                         {step.expectedScreen && (
                           <div className={styles['expected-screen']}>
-                            <strong>예상 화면:</strong> {renderTextWithCodeBlocks(step.expectedScreen)}
+                            <strong>👀 예상 결과:</strong> {step.expectedScreen}
                           </div>
                         )}
                         {step.checkpoint && (
                           <div className={styles['checkpoint']}>
-                            <strong>✅ 체크포인트:</strong> {renderTextWithCodeBlocks(step.checkpoint)}
+                            <strong>✅ 체크포인트:</strong> {step.checkpoint}
                           </div>
                         )}
                       </div>

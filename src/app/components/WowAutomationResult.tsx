@@ -303,6 +303,10 @@ export default function WowAutomationResult({
     const flowCard = cardData.find((c: any) => c.type === 'flow');
     const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
     const userInput = result.context?.userInput || '';
+    
+    // 🔍 디버깅: userInput 확인
+    console.log('🔍 [getDynamicTitle] userInput:', userInput);
+    console.log('🔍 [getDynamicTitle] result.context:', result.context);
 
     // 1순위: 사용자 입력을 기반으로 구체적인 맞춤형 제목 생성
     if (userInput) {
@@ -877,12 +881,11 @@ export default function WowAutomationResult({
           />
         )}
 
-        {/* 상세 가이드 카드들 */}
+        {/* 상세 가이드 카드들 - guide 제외 (FlowDiagramSection에서 처리) */}
         <div className="guide-cards-section">
           {cardData
             .filter((card: any) =>
               [
-                'guide',
                 'tool_recommendation',
                 'slide_guide',
                 'video_guide',
