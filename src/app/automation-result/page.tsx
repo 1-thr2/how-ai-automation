@@ -38,8 +38,16 @@ function AutomationResultContent() {
           
           console.log('[Parsed cards]:', cards);
           setCards(cards);
+          // 🔧 userInput 복구: sessionStorage에서 goal 파라미터나 URL에서 추출
+          const storedGoal = sessionStorage.getItem('currentGoal') || '';
+          const urlGoal = params?.get('goal') || '';
+          const finalUserInput = storedGoal || urlGoal || decodeURIComponent(urlGoal) || '';
+          
           setResult({
-            context: data.context || { userInput: '' },
+            context: { 
+              userInput: finalUserInput,
+              followupAnswers: data.followupAnswers || data.context?.followupAnswers || {}
+            },
             cards,
             error: data.error || '',
             fallbackExample: data.fallbackExample || '',

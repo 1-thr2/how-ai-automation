@@ -1442,24 +1442,28 @@
   font-size: 15px;
 }
 
+/* 예상 결과 - 하늘색 배경 (기존 디자인 복구) */
 .expected-screen {
-  background: #fef3c7;
-  border: 1px solid #fbbf24;
+  background: #e0f2fe !important;
+  border: 1px solid #0277bd !important;
   border-radius: 6px;
   padding: 12px;
   margin: 12px 0;
-  color: #92400e;
+  color: #01579b !important;
   font-size: 14px;
+  font-weight: 500;
 }
 
+/* 체크포인트 - 초록색 배경 (기존 디자인 복구) */
 .checkpoint {
-  background: #dcfce7;
-  border: 1px solid #86efac;
+  background: #e8f5e8 !important;
+  border: 1px solid #4caf50 !important;
   border-radius: 6px;
   padding: 12px;
   margin: 12px 0;
-  color: #166534;
+  color: #2e7d32 !important;
   font-size: 14px;
+  font-weight: 500;
 }
 
 /* 모달 헤더와 탭 스타일 */

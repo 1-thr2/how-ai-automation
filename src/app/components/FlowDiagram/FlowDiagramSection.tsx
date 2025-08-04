@@ -474,38 +474,73 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     return null;
   };
 
-  // 간단한 단계 생성 (복잡한 파싱 대신)
+  // 실제 마크다운 content에서 단계 추출
   const parseMarkdownSteps = (content: string) => {
     console.log('🔍 [parseMarkdownSteps] content 길이:', content.length);
+    console.log('🔍 [parseMarkdownSteps] content 일부:', content.substring(0, 500));
     
-    // 간단한 기본 단계들 생성 (GPT가 생성한 복잡한 마크다운 대신)
-    const basicSteps = [
-      {
-        number: 1,
-        title: '1단계: 준비 작업',
-        description: content.substring(0, 200) + '...',
-        expectedScreen: 'Slack Webhook URL이 생성된 화면',
-        checkpoint: 'Webhook URL을 성공적으로 복사했는지 확인'
-      },
-      {
-        number: 2,
-        title: '2단계: 코드 작성 및 설정',
-        description: 'Google Apps Script에서 코드를 작성하고 설정합니다.',
-        expectedScreen: 'Google Apps Script 에디터 화면',
-        checkpoint: '코드가 저장되고 오류가 없는지 확인'
-      },
-      {
-        number: 3,
-        title: '3단계: 테스트 및 완료',
-        description: '자동화가 제대로 작동하는지 테스트합니다.',
-        expectedScreen: 'Slack에 테스트 메시지가 전송된 화면',
-        checkpoint: '자동화가 정상적으로 작동하는지 확인'
+    const steps = [];
+    
+    // ## 📌 X단계: 제목 형태 찾기
+    const stepPattern = /## 📌 (\d+)단계: ([^#\n]+)([\s\S]*?)(?=## 📌|\n## |$)/g;
+    let match;
+    let stepNumber = 1;
+    
+    while ((match = stepPattern.exec(content)) !== null) {
+      const title = match[2]?.trim();
+      let description = match[3]?.trim() || '';
+      
+      // 설명에서 불필요한 마크다운 제거
+      description = description
+        .replace(/\*\*([^*]+)\*\*/g, '$1') // **텍스트** → 텍스트
+        .replace(/### ([^#\n]+)/g, '$1') // ### 제목 → 제목
+        .replace(/\n\n+/g, '\n') // 연속 줄바꿈 정리
+        .substring(0, 300); // 길이 제한
+      
+      if (title) {
+        steps.push({
+          number: stepNumber,
+          title: `${stepNumber}단계: ${title}`,
+          description: description || `${title}에 대한 상세 설명입니다.`,
+          expectedScreen: `${title} 완료 후 확인할 수 있는 화면`,
+          checkpoint: `${title}이 정상적으로 완료되었는지 확인`
+        });
+        stepNumber++;
       }
-    ];
+    }
     
-    console.log('🔍 [parseMarkdownSteps] 생성된 단계 수:', basicSteps.length);
+    // 단계를 찾지 못한 경우 기본 단계 생성
+    if (steps.length === 0) {
+      console.log('🚨 [parseMarkdownSteps] 단계 찾기 실패 - 기본 단계 생성');
+      steps.push(
+        {
+          number: 1,
+          title: '1단계: Slack Webhook URL 생성',
+          description: 'Slack에서 Webhook URL을 생성하여 알림을 받을 수 있도록 설정합니다.',
+          expectedScreen: 'Slack Webhook URL이 생성된 화면',
+          checkpoint: 'Webhook URL을 성공적으로 복사했는지 확인'
+        },
+        {
+          number: 2,
+          title: '2단계: 자동화 설정',
+          description: 'Zapier 또는 Google Apps Script를 사용하여 SNS 모니터링을 설정합니다.',
+          expectedScreen: '자동화 도구에서 설정이 완료된 화면',
+          checkpoint: '설정이 저장되고 활성화되었는지 확인'
+        },
+        {
+          number: 3,
+          title: '3단계: 테스트 및 완료',
+          description: '설정한 자동화가 제대로 작동하는지 테스트합니다.',
+          expectedScreen: 'Slack에 테스트 알림이 도착한 화면',
+          checkpoint: '자동화가 정상적으로 작동하는지 확인'
+        }
+      );
+    }
     
-    return basicSteps;
+    console.log('🔍 [parseMarkdownSteps] 최종 단계 수:', steps.length);
+    console.log('🔍 [parseMarkdownSteps] 단계들:', steps.map(s => s.title));
+    
+    return steps;
   };
 
   // 내용에서 팁 추출
@@ -802,12 +837,46 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                             <strong>✅ 체크포인트:</strong> {step.checkpoint}
                           </div>
                         )}
+
+                        {/* 각 단계별 코드 블록 포함 */}
+                        {stepData.guide.codeBlocks && 
+                         stepData.guide.codeBlocks.length > 0 && 
+                         step.number <= stepData.guide.codeBlocks.length && (
+                          <div className={styles['code-section']}>
+                            <h4>💻 실행 코드</h4>
+                            {(() => {
+                              const codeBlock = stepData.guide.codeBlocks[step.number - 1];
+                              if (!codeBlock) return null;
+                              return (
+                                <div key={step.number} className={styles['code-block']}>
+                                  <div className={styles['code-header']}>
+                                    <span className={styles['code-title']}>
+                                      {codeBlock.title || `코드 ${step.number}`}
+                                    </span>
+                                    <button
+                                      className={styles['code-copy-btn']}
+                                      onClick={() => navigator.clipboard.writeText(codeBlock.code)}
+                                    >
+                                      📋 복사
+                                    </button>
+                                  </div>
+                                  <pre className={styles['code-content']}>
+                                    <code>{codeBlock.code}</code>
+                                  </pre>
+                                  {codeBlock.copyInstructions && (
+                                    <div className={styles['code-instructions']}>
+                                      💡 {codeBlock.copyInstructions}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
 
-
-                  
                   {/* 팁 */}
                   {stepData.guide.tips && stepData.guide.tips.length > 0 && (
                     <div className={styles['tips-section']}>
@@ -823,43 +892,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                     </div>
                   )}
 
-                  {/* 🚨 코드 블록 섹션 추가 */}
-                  {stepData.guide.codeBlocks && stepData.guide.codeBlocks.length > 0 && (
-                    <div className={styles['code-section']}>
-                      <h4>💻 실행 코드</h4>
-                      {stepData.guide.codeBlocks.map((codeBlock: any, i: number) => (
-                        <div key={i} className={styles['code-block']}>
-                          <div className={styles['code-header']}>
-                            <span className={styles['code-title']}>
-                              {codeBlock.title || `코드 ${i + 1}`}
-                            </span>
-                            <button
-                              className={styles['copy-code-btn']}
-                              onClick={() => {
-                                navigator.clipboard.writeText(codeBlock.code || '');
-                                // 복사 완료 표시 (선택사항)
-                              }}
-                            >
-                              📋 복사
-                            </button>
-                          </div>
-                          <div className={styles['code-instructions']}>
-                            {codeBlock.copyInstructions || '코드를 복사해서 사용하세요'}
-                            {codeBlock.saveLocation && (
-                              <span className={styles['save-location']}>
-                                → 저장 위치: {codeBlock.saveLocation}
-                              </span>
-                            )}
-                          </div>
-                          <pre className={styles['code-content']}>
-                            <code className={`language-${codeBlock.language || 'javascript'}`}>
-                              {codeBlock.code}
-                            </code>
-                          </pre>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+
 
                   {/* 기존 executableCode 지원 (호환성) */}
                   {stepData.guide.executableCode && !stepData.guide.codeBlocks && (

@@ -55,9 +55,10 @@ function LoadingContent() {
           const data = await res.json();
           console.log('✅ [Loading] API 응답 받음:', data);
           
-          // sessionStorage에 결과 저장
+          // sessionStorage에 결과 저장 + goal도 함께 저장
           sessionStorage.setItem('automationResultData', JSON.stringify(data));
-          console.log('💾 [Loading] sessionStorage에 저장 완료');
+          sessionStorage.setItem('currentGoal', goal); // 🔧 goal을 별도 저장
+          console.log('💾 [Loading] sessionStorage에 저장 완료 (goal 포함)');
 
           // 최소 1초 보장
           const elapsed = Date.now() - start;
