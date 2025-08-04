@@ -743,14 +743,18 @@ function extractDetailedSteps(content: string): any[] {
   
   const steps = [];
   
-  // 여러 패턴 시도 (백엔드에서 안정적으로 파싱)
+  // 여러 패턴 시도 (실제 GPT 출력에 맞게 수정)
   const patterns = [
-    // 패턴 1: ## 1️⃣ **제목** 형태
+    // 패턴 1: ## 📝 **1단계: 제목** 형태 (실제 GPT 출력!)
+    /## 📝 \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=\n## 📝|\n---|\n## |$)/g,
+    // 패턴 2: ## 1️⃣ **제목** 형태
     /## (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=\n## \d+️⃣|\n---|\n## 📂|\n## 🎉|$)/g,
-    // 패턴 2: ### **1️⃣ **제목** 형태  
+    // 패턴 3: ### **1️⃣ **제목** 형태  
     /### \*\*(\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
-    // 패턴 3: ## ✅ **방법 1: 형태
-    /## ✅ \*\*방법 (\d+): ([^#\n]+)([\s\S]*?)(?=## ✅|\n---|\n## |$)/g
+    // 패턴 4: ## ✅ **방법 1: 형태
+    /## ✅ \*\*방법 (\d+): ([^#\n]+)([\s\S]*?)(?=## ✅|\n---|\n## |$)/g,
+    // 패턴 5: ## **1단계: 제목** 형태 (더 유연한 버전)
+    /## \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=\n## \*\*\d+단계|\n---|\n## |$)/g
   ];
 
   for (let i = 0; i < patterns.length; i++) {
@@ -762,6 +766,7 @@ function extractDetailedSteps(content: string): any[] {
     console.log(`🔍 [extractDetailedSteps] 패턴 ${i + 1} 시도...`);
 
     while ((match = pattern.exec(content)) !== null) {
+      const actualStepNumber = parseInt(match[1]) || stepNumber;
       let title = match[2]?.trim() || '';
       let description = match[3]?.trim() || '';
 
@@ -775,14 +780,16 @@ function extractDetailedSteps(content: string): any[] {
 
       if (title) {
         const step = {
-          number: stepNumber,
-          title: `${stepNumber}단계: ${title}`,
+          number: actualStepNumber,
+          title: `${actualStepNumber}단계: ${title}`,
           description: description || `${title}에 대한 상세 설명입니다.`,
           expectedScreen: `${title} 완료 후 확인할 수 있는 화면`,
           checkpoint: `${title}이 정상적으로 완료되었는지 확인`
         };
         
-        console.log(`✅ [extractDetailedSteps] 단계 ${stepNumber} 파싱됨:`, {
+        console.log(`✅ [extractDetailedSteps] 단계 ${actualStepNumber} 파싱됨:`, {
+          pattern: i + 1,
+          rawMatch: match[0].substring(0, 50) + '...',
           title: step.title,
           descriptionLength: step.description.length,
           descriptionPreview: step.description.substring(0, 100) + '...'
