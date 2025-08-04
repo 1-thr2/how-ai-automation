@@ -708,6 +708,7 @@ async function execute2PassStepC(
     // 카드 타입별 특별 처리
     if (skeletonCard.type === 'guide' && detailContent) {
       enrichedCard.codeBlocks = extractCodeBlocks(detailContent);
+      enrichedCard.detailedSteps = extractDetailedSteps(detailContent); // 🛡️ 안정성: 구조화된 단계 추출
     } else if (skeletonCard.type === 'faq' && detailContent) {
       enrichedCard.items = extractFAQItems(detailContent);
     }
@@ -731,6 +732,92 @@ async function execute2PassStepC(
       optimalTools: optimalTools.slice(0, 3),
     },
   };
+}
+
+// 🛡️ 구조화된 단계 추출 헬퍼 (안정성 극대화)
+function extractDetailedSteps(content: string): any[] {
+  console.log('🔧 [extractDetailedSteps] 단계 추출 시작');
+  
+  const steps = [];
+  
+  // 여러 패턴 시도 (백엔드에서 안정적으로 파싱)
+  const patterns = [
+    // 패턴 1: ## 1️⃣ **제목** 형태
+    /## (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=\n## \d+️⃣|\n---|\n## 📂|\n## 🎉|$)/g,
+    // 패턴 2: ### **1️⃣ **제목** 형태  
+    /### \*\*(\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
+    // 패턴 3: ## ✅ **방법 1: 형태
+    /## ✅ \*\*방법 (\d+): ([^#\n]+)([\s\S]*?)(?=## ✅|\n---|\n## |$)/g
+  ];
+
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
+    pattern.lastIndex = 0;
+    let match;
+    let stepNumber = 1;
+
+    console.log(`🔍 [extractDetailedSteps] 패턴 ${i + 1} 시도...`);
+
+    while ((match = pattern.exec(content)) !== null) {
+      let title = match[2]?.trim() || '';
+      let description = match[3]?.trim() || '';
+
+      // 마크다운 정리
+      title = title.replace(/\*\*([^*]+)\*\*/g, '$1');
+      description = description
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/### ([^#\n]+)/g, '$1')
+        .replace(/\n\n+/g, '\n')
+        .substring(0, 500); // 더 긴 설명 허용
+
+      if (title) {
+        steps.push({
+          number: stepNumber,
+          title: `${stepNumber}단계: ${title}`,
+          description: description || `${title}에 대한 상세 설명입니다.`,
+          expectedScreen: `${title} 완료 후 확인할 수 있는 화면`,
+          checkpoint: `${title}이 정상적으로 완료되었는지 확인`
+        });
+        stepNumber++;
+      }
+    }
+
+    if (steps.length > 0) {
+      console.log(`✅ [extractDetailedSteps] 패턴 ${i + 1} 성공 - ${steps.length}개 단계`);
+      break;
+    }
+  }
+
+  // 🛡️ 완전 fallback: 기본 단계 생성
+  if (steps.length === 0) {
+    console.log('🚨 [extractDetailedSteps] 패턴 매칭 실패 - 기본 단계 생성');
+    steps.push(
+      {
+        number: 1,
+        title: '1단계: 도구 계정 생성',
+        description: '자동화에 필요한 도구들의 계정을 생성합니다.',
+        expectedScreen: '계정 생성이 완료된 화면',
+        checkpoint: '계정에 정상적으로 로그인되는지 확인'
+      },
+      {
+        number: 2,
+        title: '2단계: 자동화 설정',
+        description: '단계별 가이드에 따라 자동화를 설정합니다.',
+        expectedScreen: '자동화 설정이 완료된 화면',
+        checkpoint: '설정이 저장되고 활성화되었는지 확인'
+      },
+      {
+        number: 3,
+        title: '3단계: 테스트 및 완료',
+        description: '설정한 자동화가 제대로 작동하는지 테스트합니다.',
+        expectedScreen: '테스트 알림이 정상적으로 도착한 화면',
+        checkpoint: '자동화가 정상적으로 작동하는지 확인'
+      }
+    );
+  }
+
+  console.log(`✅ [extractDetailedSteps] 완료 - ${steps.length}개 단계 반환`);
+  return steps;
 }
 
 // 🔧 코드 블록 추출 헬퍼

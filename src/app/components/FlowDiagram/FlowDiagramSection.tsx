@@ -426,26 +426,48 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     }
     
     if (guideCard) {
-      // 새로운 guide 카드 구조 처리
-      if (guideCard.content && typeof guideCard.content === 'string') {
-        // Markdown content를 단계별로 파싱
-        const steps = parseMarkdownSteps(guideCard.content);
-        
+      console.log('🛡️ [getCurrentStepData] 3단계 방어막 시작');
+      
+      // 🛡️ 1순위: 백엔드에서 구조화된 detailedSteps 사용 (가장 안정적)
+      if (guideCard.detailedSteps && Array.isArray(guideCard.detailedSteps) && guideCard.detailedSteps.length > 0) {
+        console.log('✅ [방어막 1] 구조화된 detailedSteps 사용 -', guideCard.detailedSteps.length, '개 단계');
         return {
           guide: {
             title: guideCard.title || '📋 상세 가이드',
             subtitle: '단계별 실행 가이드',
             basicConcept: '아래 단계를 순서대로 따라하시면 자동화를 완성할 수 있습니다.',
-            steps: steps,
-            tips: extractTipsFromContent(guideCard.content),
+            steps: guideCard.detailedSteps,
+            tips: extractTipsFromContent(guideCard.content || ''),
             executableCode: guideCard.codeBlocks?.[0]?.code || null,
             codeBlocks: guideCard.codeBlocks || []
           }
         };
       }
       
-      // 기존 구조 지원 (호환성)
+      // 🛡️ 2순위: 마크다운 content 파싱 시도
+      if (guideCard.content && typeof guideCard.content === 'string') {
+        console.log('⚡ [방어막 2] 마크다운 파싱 시도');
+        const steps = parseMarkdownSteps(guideCard.content);
+        
+        if (steps.length > 0) {
+          console.log('✅ [방어막 2] 마크다운 파싱 성공 -', steps.length, '개 단계');
+          return {
+            guide: {
+              title: guideCard.title || '📋 상세 가이드',
+              subtitle: '단계별 실행 가이드',
+              basicConcept: '아래 단계를 순서대로 따라하시면 자동화를 완성할 수 있습니다.',
+              steps: steps,
+              tips: extractTipsFromContent(guideCard.content),
+              executableCode: guideCard.codeBlocks?.[0]?.code || null,
+              codeBlocks: guideCard.codeBlocks || []
+            }
+          };
+        }
+      }
+      
+      // 🛡️ 3순위: 기존 구조 지원 (호환성)
       if (guideCard.content?.detailedSteps) {
+        console.log('✅ [방어막 3] 기존 구조 사용');
         return {
           guide: {
             title: guideCard.title,
@@ -457,6 +479,42 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
           }
         };
       }
+      
+      // 🛡️ 최종 안전망: 모든 방법이 실패해도 기본 가이드 제공
+      console.log('🚨 [최종 안전망] 모든 파싱 실패 - 기본 가이드 생성');
+      return {
+        guide: {
+          title: guideCard.title || '📋 자동화 가이드',
+          subtitle: '단계별 실행 가이드',
+          basicConcept: '아래 단계를 순서대로 따라하시면 자동화를 완성할 수 있습니다.',
+          steps: [
+            {
+              number: 1,
+              title: '1단계: 계정 생성 및 로그인',
+              description: '자동화에 필요한 도구들의 계정을 생성하고 로그인합니다.',
+              expectedScreen: '계정 생성이 완료되고 대시보드가 표시된 화면',
+              checkpoint: '계정에 정상적으로 로그인되는지 확인'
+            },
+            {
+              number: 2,
+              title: '2단계: 자동화 플로우 설정',
+              description: '단계별 가이드에 따라 트리거와 액션을 설정하여 자동화를 구성합니다.',
+              expectedScreen: '자동화 설정이 완료되고 활성화된 화면',
+              checkpoint: '설정이 저장되고 자동화가 활성화되었는지 확인'
+            },
+            {
+              number: 3,
+              title: '3단계: 테스트 및 검증',
+              description: '설정한 자동화가 제대로 작동하는지 테스트하고 완료합니다.',
+              expectedScreen: '테스트 알림이 정상적으로 전송된 화면',
+              checkpoint: '자동화가 예상대로 작동하는지 확인'
+            }
+          ],
+          tips: ['💡 각 단계를 차근차근 따라하시면 성공할 수 있어요!'],
+          executableCode: null,
+          codeBlocks: []
+        }
+      };
     }
     
     return null;
@@ -470,13 +528,15 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     
     // 여러 패턴 시도 - 실제 content 구조에 맞게 유연하게 파싱
     let patterns = [
-      // 패턴 1: ### **1️⃣ 형태
+      // 패턴 1: ## 1️⃣ **제목** 형태 (실제 구조!) - 더 안전한 버전
+      /## (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=\n## \d+️⃣|\n---|\n## 📂|\n## 🎉|$)/g,
+      // 패턴 2: ## 1️⃣ **제목** 형태 (단순 버전)
+      /## (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=\n## |\n---|\n#{1,3} |$)/g,
+      // 패턴 3: ### **1️⃣ 형태
       /### \*\*(\d+)️⃣\s*\*?\*?\s*([^#\n]+)([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
-      // 패턴 2: ## ✅ **방법 1: 형태  
+      // 패턴 4: ## ✅ **방법 1: 형태  
       /## ✅ \*\*방법 (\d+): ([^#\n]+)([\s\S]*?)(?=## ✅|\n---|\n## |$)/g,
-      // 패턴 3: ### **1️⃣ (더 유연한 버전)
-      /### \*\*(\d+)️⃣.*?([^#\n]+)([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
-      // 패턴 4: ### 1️⃣ **제목** 형태
+      // 패턴 5: ### 1️⃣ **제목** 형태
       /### (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \d+️⃣|\n---|\n## |$)/g
     ];
     
@@ -484,18 +544,28 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     let stepNumber = 1;
     
     // 각 패턴을 순서대로 시도
-    for (let pattern of patterns) {
+    for (let i = 0; i < patterns.length; i++) {
+      let pattern = patterns[i];
       pattern.lastIndex = 0; // regex 상태 초기화
       let match;
       
+      console.log(`🔍 [parseMarkdownSteps] 패턴 ${i + 1} 시도 중...`);
+      
       while ((match = pattern.exec(content)) !== null) {
+        console.log(`✅ [parseMarkdownSteps] 패턴 ${i + 1} 매칭 성공!`, {
+          rawMatch: match[0].substring(0, 100),
+          stepNum: match[1],
+          title: match[2],
+          contentLength: match[3]?.length || 0
+        });
+        
         let title = match[2]?.trim() || '';
         let description = match[3]?.trim() || '';
         
         // 제목에서 마크다운 제거
         title = title.replace(/\*\*([^*]+)\*\*/g, '$1');
         
-        // 설명에서 불필요한 마크다운 제거
+        // 설명에서 불필요한 마크다운 제거  
         description = description
           .replace(/\*\*([^*]+)\*\*/g, '$1')
           .replace(/### ([^#\n]+)/g, '$1')
@@ -516,8 +586,10 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
       
       // 하나의 패턴에서 단계를 찾았으면 중단
       if (steps.length > 0) {
-        console.log(`✅ [parseMarkdownSteps] 패턴 ${patterns.indexOf(pattern) + 1} 성공 - ${steps.length}개 단계`);
+        console.log(`✅ [parseMarkdownSteps] 패턴 ${i + 1} 성공 - ${steps.length}개 단계`);
         break;
+      } else {
+        console.log(`❌ [parseMarkdownSteps] 패턴 ${i + 1} 실패`);
       }
     }
     
