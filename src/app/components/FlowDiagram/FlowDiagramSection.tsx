@@ -284,7 +284,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 }) => {
   const [activeSteps, setActiveSteps] = useState<number[]>([]);
   const [selectedStep, setSelectedStep] = useState<FlowStep | null>(null);
-  const [activeTab, setActiveTab] = useState<'guide' | 'faq' | 'troubleshoot'>('guide');
+  // 탭 제거 - 기존 0566bb9 UI로 복구
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -298,7 +298,6 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 
   const handleStepClick = (step: FlowStep) => {
     setSelectedStep(step);
-    setActiveTab('guide'); // 모달 열 때 가이드 탭으로 초기화
     onStepClick?.(step);
   };
 
@@ -799,37 +798,14 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
               </p>
             </div>
             
-            {/* 탭 메뉴 */}
-            <div className={styles['modal-tabs']}>
-              <button
-                onClick={() => setActiveTab('guide')}
-                className={`${styles['tab-button']} ${
-                  activeTab === 'guide' ? styles['tab-active'] : ''
-                }`}
-              >
-                📖 실행 가이드
-              </button>
-              <button
-                onClick={() => setActiveTab('faq')}
-                className={`${styles['tab-button']} ${
-                  activeTab === 'faq' ? styles['tab-active'] : ''
-                }`}
-              >
-                ❓ 자주 묻는 질문
-              </button>
-              <button
-                onClick={() => setActiveTab('troubleshoot')}
-                className={`${styles['tab-button']} ${
-                  activeTab === 'troubleshoot' ? styles['tab-active'] : ''
-                }`}
-              >
-                🔧 문제 해결
-              </button>
+            {/* 모달 제목만 표시 - 탭 제거 */}
+            <div className={styles['modal-header-only']}>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">📋 상세 가이드</h4>
             </div>
             
-            {/* 내용 */}
-            <div className={styles['modal-body']}>
-              {activeTab === 'guide' && stepData?.guide && (
+            {/* 깔끔한 가이드 섹션 */}
+            <div className={styles['clean-modal-body']}>
+              {stepData?.guide && (
                 <div>
                   {/* 기본 개념 설명 */}
                   {stepData.guide.basicConcept && (
@@ -937,24 +913,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                   )}
                 </div>
               )}
-              
-              {activeTab === 'faq' && (
-                <div className={styles['faq-section']}>
-                  <div className={styles['faq-item']}>
-                    <h4>Q. 이 단계에서 자주 발생하는 문제는?</h4>
-                    <p>A. 더 구체적인 FAQ는 전체 결과 페이지 하단의 FAQ 섹션을 확인해주세요.</p>
-                  </div>
-                </div>
-              )}
-              
-              {activeTab === 'troubleshoot' && (
-                <div className={styles['troubleshoot-section']}>
-                  <div className={styles['troubleshoot-item']}>
-                    <h4>🔧 문제 해결 가이드</h4>
-                    <p>단계별 문제 해결 방법은 각 가이드 단계의 체크포인트를 확인하시고, 추가 도움이 필요하면 GPT와 함께 설계하기를 이용해주세요.</p>
-                  </div>
-                </div>
-              )}
+
             </div>
           </div>
         </div>

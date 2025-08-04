@@ -298,12 +298,42 @@ export default function WowAutomationResult({
     );
   };
 
-  // 동적 헤더 제목 생성
+  // 동적 헤더 제목 생성 (유저 맞춤형)
   const getDynamicTitle = () => {
     const flowCard = cardData.find((c: any) => c.type === 'flow');
     const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
+    const userInput = result.context?.userInput || '';
 
-    // 1순위: flow 카드의 제목 사용
+    // 1순위: 사용자 입력을 기반으로 구체적인 맞춤형 제목 생성
+    if (userInput) {
+      // SNS/브랜드 모니터링
+      if (userInput.includes('sns') || userInput.includes('브랜드') || userInput.includes('언급')) {
+        return `🔔 ${userInput.includes('슬랙') ? 'SNS 브랜드 언급 → 슬랙 알림' : 'SNS 브랜드 모니터링'} 자동화`;
+      }
+      // 구글 드라이브 관련
+      if (userInput.includes('구글 드라이브') || userInput.includes('pdf') || userInput.includes('계약서')) {
+        return `📁 구글 드라이브 PDF → ${userInput.includes('슬랙') ? '슬랙 알림' : '자동 처리'} 자동화`;
+      }
+      // 데이터 분석
+      if (userInput.includes('데이터') && userInput.includes('분석')) {
+        return `📊 ${userInput.includes('채용') ? '채용 데이터' : '데이터'} 분석 자동화`;
+      }
+      // 이메일/메일
+      if (userInput.includes('메일') || userInput.includes('이메일')) {
+        return `📧 이메일 자동화 시스템`;
+      }
+      // 스프레드시트
+      if (userInput.includes('스프레드시트') || userInput.includes('시트')) {
+        return `📊 스프레드시트 자동화`;
+      }
+      // 일반적인 경우 - 사용자 입력의 핵심 키워드 추출하여 제목 생성
+      const keywords = userInput.split(' ').slice(0, 3).join(' ');
+      if (keywords.length > 5) {
+        return `🚀 ${keywords} 자동화`;
+      }
+    }
+
+    // 2순위: flow 카드의 제목 사용 (기본값이 아닌 경우)
     if (
       flowCard?.title &&
       flowCard.title !== '자동화 플로우' &&
@@ -312,26 +342,13 @@ export default function WowAutomationResult({
       return flowCard.title;
     }
 
-    // 2순위: needs_analysis 카드의 실제 니즈 사용
+    // 3순위: needs_analysis 카드의 실제 니즈 사용
     if (needsCard?.realNeed) {
       return `🎯 ${needsCard.realNeed}`;
     }
 
-    // 3순위: 사용자 입력 기반으로 제목 생성
-    const userInput = result.context?.userInput || '';
-    if (userInput.includes('스프레드시트')) {
-      return '📊 스프레드시트 자동화';
-    } else if (userInput.includes('채용') || userInput.includes('잡코리아')) {
-      return '👥 채용 데이터 분석 자동화';
-    } else if (userInput.includes('메일') || userInput.includes('이메일')) {
-      return '📧 메일 자동화';
-    } else if (userInput.includes('데이터') && userInput.includes('분석')) {
-      return '📈 데이터 분석 자동화';
-    } else if (userInput.includes('시각화')) {
-      return '📊 데이터 시각화 자동화';
-    } else {
-      return '🚀 맞춤형 자동화';
-    }
+    // 4순위: 기본 제목
+    return '🚀 맞춤형 자동화';
   };
 
   // 동적 헤더 설명 생성
@@ -865,6 +882,7 @@ export default function WowAutomationResult({
           {cardData
             .filter((card: any) =>
               [
+                'guide',
                 'tool_recommendation',
                 'slide_guide',
                 'video_guide',
