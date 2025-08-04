@@ -29,6 +29,11 @@ export default function WowAutomationResult({
 }: WowAutomationResultProps) {
   // 카드 데이터는 직접 전달받은 것 우선, 없으면 result에서 사용
   const cardData = cards || result.cards;
+  
+  console.log('🔍 [WowAutomationResult] cardData:', cardData);
+  console.log('🔍 [WowAutomationResult] cardData 길이:', cardData?.length);
+  console.log('🔍 [WowAutomationResult] FlowDiagramSection에 전달할 cardData:', cardData);
+  
   const [showFAQ, setShowFAQ] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const router = useRouter();
@@ -844,15 +849,24 @@ export default function WowAutomationResult({
 
         {/* 플로우 다이어그램 - 🚨 flow 카드가 있으면 무조건 표시 */}
         {(processedFlowSteps.length > 0 || flowCard) && (
-          <FlowDiagramSection
-            steps={processedFlowSteps}
-            cards={cardData}
-            engine={flowCard?.engine}
-            flowMap={flowCard?.flowMap}
-            fallback={flowCard?.fallback}
-            flowTitle={getDynamicTitle()}
-            flowSubtitle={getDynamicSubtitle()}
-          />
+          <>
+            {console.log('🔍 [WowAutomationResult] FlowDiagramSection 렌더링 시작')}
+            {console.log('🔍 [WowAutomationResult] 전달할 props:', {
+              steps: processedFlowSteps,
+              cards: cardData,
+              cardsLength: cardData?.length,
+              hasGuideCard: cardData?.some((c: any) => c.type === 'guide')
+            })}
+            <FlowDiagramSection
+              steps={processedFlowSteps}
+              cards={cardData}
+              engine={flowCard?.engine}
+              flowMap={flowCard?.flowMap}
+              fallback={flowCard?.fallback}
+              flowTitle={getDynamicTitle()}
+              flowSubtitle={getDynamicSubtitle()}
+            />
+          </>
         )}
 
         {/* 추가 가이드 카드들 (guide는 FlowDiagramSection에서 처리) */}

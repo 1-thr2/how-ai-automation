@@ -265,9 +265,23 @@ interface FlowDiagramSectionProps {
   steps: FlowStep[];
   onStepClick?: (step: FlowStep) => void;
   cards?: any[]; // 전체 카드 데이터 (가이드 카드 포함)
+  engine?: string;
+  flowMap?: any;
+  fallback?: any;
+  flowTitle?: string;
+  flowSubtitle?: string;
 }
 
-const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepClick, cards = [] }) => {
+const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ 
+  steps, 
+  onStepClick, 
+  cards = [],
+  engine,
+  flowMap,
+  fallback,
+  flowTitle,
+  flowSubtitle
+}) => {
   const [activeSteps, setActiveSteps] = useState<number[]>([]);
   const [selectedStep, setSelectedStep] = useState<FlowStep | null>(null);
   const [activeTab, setActiveTab] = useState<'guide' | 'faq' | 'troubleshoot'>('guide');
@@ -404,10 +418,25 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
   const getCurrentStepData = () => {
     if (!selectedStep) return null;
     
+    console.log('🔍 [getCurrentStepData] cards 배열:', cards);
+    console.log('🔍 [getCurrentStepData] cards 길이:', cards.length);
+    console.log('🔍 [getCurrentStepData] selectedStep:', selectedStep);
+    
+    // 각 카드의 타입을 확인
+    cards.forEach((card, index) => {
+      console.log(`🔍 [getCurrentStepData] cards[${index}]:`, {
+        type: card?.type,
+        title: card?.title,
+        hasContent: !!card?.content,
+        hasCodeBlocks: !!card?.codeBlocks
+      });
+    });
+    
     // 🚨 우선 stepId 조건 없이 guide 카드 찾기 (모든 단계에서 공통 가이드 표시)
     const guideCard = cards.find((card: any) => card.type === 'guide');
     
     console.log('🔍 [getCurrentStepData] guideCard:', guideCard);
+    console.log('🔍 [getCurrentStepData] guideCard?.content:', guideCard?.content?.substring(0, 300));
     
     if (guideCard) {
       // 새로운 guide 카드 구조 처리
@@ -450,36 +479,52 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
   const parseMarkdownSteps = (content: string) => {
     const steps = [];
     
-    // ## **단계** 또는 ## 📌 **단계** 패턴 찾기
+    console.log('🔍 [parseMarkdownSteps] content 일부:', content.substring(0, 500));
+    
+    // 실제 content 형태에 맞는 패턴들 (이모지 숫자 포함)
     const stepPatterns = [
+      // ## **1️⃣ Zapier를 사용하여 자동화 설정하기** 형태
+      /## \*\*(\d+)️⃣ ([^*]+)\*\*([\s\S]*?)(?=## \*\*\d+️⃣|\n## |$)/g,
+      // ### **1. Slack Webhook URL 생성** 형태  
+      /### \*\*(\d+)\. ([^*]+)\*\*([\s\S]*?)(?=### \*\*\d+\.|\n### |$)/g,
+      // ## 📌 **1단계: 제목** 형태
       /## 📌 \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=## 📌|\n## |$)/g,
+      // ## **1단계: 제목** 형태
       /## \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=## \*\*|\n## |$)/g,
-      /### ([^#\n]+)([\s\S]*?)(?=### |\n## |$)/g,
+      // ### 1️⃣ **제목** 형태
+      /### (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \d+️⃣|\n### |$)/g,
+      // 기본 ## 제목 형태
       /## ([^#\n]+)([\s\S]*?)(?=## |\n# |$)/g
     ];
     
     for (const pattern of stepPatterns) {
-      const matches = [...content.matchAll(pattern)];
-      if (matches.length > 0) {
-        matches.forEach((match, index) => {
-          const number = match[1] || (index + 1);
-          const title = match[2] || match[1];
-          const description = match[3] || match[2] || '';
-          
-          if (title && title.trim()) {
-            steps.push({
-              number: parseInt(number) || (index + 1),
-              title: title.trim(),
-              description: description.trim()
-            });
-          }
-        });
+      console.log('🔍 [parseMarkdownSteps] 시도하는 패턴:', pattern);
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const number = match[1] || (steps.length + 1);
+        const title = match[2] || match[1];
+        const description = match[3] || match[2] || '';
+        
+        console.log('🔍 [parseMarkdownSteps] 매치 발견:', { number, title: title?.substring(0, 50), description: description?.substring(0, 100) });
+        
+        if (title && title.trim()) {
+          steps.push({
+            number: parseInt(number) || (steps.length + 1),
+            title: title.trim(),
+            description: description.trim()
+          });
+        }
+      }
+      
+      if (steps.length > 0) {
+        console.log('🔍 [parseMarkdownSteps] 패턴 성공, 중단');
         break; // 첫 번째 성공한 패턴 사용
       }
     }
     
     // 단계를 찾지 못한 경우 기본 단계 생성
     if (steps.length === 0) {
+      console.log('🚨 [parseMarkdownSteps] 패턴 매칭 실패 - 기본 단계 생성');
       steps.push({
         number: 1,
         title: '전체 가이드 보기',
@@ -487,7 +532,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ steps, onStepCl
       });
     }
     
-    console.log('🔍 [parseMarkdownSteps] 추출된 단계들:', steps);
+    console.log('🔍 [parseMarkdownSteps] 최종 추출된 단계들:', steps);
     return steps;
   };
 
