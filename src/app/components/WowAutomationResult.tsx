@@ -38,11 +38,8 @@ export default function WowAutomationResult({
   const [showShareModal, setShowShareModal] = useState(false);
   const router = useRouter();
 
-  console.log('🎨 WowAutomationResult - 받은 카드들:', cardData);
-  console.log('🔍 각 카드 상세 구조:');
-  cardData.forEach((card: any, index: number) => {
-    console.log(`${index + 1}. ${card.type}:`, JSON.stringify(card, null, 2));
-  });
+  console.log('🎨 WowAutomationResult - 받은 카드들:', cardData?.length, '개');
+  console.log('🔍 카드 타입들:', cardData?.map((card: any) => card.type).join(', '));
 
   // 카드 타입별 분류
   let flowCard = cardData.find((c: any) => c.type === 'flow');
@@ -1010,11 +1007,8 @@ export default function WowAutomationResult({
               <p className="faq-subtitle">단계별로 따라하시면 자동화가 완성됩니다</p>
             </div>
             <div className="faq-body">
-              {/* 🔍 FAQ 디버깅 */}
-              {console.log('🔍 [FAQ Debug] faqCard:', faqCard)}
-              {console.log('🔍 [FAQ Debug] faqCard?.items:', faqCard?.items)}
-              {console.log('🔍 [FAQ Debug] faqCard?.faqs:', faqCard?.faqs)}
-              {console.log('🔍 [FAQ Debug] faqCard?.questions:', faqCard?.questions)}
+              {/* 🔍 FAQ 체크 */}
+              {console.log('🔍 [FAQ] items:', faqCard?.items?.length || 0, '개')}
 
               {/* 실제 faqCard.items 우선 렌더링 */}
               {faqCard?.items && Array.isArray(faqCard.items) && faqCard.items.length > 0 ? (

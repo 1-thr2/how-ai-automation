@@ -417,25 +417,13 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
   const getCurrentStepData = () => {
     if (!selectedStep) return null;
     
-    console.log('🔍 [getCurrentStepData] cards 배열:', cards);
-    console.log('🔍 [getCurrentStepData] cards 길이:', cards.length);
-    console.log('🔍 [getCurrentStepData] selectedStep:', selectedStep);
-    
-    // 각 카드의 타입을 확인
-    cards.forEach((card, index) => {
-      console.log(`🔍 [getCurrentStepData] cards[${index}]:`, {
-        type: card?.type,
-        title: card?.title,
-        hasContent: !!card?.content,
-        hasCodeBlocks: !!card?.codeBlocks
-      });
-    });
-    
     // 🚨 우선 stepId 조건 없이 guide 카드 찾기 (모든 단계에서 공통 가이드 표시)
     const guideCard = cards.find((card: any) => card.type === 'guide');
     
-    console.log('🔍 [getCurrentStepData] guideCard:', guideCard);
-    console.log('🔍 [getCurrentStepData] guideCard?.content:', guideCard?.content?.substring(0, 300));
+    console.log('🔍 [getCurrentStepData] guide 카드 찾음:', !!guideCard);
+    if (guideCard) {
+      console.log('🔍 [getCurrentStepData] content 길이:', guideCard.content?.length || 0);
+    }
     
     if (guideCard) {
       // 새로운 guide 카드 구조 처리
@@ -476,8 +464,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 
   // 실제 마크다운 content에서 단계 추출
   const parseMarkdownSteps = (content: string) => {
-    console.log('🔍 [parseMarkdownSteps] content 길이:', content.length);
-    console.log('🔍 [parseMarkdownSteps] content 일부:', content.substring(0, 500));
+    console.log('🔍 [parseMarkdownSteps] 파싱 시작 - 길이:', content.length);
     
     const steps = [];
     
@@ -511,7 +498,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
     
     // 단계를 찾지 못한 경우 기본 단계 생성
     if (steps.length === 0) {
-      console.log('🚨 [parseMarkdownSteps] 단계 찾기 실패 - 기본 단계 생성');
+      console.log('🚨 [parseMarkdownSteps] 패턴 매칭 실패 - 기본 단계 생성');
       steps.push(
         {
           number: 1,
@@ -537,8 +524,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
       );
     }
     
-    console.log('🔍 [parseMarkdownSteps] 최종 단계 수:', steps.length);
-    console.log('🔍 [parseMarkdownSteps] 단계들:', steps.map(s => s.title));
+    console.log('✅ [parseMarkdownSteps] 완료 -', steps.length, '개 단계 생성');
     
     return steps;
   };
