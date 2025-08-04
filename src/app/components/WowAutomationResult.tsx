@@ -201,7 +201,7 @@ export default function WowAutomationResult({
 
   // content에서 단계 추출하는 함수
   function extractStepsFromContent(content: string): string[] {
-    const steps = [];
+    const steps: string[] = [];
     
     // "Step 1:", "## Step 1", "1단계" 등의 패턴 찾기
     const stepPatterns = [
@@ -213,14 +213,14 @@ export default function WowAutomationResult({
     ];
     
     for (const pattern of stepPatterns) {
-      const matches = [...content.matchAll(pattern)];
-      if (matches.length > 0) {
-        matches.forEach(match => {
-          const title = match[1].trim();
-          if (title && title.length > 3) {
-            steps.push(title);
-          }
-        });
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const title = match[1].trim();
+        if (title && title.length > 3) {
+          steps.push(title);
+        }
+      }
+      if (steps.length > 0) {
         break; // 첫 번째 성공한 패턴 사용
       }
     }
@@ -233,6 +233,19 @@ export default function WowAutomationResult({
   console.log('🔍 [UI Debug] cardData:', cardData);
   console.log('🔍 [UI Debug] flowCard:', flowCard);
   console.log('🔍 [UI Debug] processedFlowSteps:', processedFlowSteps);
+  
+  // 🚨 각 카드 상세 구조 확인
+  cardData.forEach((card: any, index: number) => {
+    console.log(`🔍 [Card ${index + 1}] ${card.type}:`, {
+      title: card.title,
+      hasSteps: !!card.steps,
+      stepsCount: card.steps?.length || 0,
+      hasContent: !!card.content,
+      contentLength: card.content?.length || 0,
+      hasCodeBlocks: !!card.codeBlocks,
+      codeBlocksCount: card.codeBlocks?.length || 0
+    });
+  });
 
   const handleNewRecipe = () => {
     router.push('/');
@@ -842,7 +855,7 @@ export default function WowAutomationResult({
           />
         )}
 
-        {/* 상세 가이드 카드들 */}
+        {/* 추가 가이드 카드들 (guide는 FlowDiagramSection에서 처리) */}
         <div className="guide-cards-section">
           {cardData
             .filter((card: any) =>
@@ -856,7 +869,7 @@ export default function WowAutomationResult({
                 'audio_guide',
                 'chatbot_guide',
                 'wow_preview',
-                'guide',           // 🔧 가이드 카드만 표시  
+                // 🚨 guide 제거: FlowDiagramSection의 StepDetails에서 처리됨
                 // needs_analysis, share, expansion은 메인 플로우가 더 중요함
               ].includes(card.type)
             )
@@ -960,7 +973,7 @@ export default function WowAutomationResult({
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        title={title || getDynamicTitle(cardData) || '자동화 레시피'}
+        title={title || getDynamicTitle() || '자동화 레시피'}
         userInput={result.context.userInput}
         cardData={cardData}
         result={result}
