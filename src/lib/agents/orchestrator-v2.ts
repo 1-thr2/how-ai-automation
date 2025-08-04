@@ -57,12 +57,12 @@ async function executeStepA(
   const startTime = Date.now();
   console.log('📝 [Step A] 카드 뼈대 초안 생성 시작...');
 
-  // Blueprint 읽기
-  const stepABlueprint = await BlueprintReader.read('orchestrator/step_a_draft.md');
+    // Blueprint 읽기
+    const stepABlueprint = await BlueprintReader.read('orchestrator/step_a_draft.md');
 
-  // 프롬프트 구성
-  const systemPrompt = stepABlueprint;
-  const userPrompt = `사용자 요청: "${userInput}"
+    // 프롬프트 구성
+    const systemPrompt = stepABlueprint;
+    const userPrompt = `사용자 요청: "${userInput}"
 후속 답변: ${JSON.stringify(followupAnswers || {})}
 
 위 정보를 바탕으로 자동화 카드들의 기본 뼈대를 빠르게 생성하세요.
@@ -70,7 +70,7 @@ async function executeStepA(
 
 중요: 반드시 유효한 JSON 형식으로만 응답하세요. 마크다운이나 다른 설명은 포함하지 마세요.`;
 
-  const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
+    const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
 
   // 🛡️ 백업 모델 시퀀스: gpt-4o-mini → gpt-3.5-turbo → fallback
   // 🔧 비용 최적화: 간단한 요청은 mini만 사용
@@ -84,19 +84,19 @@ async function executeStepA(
     try {
       console.log(`🔄 [Step A] 시도 ${index + 1}/${modelSequence.length} - 모델: ${model}`);
 
-      const response = await openai.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
         max_tokens: 300, // ⚡ Step A 더욱 축소
         temperature: 0.3, // 🔧 더 결정적으로
         response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
-      });
+    });
 
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
         throw new Error(`${model} 응답이 비어있습니다`);
       }
 
@@ -105,23 +105,23 @@ async function executeStepA(
       
       // ✅ 파싱 성공 및 카드 개수 검증
       if (cards.length > 0) {
-        const latency = Date.now() - startTime;
+    const latency = Date.now() - startTime;
         totalTokens = response.usage?.total_tokens || estimatedTokens;
 
         console.log(`✅ [Step A] 성공 - ${cards.length}개 카드, ${totalTokens} 토큰, ${latency}ms (${model})`);
-        
+
         // 🎯 카드 개수는 복잡도에 따라 유연하게 - 강제 제한 제거
-        return {
-          cards,
+    return {
+      cards,
           tokens: totalTokens,
-          latency,
-          model,
-        };
+      latency,
+      model,
+    };
       } else {
         throw new Error(`${model}에서 유효한 카드 생성 실패 (0개)`);
       }
 
-    } catch (error) {
+  } catch (error) {
       console.warn(`⚠️ [Step A] ${model} 실패:`, error);
       lastError = error as Error;
       
@@ -254,9 +254,9 @@ async function executeStepB(
     
     if (hasIntegrationKeywords && mentionedTools.length > 0) {
       console.log(`🔍 [Step B] 연동 키워드 감지 → 도구 연동 검사 실행`);
-      const toolIntegrationPromises = mentionedTools
+    const toolIntegrationPromises = mentionedTools
         .slice(0, 2) // 최대 2개만 검사로 제한
-        .map(tool => checkToolIntegration(tool));
+      .map(tool => checkToolIntegration(tool));
       toolIntegrationResults = await pMap(toolIntegrationPromises, async promise => promise, {
         concurrency: 1, // 더 안전하게 1개씩
       });
@@ -264,10 +264,10 @@ async function executeStepB(
       // 연동 현황 분석
       unsupportedTools = toolIntegrationResults.filter(result => !result.isSupported);
       supportedTools = toolIntegrationResults.filter(result => result.isSupported);
-      
-      console.log(
-        `📊 [Step B] 연동 현황: ${supportedTools.length}개 지원, ${unsupportedTools.length}개 불가`
-      );
+
+    console.log(
+      `📊 [Step B] 연동 현황: ${supportedTools.length}개 지원, ${unsupportedTools.length}개 불가`
+    );
     } else {
       console.log(`⚡ [Step B] 연동 키워드 없음 → 도구 연동 검사 생략 (성능 최적화)`);
     }
@@ -737,6 +737,9 @@ async function execute2PassStepC(
 // 🛡️ 구조화된 단계 추출 헬퍼 (안정성 극대화)
 function extractDetailedSteps(content: string): any[] {
   console.log('🔧 [extractDetailedSteps] 단계 추출 시작');
+  console.log('🔍 [extractDetailedSteps] Content 길이:', content.length);
+  console.log('🔍 [extractDetailedSteps] Content 샘플 (첫 500자):');
+  console.log(content.substring(0, 500));
   
   const steps = [];
   
@@ -771,13 +774,21 @@ function extractDetailedSteps(content: string): any[] {
         .substring(0, 500); // 더 긴 설명 허용
 
       if (title) {
-        steps.push({
+        const step = {
           number: stepNumber,
           title: `${stepNumber}단계: ${title}`,
           description: description || `${title}에 대한 상세 설명입니다.`,
           expectedScreen: `${title} 완료 후 확인할 수 있는 화면`,
           checkpoint: `${title}이 정상적으로 완료되었는지 확인`
+        };
+        
+        console.log(`✅ [extractDetailedSteps] 단계 ${stepNumber} 파싱됨:`, {
+          title: step.title,
+          descriptionLength: step.description.length,
+          descriptionPreview: step.description.substring(0, 100) + '...'
         });
+        
+        steps.push(step);
         stepNumber++;
       }
     }

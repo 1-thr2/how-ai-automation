@@ -431,6 +431,14 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
       // 🛡️ 1순위: 백엔드에서 구조화된 detailedSteps 사용 (가장 안정적)
       if (guideCard.detailedSteps && Array.isArray(guideCard.detailedSteps) && guideCard.detailedSteps.length > 0) {
         console.log('✅ [방어막 1] 구조화된 detailedSteps 사용 -', guideCard.detailedSteps.length, '개 단계');
+        console.log('🔍 [방어막 1] 실제 받은 단계들:');
+        guideCard.detailedSteps.forEach((step: any, index: number) => {
+          console.log(`  단계 ${index + 1}:`, {
+            title: step.title,
+            descriptionLength: step.description?.length || 0,
+            descriptionPreview: step.description?.substring(0, 100) + '...' || 'NO_DESCRIPTION'
+          });
+        });
         return {
           guide: {
             title: guideCard.title || '📋 상세 가이드',
@@ -468,14 +476,14 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
       // 🛡️ 3순위: 기존 구조 지원 (호환성)
       if (guideCard.content?.detailedSteps) {
         console.log('✅ [방어막 3] 기존 구조 사용');
-        return {
-          guide: {
-            title: guideCard.title,
-            subtitle: guideCard.subtitle,
-            basicConcept: guideCard.basicConcept,
-            steps: guideCard.content.detailedSteps,
-            tips: guideCard.content.practicalTips || [],
-            executableCode: guideCard.content.executableCode || null
+      return {
+        guide: {
+          title: guideCard.title,
+          subtitle: guideCard.subtitle,
+          basicConcept: guideCard.basicConcept,
+          steps: guideCard.content.detailedSteps,
+          tips: guideCard.content.practicalTips || [],
+          executableCode: guideCard.content.executableCode || null
           }
         };
       }
@@ -831,7 +839,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
   return (
     <div className={styles.container}>
       {/* 중복 제목 제거 - 상위 컴포넌트에서 이미 렌더링됨 */}
-      
+
       {/* impact-bar 제거 - 중복 표시 */}
 
       <div className={styles['flow-container']}>
@@ -958,7 +966,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                       </div>
                     </div>
                   ))}
-
+                  
                   {/* 팁 */}
                   {stepData.guide.tips && stepData.guide.tips.length > 0 && (
                     <div className={styles['tips-section']}>
@@ -971,9 +979,9 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-
+                </div>
+              )}
+              
 
 
                   {/* 기존 executableCode 지원 (호환성) */}
@@ -993,9 +1001,9 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                         <pre className={styles['code-content']}>
                           <code>{stepData.guide.executableCode}</code>
                         </pre>
-                      </div>
-                    </div>
-                  )}
+                  </div>
+                </div>
+              )}
                 </div>
               )}
 
