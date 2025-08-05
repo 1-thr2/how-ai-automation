@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import ShareModal from './ShareModal';
-import FlowDiagramSection from './FlowDiagram/FlowDiagramSection';
+import FlowDiagramSection from './FlowDiagramSection';
 import WowCardRenderer from './WowCardRenderer';
 
 interface WowAutomationResultProps {
@@ -29,111 +29,70 @@ export default function WowAutomationResult({
 }: WowAutomationResultProps) {
   // 카드 데이터는 직접 전달받은 것 우선, 없으면 result에서 사용
   const cardData = cards || result.cards;
-  
-  console.log('🔍 [WowAutomationResult] cardData:', cardData);
-  console.log('🔍 [WowAutomationResult] cardData 길이:', cardData?.length);
-  console.log('🔍 [WowAutomationResult] FlowDiagramSection에 전달할 cardData:', cardData);
-  
   const [showFAQ, setShowFAQ] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const router = useRouter();
 
-  console.log('🎨 WowAutomationResult - 받은 카드들:', cardData?.length, '개');
-  console.log('🔍 카드 타입들:', cardData?.map((card: any) => card.type).join(', '));
+  console.log('🎨 WowAutomationResult - 받은 카드들:', cardData);
+  console.log('🔍 각 카드 상세 구조:');
+  cardData.forEach((card: any, index: number) => {
+    console.log(`${index + 1}. ${card.type}:`, JSON.stringify(card, null, 2));
+  });
 
   // 카드 타입별 분류
-  let flowCard = cardData.find((c: any) => c.type === 'flow');
+  const flowCard = cardData.find((c: any) => c.type === 'flow');
   const faqCard = cardData.find((c: any) => c.type === 'faq');
   const shareCard = cardData.find((c: any) => c.type === 'share');
   const expansionCard = cardData.find((c: any) => c.type === 'expansion');
 
-  // 🚨 긴급 복구: flow 카드가 없으면 더미 생성
-  if (!flowCard && cardData.length > 0) {
-    console.log('🚨 [긴급복구] flow 카드 없음 - 더미 생성');
-    flowCard = {
-      type: 'flow',
-      title: '🚀 자동화 플로우',
-      steps: ['1단계: 준비 작업', '2단계: 설정 및 연결', '3단계: 테스트 및 완료']
-    };
-  }
-
-  // 플로우 단계 처리 - 강화된 아이콘 선택
+  // 플로우 단계 처리
   const getStepIcon = (index: number, title: string) => {
-    // 제목 기반 아이콘 자동 선택 (더 많은 키워드 추가)
+    // 제목 기반 아이콘 자동 선택
     const titleLower = title.toLowerCase();
-    
-    // 1단계: 계정/인증/로그인 관련
-    if (titleLower.includes('계정') || titleLower.includes('로그인') || titleLower.includes('가입') || titleLower.includes('인증') || titleLower.includes('sign') || titleLower.includes('auth'))
+    if (titleLower.includes('로그인') || titleLower.includes('계정') || titleLower.includes('가입'))
       return '🔐';
-    
-    // 2단계: 연결/연동/웹훅/API 관련  
-    if (titleLower.includes('연결') || titleLower.includes('연동') || titleLower.includes('api') || titleLower.includes('웹훅') || titleLower.includes('webhook') || titleLower.includes('url') || titleLower.includes('트리거'))
+    if (titleLower.includes('연결') || titleLower.includes('연동') || titleLower.includes('api'))
       return '🔗';
-    
-    // 3단계: 데이터/저장/스프레드시트 관련
-    if (titleLower.includes('데이터') || titleLower.includes('수집') || titleLower.includes('입력') || titleLower.includes('저장') || titleLower.includes('sheet') || titleLower.includes('시트') || titleLower.includes('스프레드'))
+    if (titleLower.includes('데이터') || titleLower.includes('수집') || titleLower.includes('입력'))
       return '📊';
-    
-    // 4단계: 알림/전송/슬랙 관련
-    if (titleLower.includes('알림') || titleLower.includes('전송') || titleLower.includes('메시지') || titleLower.includes('슬랙') || titleLower.includes('slack') || titleLower.includes('보고') || titleLower.includes('리포트'))
-      return '📤';
-    
-    // 분석 관련
-    if (titleLower.includes('분석') || titleLower.includes('분석해서') || titleLower.includes('보고서'))
-      return '📈';
-    
-    // 설정/구성 관련 (우선순위 낮춤)
-    if (titleLower.includes('설정') || titleLower.includes('구성') || titleLower.includes('설치') || titleLower.includes('config'))
+    if (titleLower.includes('설정') || titleLower.includes('구성') || titleLower.includes('설치'))
       return '⚙️';
-    
-    // 테스트/확인 관련
-    if (titleLower.includes('테스트') || titleLower.includes('확인') || titleLower.includes('검증') || titleLower.includes('test'))
+    if (titleLower.includes('전송') || titleLower.includes('알림') || titleLower.includes('메시지'))
+      return '📤';
+    if (
+      titleLower.includes('분석') ||
+      titleLower.includes('리포트') ||
+      titleLower.includes('보고서')
+    )
+      return '📈';
+    if (titleLower.includes('테스트') || titleLower.includes('확인') || titleLower.includes('검증'))
       return '✅';
 
-    // 순서 기반 다양한 기본 아이콘 (더 다양하게)
-    const defaultIcons = ['🚀', '🔗', '📊', '📤', '✨', '💡', '🎯', '🔥'];
+    // 순서 기반 기본 아이콘
+    const defaultIcons = ['🚀', '⚡', '🎯', '🔥', '✨', '💡'];
     return defaultIcons[index] || defaultIcons[index % defaultIcons.length];
   };
 
-  // 🚨 강제 UI 복구: flow 카드가 있으면 무조건 플로우 다이어그램 생성
-  let processedFlowSteps = [];
-  
-  if (flowCard) {
-    console.log('🔍 [Flow 카드 분석] flowCard.steps:', flowCard.steps);
-    console.log('🔍 [Flow 카드 분석] flowCard.content:', flowCard.content?.substring(0, 200));
-    
-    // 🎯 신규: Guide 카드의 detailedSteps를 Flow steps로 활용
-    const guideCard = cardData.find((c: any) => c.type === 'guide');
-    if (guideCard?.detailedSteps && Array.isArray(guideCard.detailedSteps) && guideCard.detailedSteps.length > 0) {
-      console.log('✅ [Flow 생성] Guide의 detailedSteps를 Flow로 변환:', guideCard.detailedSteps.length, '개');
-      processedFlowSteps = guideCard.detailedSteps.map((step: any, index: number) => {
-        const stepTitle = step.title?.replace(/^\d+단계:\s*/, '') || `단계 ${index + 1}`;
-        return {
-          id: String(step.number || index + 1),
-          icon: getStepIcon(index, stepTitle),
-          title: stepTitle,
-          subtitle: step.description?.substring(0, 50) + '...' || '자세한 내용은 가이드를 확인하세요',
-          duration: '5-15분',
-          preview: '',
-          techTags: [],
-        };
-      });
-    } else if (flowCard.steps && Array.isArray(flowCard.steps)) {
-      // 정상적인 steps 배열이 있는 경우
-      processedFlowSteps = flowCard.steps.map((step: any, index: number) => {
+  const processedFlowSteps =
+    flowCard?.steps?.map((step: any, index: number) => {
+      // 🔍 디버깅: 각 단계의 실제 데이터 확인
       console.log(`🔍 [Step ${index + 1}] 원본 데이터:`, step);
+      console.log(`🔍 [Step ${index + 1}] 타입:`, typeof step);
 
+      // 🔧 데이터 타입에 따라 처리
       if (typeof step === 'string') {
+        // 문자열인 경우: AI가 문자열 배열로 생성한 경우
         return {
           id: String(index + 1),
           icon: getStepIcon(index, step),
-            title: step.replace(/^\d+\.\s*/, ''),
+          title: step.replace(/^\d+\.\s*/, ''), // "1. " 제거
           subtitle: '',
           duration: '5분',
           preview: '',
           techTags: [],
         };
       } else {
+        // 객체인 경우: 기존 로직 유지
         return {
           id: String(step.id || index + 1),
           icon: step.icon || getStepIcon(index, step.title || ''),
@@ -144,136 +103,12 @@ export default function WowAutomationResult({
           techTags: step.tech || step.techTags || [],
         };
       }
-      });
-    } else if (flowCard.content) {
-      // content에서 단계 추출 시도
-      console.log('🚨 [Content 파싱] content에서 단계 추출 시도');
-      const contentSteps = extractStepsFromContent(flowCard.content);
-      if (contentSteps.length > 0) {
-        processedFlowSteps = contentSteps.map((step, index) => ({
-          id: String(index + 1),
-          icon: getStepIcon(index, step),
-          title: step,
-          subtitle: '자세한 내용은 가이드를 확인하세요',
-          duration: '5-10분',
-          preview: '',
-          techTags: [],
-        }));
-      } else {
-        // content 파싱도 실패하면 기본 단계 생성
-        console.log('🚨 [최종 복구] 기본 3단계 생성');
-        processedFlowSteps = [
-          {
-            id: '1',
-            icon: '🔗',
-            title: 'Slack Webhook URL 생성',
-            subtitle: '슬랙에서 Webhook 설정',
-            duration: '5분',
-            preview: '',
-            techTags: ['Slack'],
-          },
-          {
-            id: '2', 
-            icon: '⚙️',
-            title: 'Google Apps Script 설정',
-            subtitle: '자동화 코드 작성 및 배포',
-            duration: '15분',
-            preview: '',
-            techTags: ['Google Apps Script'],
-          },
-          {
-            id: '3',
-            icon: '✅', 
-            title: '트리거 설정 및 테스트',
-            subtitle: '자동 실행 설정 및 동작 확인',
-            duration: '5분',
-            preview: '',
-            techTags: ['Testing'],
-          }
-        ];
-      }
-    } else {
-      // 아무것도 없으면 기본 3단계 생성
-      console.log('🚨 [긴급복구] flow 카드 정보 없음 - 기본 단계 생성');
-      processedFlowSteps = [
-        {
-          id: '1',
-          icon: '🚀',
-          title: '1단계: 준비 작업',
-          subtitle: '필요한 도구 및 권한 설정',
-          duration: '5분',
-          preview: '',
-          techTags: [],
-        },
-        {
-          id: '2', 
-          icon: '⚙️',
-          title: '2단계: 설정 및 연결',
-          subtitle: '자동화 워크플로우 구성',
-          duration: '10분',
-          preview: '',
-          techTags: [],
-        },
-        {
-          id: '3',
-          icon: '✅', 
-          title: '3단계: 테스트 및 완료',
-          subtitle: '동작 확인 후 활성화',
-          duration: '5분',
-          preview: '',
-          techTags: [],
-        }
-      ];
-    }
-  }
-
-  // content에서 단계 추출하는 함수
-  function extractStepsFromContent(content: string): string[] {
-    const steps: string[] = [];
-    
-    // "Step 1:", "## Step 1", "1단계" 등의 패턴 찾기
-    const stepPatterns = [
-      /## \*\*Step \d+: ([^*]+)\*\*/g,
-      /## Step \d+: ([^#\n]+)/g,
-      /### Step \d+: ([^#\n]+)/g,
-      /\d+단계[:\s]+([^#\n]+)/g,
-      /Step \d+[:\s]+([^#\n]+)/g
-    ];
-    
-    for (const pattern of stepPatterns) {
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
-        const title = match[1].trim();
-        if (title && title.length > 3) {
-          steps.push(title);
-        }
-      }
-      if (steps.length > 0) {
-        break; // 첫 번째 성공한 패턴 사용
-      }
-    }
-    
-    console.log('🔍 [Content 파싱 결과]:', steps);
-    return steps.slice(0, 5); // 최대 5개까지만
-  }
+    }) || [];
 
   // 🔍 디버깅: 데이터 구조 확인
   console.log('🔍 [UI Debug] cardData:', cardData);
   console.log('🔍 [UI Debug] flowCard:', flowCard);
   console.log('🔍 [UI Debug] processedFlowSteps:', processedFlowSteps);
-  
-  // 🚨 각 카드 상세 구조 확인
-  cardData.forEach((card: any, index: number) => {
-    console.log(`🔍 [Card ${index + 1}] ${card.type}:`, {
-      title: card.title,
-      hasSteps: !!card.steps,
-      stepsCount: card.steps?.length || 0,
-      hasContent: !!card.content,
-      contentLength: card.content?.length || 0,
-      hasCodeBlocks: !!card.codeBlocks,
-      codeBlocksCount: card.codeBlocks?.length || 0
-    });
-  });
 
   const handleNewRecipe = () => {
     router.push('/');
@@ -321,46 +156,12 @@ export default function WowAutomationResult({
     );
   };
 
-  // 동적 헤더 제목 생성 (유저 맞춤형)
+  // 동적 헤더 제목 생성
   const getDynamicTitle = () => {
     const flowCard = cardData.find((c: any) => c.type === 'flow');
     const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
-    const userInput = result.context?.userInput || '';
-    
-    // 🔍 디버깅: userInput 확인
-    console.log('🔍 [getDynamicTitle] userInput:', userInput);
-    console.log('🔍 [getDynamicTitle] result.context:', result.context);
 
-    // 1순위: 사용자 입력을 기반으로 구체적인 맞춤형 제목 생성
-    if (userInput) {
-      // SNS/브랜드 모니터링
-      if (userInput.includes('sns') || userInput.includes('브랜드') || userInput.includes('언급')) {
-        return `🔔 ${userInput.includes('슬랙') ? 'SNS 브랜드 언급 → 슬랙 알림' : 'SNS 브랜드 모니터링'} 자동화`;
-      }
-      // 구글 드라이브 관련
-      if (userInput.includes('구글 드라이브') || userInput.includes('pdf') || userInput.includes('계약서')) {
-        return `📁 구글 드라이브 PDF → ${userInput.includes('슬랙') ? '슬랙 알림' : '자동 처리'} 자동화`;
-      }
-      // 데이터 분석
-      if (userInput.includes('데이터') && userInput.includes('분석')) {
-        return `📊 ${userInput.includes('채용') ? '채용 데이터' : '데이터'} 분석 자동화`;
-      }
-      // 이메일/메일
-      if (userInput.includes('메일') || userInput.includes('이메일')) {
-        return `📧 이메일 자동화 시스템`;
-      }
-      // 스프레드시트
-      if (userInput.includes('스프레드시트') || userInput.includes('시트')) {
-        return `📊 스프레드시트 자동화`;
-      }
-      // 일반적인 경우 - 사용자 입력의 핵심 키워드 추출하여 제목 생성
-      const keywords = userInput.split(' ').slice(0, 3).join(' ');
-      if (keywords.length > 5) {
-        return `🚀 ${keywords} 자동화`;
-      }
-    }
-
-    // 2순위: flow 카드의 제목 사용 (기본값이 아닌 경우)
+    // 1순위: flow 카드의 제목 사용
     if (
       flowCard?.title &&
       flowCard.title !== '자동화 플로우' &&
@@ -369,13 +170,26 @@ export default function WowAutomationResult({
       return flowCard.title;
     }
 
-    // 3순위: needs_analysis 카드의 실제 니즈 사용
+    // 2순위: needs_analysis 카드의 실제 니즈 사용
     if (needsCard?.realNeed) {
       return `🎯 ${needsCard.realNeed}`;
     }
 
-    // 4순위: 기본 제목
+    // 3순위: 사용자 입력 기반으로 제목 생성
+    const userInput = result.context?.userInput || '';
+    if (userInput.includes('스프레드시트')) {
+      return '📊 스프레드시트 자동화';
+    } else if (userInput.includes('채용') || userInput.includes('잡코리아')) {
+      return '👥 채용 데이터 분석 자동화';
+    } else if (userInput.includes('메일') || userInput.includes('이메일')) {
+      return '📧 메일 자동화';
+    } else if (userInput.includes('데이터') && userInput.includes('분석')) {
+      return '📈 데이터 분석 자동화';
+    } else if (userInput.includes('시각화')) {
+      return '📊 데이터 시각화 자동화';
+    } else {
       return '🚀 맞춤형 자동화';
+    }
   };
 
   // 동적 헤더 설명 생성
@@ -904,7 +718,7 @@ export default function WowAutomationResult({
           />
         )}
 
-        {/* 상세 가이드 카드들 - guide 제외 (FlowDiagramSection에서 처리) */}
+        {/* 상세 가이드 카드들 */}
         <div className="guide-cards-section">
           {cardData
             .filter((card: any) =>
@@ -921,6 +735,11 @@ export default function WowAutomationResult({
               ].includes(card.type)
             )
             .map((card: any, index: number) => {
+              // 방어 코드: card가 유효한지 확인
+              if (!card || !card.type) {
+                return null;
+              }
+
               return (
                 <div key={`card-${index}-${card.type}`} className="guide-card-wrapper">
                   <WowCardRenderer card={card} />
@@ -1015,7 +834,7 @@ export default function WowAutomationResult({
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        title={title || getDynamicTitle() || '자동화 레시피'}
+        title={title || getDynamicTitle(cardData) || '자동화 레시피'}
         userInput={result.context.userInput}
         cardData={cardData}
         result={result}
@@ -1033,117 +852,35 @@ export default function WowAutomationResult({
               <p className="faq-subtitle">단계별로 따라하시면 자동화가 완성됩니다</p>
             </div>
             <div className="faq-body">
-              {/* 🚫 FAQ content에 JSON이 들어있으면 숨김 처리 */}
-              {faqCard?.content && 
-               !faqCard.content.includes('"items"') && 
-               !faqCard.content.includes('"question"') && 
-               !faqCard.content.startsWith('{') && 
-               !faqCard.content.startsWith('[') && (
-                <div className="faq-content-text" style={{
-                  padding: '16px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  marginBottom: '20px',
-                  color: '#666'
-                }}>
-                  {faqCard.content}
-                </div>
-              )}
-              {/* 🔧 FAQ 데이터 추출 및 파싱 */}
-              {(() => {
-                console.log('🔍 [FAQ] 전체 구조:', faqCard);
-                
-                let faqItems: any[] = [];
-                
-                // 1순위: 직접 배열이 있는 경우
-                if (faqCard?.faqs && Array.isArray(faqCard.faqs)) {
-                  faqItems = faqCard.faqs;
-                } else if (faqCard?.questions && Array.isArray(faqCard.questions)) {
-                  faqItems = faqCard.questions;
-                } else if (faqCard?.items && Array.isArray(faqCard.items)) {
-                  faqItems = faqCard.items;
-                }
-                // 2순위: content 필드에서 JSON 파싱 시도
-                else if (faqCard?.content && typeof faqCard.content === 'string') {
-                  console.log('🔍 [FAQ] content 원본:', faqCard.content.substring(0, 200) + '...');
-                  
-                  try {
-                    // 1) JSON 문자열에서 items 배열 추출 시도
-                    if (faqCard.content.includes('"items"')) {
-                      console.log('🔍 [FAQ] "items" 키워드 발견, 배열 추출 시도');
-                      
-                      // items 배열만 추출하는 더 강력한 정규식
-                      const itemsMatch = faqCard.content.match(/"items"\s*:\s*(\[[\s\S]*?\](?:\s*,\s*\{[\s\S]*?\})*)/);
-                      if (itemsMatch) {
-                        console.log('🔍 [FAQ] items 배열 매칭:', itemsMatch[1].substring(0, 100) + '...');
-                        try {
-                          faqItems = JSON.parse(itemsMatch[1]);
-                          console.log('✅ [FAQ] items 배열 파싱 성공:', faqItems.length, '개');
-                        } catch (e) {
-                          console.log('❌ [FAQ] items 배열 파싱 실패:', e);
-                        }
-                      }
-                      
-                      // items 배열 추출이 실패했으면 다른 방법 시도
-                      if (!faqItems || faqItems.length === 0) {
-                        // question/answer 쌍들을 직접 추출
-                        const questionMatches = faqCard.content.match(/"question"\s*:\s*"([^"]+)"/g);
-                        const answerMatches = faqCard.content.match(/"answer"\s*:\s*"([^"]+)"/g);
-                        
-                        if (questionMatches && answerMatches && questionMatches.length === answerMatches.length) {
-                          faqItems = questionMatches.map((qMatch: string, index: number) => {
-                            const question = qMatch.match(/"question"\s*:\s*"([^"]+)"/)?.[1] || '';
-                            const answer = answerMatches[index]?.match(/"answer"\s*:\s*"([^"]+)"/)?.[1] || '';
-                            return { question, answer };
-                          });
-                          console.log('✅ [FAQ] question/answer 직접 추출 성공:', faqItems.length, '개');
-                        }
-                      }
-                    }
-                    // 2) 전체 JSON 파싱 시도
-                    else if (faqCard.content.startsWith('{') || faqCard.content.startsWith('[')) {
-                      const parsed = JSON.parse(faqCard.content);
-                      if (Array.isArray(parsed)) {
-                        faqItems = parsed;
-                      } else if (parsed.items && Array.isArray(parsed.items)) {
-                        faqItems = parsed.items;
-                      }
-                      console.log('✅ [FAQ] content 전체 JSON 파싱 성공:', faqItems.length, '개');
-                    }
-                  } catch (error) {
-                    console.log('📝 [FAQ] JSON 파싱 실패:', error);
-                  }
-                }
-                
-                console.log('🔍 [FAQ] 최종 추출된 items:', faqItems.length, '개');
-                
-                if (faqItems && Array.isArray(faqItems) && faqItems.length > 0) {
-                  return faqItems.map((item: any, index: number) => {
+              {/* 🔍 FAQ 디버깅 */}
+              {console.log('🔍 [FAQ Debug] faqCard:', faqCard)}
+              {console.log('🔍 [FAQ Debug] faqCard?.items:', faqCard?.items)}
+              {console.log('🔍 [FAQ Debug] faqCard?.faqs:', faqCard?.faqs)}
+              {console.log('🔍 [FAQ Debug] faqCard?.questions:', faqCard?.questions)}
+
+              {faqCard?.items && Array.isArray(faqCard.items) && faqCard.items.length > 0 ? (
+                faqCard.items.map((item: any, index: number) => {
                   if (!item) return null;
-                    
-                    // 다양한 프로퍼티명 지원
-                    const question = item.question || item.q || item.title || '질문이 없습니다.';
-                    const answer = item.answer || item.a || item.content || '답변이 없습니다.';
-                    
                   return (
                     <div key={index} className="faq-item">
                       <div className="faq-question">
                         <span className="faq-q-icon">Q</span>
-                          <span className="faq-q-text">{question.replace(/^["']|["']$/g, '')}</span>
+                        <span className="faq-q-text">
+                          {item.question || item.q || '질문이 없습니다.'}
+                        </span>
                       </div>
                       <div className="faq-answer">
                         <span className="faq-a-icon">A</span>
                         <div className="faq-a-content">
-                            <span className="faq-a-text">{answer.replace(/^["']|["']$/g, '')}</span>
+                          <span className="faq-a-text">
+                            {item.answer || item.a || '답변이 없습니다.'}
+                          </span>
                         </div>
                       </div>
                     </div>
                   );
-                  });
-                }
-                
-                console.log('⚠️ [FAQ] 구조화된 FAQ 없음 - fallback 사용');
-                return (
+                })
+              ) : (
                 <>
                   <div className="faq-item">
                     <div className="faq-question">
@@ -1189,8 +926,7 @@ export default function WowAutomationResult({
                     </div>
                   </div>
                 </>
-                );
-              })()}
+              )}
             </div>
           </div>
         </div>

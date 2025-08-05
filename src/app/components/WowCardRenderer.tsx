@@ -943,6 +943,88 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
     // ❓ FAQ 카드 (기존 스타일 적용)
     case 'faq':
       const faqCard = card as any;
+      
+      // 🔧 FAQ 데이터 추출 및 파싱
+      let faqItems: any[] = [];
+      
+      // 1순위: 직접 배열이 있는 경우
+      if (faqCard.faqs && Array.isArray(faqCard.faqs)) {
+        faqItems = faqCard.faqs;
+      } else if (faqCard.questions && Array.isArray(faqCard.questions)) {
+        faqItems = faqCard.questions;
+      } else if (faqCard.items && Array.isArray(faqCard.items)) {
+        faqItems = faqCard.items;
+      }
+      // 2순위: content 필드에서 JSON 파싱 시도
+      else if (faqCard.content && typeof faqCard.content === 'string') {
+        console.log('🔍 [FAQ 카드] content 원본:', faqCard.content.substring(0, 200) + '...');
+        
+        try {
+          // 1) JSON 문자열에서 items 배열 추출 시도
+          if (faqCard.content.includes('"items"')) {
+            console.log('🔍 [FAQ 카드] "items" 키워드 발견, 배열 추출 시도');
+            
+            // items 배열만 추출하는 더 강력한 정규식
+            const itemsMatch = faqCard.content.match(/"items"\s*:\s*(\[[\s\S]*?\](?:\s*,\s*\{[\s\S]*?\})*)/);
+            if (itemsMatch) {
+              console.log('🔍 [FAQ 카드] items 배열 매칭:', itemsMatch[1].substring(0, 100) + '...');
+              try {
+                faqItems = JSON.parse(itemsMatch[1]);
+                console.log('✅ [FAQ 카드] items 배열 파싱 성공:', faqItems.length, '개');
+              } catch (e) {
+                console.log('❌ [FAQ 카드] items 배열 파싱 실패:', e);
+              }
+            }
+            
+            // items 배열 추출이 실패했으면 다른 방법 시도
+            if (!faqItems || faqItems.length === 0) {
+              // question/answer 쌍들을 직접 추출
+              const questionMatches = faqCard.content.match(/"question"\s*:\s*"([^"]+)"/g);
+              const answerMatches = faqCard.content.match(/"answer"\s*:\s*"([^"]+)"/g);
+              
+              if (questionMatches && answerMatches && questionMatches.length === answerMatches.length) {
+                faqItems = questionMatches.map((qMatch, index) => {
+                  const question = qMatch.match(/"question"\s*:\s*"([^"]+)"/)?.[1] || '';
+                  const answer = answerMatches[index]?.match(/"answer"\s*:\s*"([^"]+)"/)?.[1] || '';
+                  return { question, answer };
+                });
+                console.log('✅ [FAQ 카드] question/answer 직접 추출 성공:', faqItems.length, '개');
+              }
+            }
+          }
+          // 2) 전체 JSON 파싱 시도
+          else if (faqCard.content.startsWith('{') || faqCard.content.startsWith('[')) {
+            const parsed = JSON.parse(faqCard.content);
+            if (Array.isArray(parsed)) {
+              faqItems = parsed;
+            } else if (parsed.items && Array.isArray(parsed.items)) {
+              faqItems = parsed.items;
+            }
+            console.log('✅ [FAQ 카드] content 전체 JSON 파싱 성공:', faqItems.length, '개');
+          }
+        } catch (error) {
+          console.log('📝 [FAQ 카드] JSON 파싱 실패:', error);
+        }
+      }
+      
+      // 3순위: 기본 FAQ 제공
+      if (!faqItems || faqItems.length === 0) {
+        faqItems = [
+          {
+            question: "설정이 어려워 보이는데 정말 쉬운가요?",
+            answer: "네! 단계별 가이드를 따라하시면 누구나 쉽게 완성할 수 있습니다."
+          },
+          {
+            question: "오류가 발생하면 어떻게 해야 하나요?",
+            answer: "각 단계의 문제 해결 가이드에서 상세한 해결 방법을 확인하실 수 있습니다."
+          },
+          {
+            question: "추가 비용이 발생하나요?",
+            answer: "대부분의 자동화는 무료 도구로 구현 가능하며, 유료 도구 사용 시 미리 안내해드립니다."
+          }
+        ];
+      }
+      
       return (
         <div className="bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl p-6 border border-orange-200">
           <div className="flex items-center gap-3 mb-4">
@@ -957,35 +1039,37 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
           </div>
 
-          {faqCard.content && <div className="text-gray-700 mb-4">{faqCard.content}</div>}
+          {/* FAQ content는 JSON이 포함된 경우 숨김 */}
+          {faqCard.content && !faqCard.content.includes('"items"') && !faqCard.content.startsWith('{') && !faqCard.content.startsWith('[') && (
+            <div className="text-gray-700 mb-4">{faqCard.content}</div>
+          )}
 
-          {(faqCard.faqs || faqCard.questions || faqCard.items) &&
-            Array.isArray(faqCard.faqs || faqCard.questions || faqCard.items) && (
-              <div className="space-y-4">
-                {(faqCard.faqs || faqCard.questions || faqCard.items).map(
-                  (faq: any, index: number) => {
-                    // 방어 코드: faq가 유효한지 확인
-                    if (!faq) {
-                      return null;
-                    }
+          <div className="space-y-4">
+            {faqItems.map((faq: any, index: number) => {
+              // 방어 코드: faq가 유효한지 확인
+              if (!faq) {
+                return null;
+              }
 
-                    return (
-                      <div
-                        key={`faq-${index}`}
-                        className="bg-white rounded-lg p-4 border border-orange-100"
-                      >
-                        <div className="font-semibold text-gray-900 mb-2">
-                          Q. {faq.question || faq.q || '질문이 없습니다.'}
-                        </div>
-                        <div className="text-sm text-gray-600 leading-relaxed">
-                          A. {faq.answer || faq.a || '답변이 없습니다.'}
-                        </div>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            )}
+              // 다양한 프로퍼티명 지원
+              const question = faq.question || faq.q || faq.title || '질문이 없습니다.';
+              const answer = faq.answer || faq.a || faq.content || '답변이 없습니다.';
+
+              return (
+                <div
+                  key={`faq-${index}`}
+                  className="bg-white rounded-lg p-4 border border-orange-100"
+                >
+                  <div className="font-semibold text-gray-900 mb-2">
+                    Q. {question.replace(/^["']|["']$/g, '')}
+                  </div>
+                  <div className="text-sm text-gray-600 leading-relaxed">
+                    A. {answer.replace(/^["']|["']$/g, '')}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       );
 

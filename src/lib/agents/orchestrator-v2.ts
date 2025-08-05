@@ -932,7 +932,19 @@ ${skeletonCard.type === 'guide' ? `
         }
       }
     } else if (skeletonCard.type === 'faq' && detailContent) {
+      // 🔍 FAQ 처리 디버그 로그
+      console.log('🔍 [FAQ 처리] detailContent 길이:', detailContent.length);
       enrichedCard.items = extractFAQItems(detailContent);
+      console.log('🔍 [FAQ 처리] enrichedCard.items:', enrichedCard.items?.length || 0, '개');
+      
+      // 🛡️ Safety Net: FAQ 추출 실패 시 skeletonCard.content에서 재시도
+      if (!enrichedCard.items || enrichedCard.items.length === 0) {
+        console.log('⚠️ [FAQ Safety Net] detailContent에서 추출 실패, skeletonCard.content에서 재시도');
+        if (skeletonCard.content) {
+          enrichedCard.items = extractFAQItems(skeletonCard.content);
+          console.log('🔍 [FAQ Safety Net] 재추출 결과:', enrichedCard.items?.length || 0, '개');
+        }
+      }
     }
 
     enrichedCards.push(enrichedCard);
@@ -1091,24 +1103,77 @@ function extractCodeBlocks(content: string): any[] {
 // 🔧 FAQ 아이템 추출 헬퍼 (강화된 파싱)
 function extractFAQItems(content: string): any[] {
   console.log('🔍 [FAQ 추출] 시작 - 내용 길이:', content.length);
+  console.log('🔍 [FAQ 추출] 내용 미리보기:', content.substring(0, 300) + '...');
   
   const faqItems = [];
   
-  // 1️⃣ JSON 형태로 FAQ가 생성된 경우 우선 처리
+  // 1️⃣ 다양한 JSON 형태 처리 (기존 + 강화)
   try {
-    const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      const jsonContent = JSON.parse(jsonMatch[1]);
+    // a) ```json 코드 블록
+    const jsonCodeMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonCodeMatch) {
+      const jsonContent = JSON.parse(jsonCodeMatch[1]);
       if (jsonContent.items && Array.isArray(jsonContent.items)) {
-        console.log('✅ [FAQ 추출] JSON 형태 FAQ 발견:', jsonContent.items.length, '개');
+        console.log('✅ [FAQ 추출] JSON 코드블록 FAQ 발견:', jsonContent.items.length, '개');
         return jsonContent.items.map((item: any) => ({
           question: item.question || item.q,
           answer: item.answer || item.a
         }));
       }
     }
+    
+    // b) "items": [...] 형태 직접 추출
+    if (content.includes('"items"')) {
+      console.log('🔍 [FAQ 추출] "items" 키워드 발견, 배열 추출 시도');
+      const itemsMatch = content.match(/"items"\s*:\s*(\[[\s\S]*?\])/);
+      if (itemsMatch) {
+        console.log('🔍 [FAQ 추출] items 배열 매칭 성공');
+        const itemsArray = JSON.parse(itemsMatch[1]);
+        if (Array.isArray(itemsArray)) {
+          console.log('✅ [FAQ 추출] items 배열 파싱 성공:', itemsArray.length, '개');
+          return itemsArray.map((item: any) => ({
+            question: item.question || item.q,
+            answer: item.answer || item.a
+          }));
+        }
+      }
+    }
+    
+    // c) 전체 content가 JSON인 경우
+    if ((content.trim().startsWith('{') && content.trim().endsWith('}')) ||
+        (content.trim().startsWith('[') && content.trim().endsWith(']'))) {
+      console.log('🔍 [FAQ 추출] 전체 JSON 파싱 시도');
+      const parsed = JSON.parse(content.trim());
+      if (Array.isArray(parsed)) {
+        console.log('✅ [FAQ 추출] 배열 형태 JSON 파싱 성공:', parsed.length, '개');
+        return parsed.map((item: any) => ({
+          question: item.question || item.q,
+          answer: item.answer || item.a
+        }));
+      } else if (parsed.items && Array.isArray(parsed.items)) {
+        console.log('✅ [FAQ 추출] 객체.items 형태 JSON 파싱 성공:', parsed.items.length, '개');
+        return parsed.items.map((item: any) => ({
+          question: item.question || item.q,
+          answer: item.answer || item.a
+        }));
+      }
+    }
+    
+    // d) question/answer 패턴 직접 추출
+    const questionMatches = content.match(/"question"\s*:\s*"([^"]+)"/g);
+    const answerMatches = content.match(/"answer"\s*:\s*"([^"]+)"/g);
+    
+    if (questionMatches && answerMatches && questionMatches.length === answerMatches.length) {
+      console.log('✅ [FAQ 추출] question/answer 패턴 직접 추출 성공:', questionMatches.length, '개');
+      return questionMatches.map((qMatch, index) => {
+        const question = qMatch.match(/"question"\s*:\s*"([^"]+)"/)?.[1] || '';
+        const answer = answerMatches[index]?.match(/"answer"\s*:\s*"([^"]+)"/)?.[1] || '';
+        return { question, answer };
+      });
+    }
+    
   } catch (e) {
-    console.log('⚠️ [FAQ 추출] JSON 파싱 실패, 마크다운 파싱 시도');
+    console.log('⚠️ [FAQ 추출] JSON 파싱 실패:', e, '- 마크다운 파싱 시도');
   }
 
   // 2️⃣ 마크다운 형태 파싱 (기존 로직 강화)
