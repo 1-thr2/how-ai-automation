@@ -2,6 +2,46 @@ import React, { useState, useEffect } from 'react';
 import { FlowStep } from '@/app/types/automation';
 import styles from './FlowDiagramSection.module.css';
 
+// 3사진처럼 깔끔한 구조화된 설명 렌더링
+const renderStructuredDescription = (description: string) => {
+  if (!description) return null;
+  
+  // 텍스트를 줄 단위로 분할
+  const lines = description.split('\n').filter(line => line.trim());
+  
+  return (
+    <div className={styles['structured-description']}>
+      {lines.map((line, index) => {
+        const trimmedLine = line.trim();
+        
+        // 번호 매기기 패턴 감지 (1. 2. 3. 등)
+        const numberedMatch = trimmedLine.match(/^(\d+)\.\s*(.+)$/);
+        if (numberedMatch) {
+          return (
+            <div key={index} className={styles['numbered-item']}>
+              <span className={styles['number-badge']}>{numberedMatch[1]}</span>
+              <span className={styles['item-text']}>
+                {convertUrlsToLinks(numberedMatch[2])}
+              </span>
+            </div>
+          );
+        }
+        
+        // 빈 줄이 아닌 일반 텍스트
+        if (trimmedLine) {
+          return (
+            <div key={index} className={styles['description-paragraph']}>
+              {convertUrlsToLinks(trimmedLine)}
+            </div>
+          );
+        }
+        
+        return null;
+      })}
+    </div>
+  );
+};
+
 // URL을 자동으로 링크로 변환하고 마크다운 헤더를 처리하는 함수
 const convertUrlsToLinks = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s\)]+)/g;
@@ -439,6 +479,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
             descriptionPreview: step.description?.substring(0, 100) + '...' || 'NO_DESCRIPTION'
           });
         });
+        console.log('🔍 [getCurrentStepData] codeBlocks 확인:', guideCard.codeBlocks?.length || 0, '개');
         return {
           guide: {
             title: guideCard.title || '📋 상세 가이드',
@@ -859,7 +900,6 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
               }`}
               onClick={() => handleStepClick(step)}
             >
-              <div className={styles['step-number']}>{index + 1}</div>
               <div className={styles['step-icon']}>{step.icon || '✨'}</div>
               <div className={styles['step-title']}>
                 {step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
@@ -867,7 +907,10 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
               <div className={styles['step-subtitle']}>
                 {step.subtitle?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
               </div>
-              <div className={styles['step-duration']}>{step.duration || '5분'}</div>
+              <div className={styles['step-duration']}>{step.duration || '5-15분'}</div>
+              <button className={styles['step-guide-btn']}>
+                클릭해서 세부 가이드 보기
+              </button>
               {step.preview && (
                 <div className={styles['step-preview']}>{step.preview}</div>
               )}
@@ -944,8 +987,8 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                         <div className={styles['guide-number']}>{step.number}</div>
                         <div className={styles['guide-content']}>
                           <h3>{step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</h3>
-                          <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                            {convertUrlsToLinks(step.description)}
+                          <div className={styles['step-description']}>
+                            {renderStructuredDescription(step.description)}
                           </div>
                         
                         {step.expectedScreen && (
@@ -959,41 +1002,76 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                           </div>
                         )}
 
-                        {/* 각 단계별 코드 블록 포함 */}
-                        {stepData.guide.codeBlocks && 
-                         stepData.guide.codeBlocks.length > 0 && 
-                         step.number <= stepData.guide.codeBlocks.length && (
-                          <div className={styles['code-section']}>
-                            <h4>💻 실행 코드</h4>
-                            {(() => {
-                              const codeBlock = stepData.guide.codeBlocks[step.number - 1];
-                              if (!codeBlock) return null;
+                        {/* 각 단계별 코드 블록 포함 - 조건 완화 */}
+                        {(() => {
+                          console.log('🔍 [코드블록] stepData.guide.codeBlocks:', stepData.guide.codeBlocks?.length || 0);
+                          console.log('🔍 [코드블록] step.number:', step.number);
+                          
+                          // 조건 완화: codeBlocks가 있으면 표시 시도
+                          if (stepData.guide.codeBlocks && stepData.guide.codeBlocks.length > 0) {
+                            // 해당 단계의 코드 블록 또는 첫 번째 코드 블록 사용
+                            const codeBlock = stepData.guide.codeBlocks[step.number - 1] || stepData.guide.codeBlocks[0];
+                            
+                            if (codeBlock && codeBlock.code) {
                               return (
-                                <div key={step.number} className={styles['code-block']}>
-                                  <div className={styles['code-header']}>
-                                    <span className={styles['code-title']}>
-                                      {codeBlock.title || `코드 ${step.number}`}
-                                    </span>
-                                    <button
-                                      className={styles['code-copy-btn']}
-                                      onClick={() => navigator.clipboard.writeText(codeBlock.code)}
-                                    >
-                                      📋 복사
-                                    </button>
-                                  </div>
-                                  <pre className={styles['code-content']}>
-                                    <code>{codeBlock.code}</code>
-                                  </pre>
-                                  {codeBlock.copyInstructions && (
-                                    <div className={styles['code-instructions']}>
-                                      💡 {codeBlock.copyInstructions}
+                                <div className={styles['code-section']}>
+                                  <h4>💻 실행 코드</h4>
+                                  <div className={styles['code-block']}>
+                                    <div className={styles['code-header']}>
+                                      <span className={styles['code-title']}>
+                                        {codeBlock.title || `${step.title} 코드`}
+                                      </span>
+                                      <button
+                                        className={styles['code-copy-btn']}
+                                        onClick={() => navigator.clipboard.writeText(codeBlock.code)}
+                                      >
+                                        📋 복사
+                                      </button>
                                     </div>
-                                  )}
+                                    <pre className={styles['code-content']}>
+                                      <code>{codeBlock.code}</code>
+                                    </pre>
+                                    {codeBlock.copyInstructions && (
+                                      <div className={styles['code-instructions']}>
+                                        💡 {codeBlock.copyInstructions}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               );
-                            })()}
-                          </div>
-                        )}
+                            }
+                          }
+                          
+                          // description에서 코드 블록 추출 시도
+                          if (step.description && step.description.includes('```')) {
+                            const codeMatch = step.description.match(/```(\w+)?\n([\s\S]*?)```/);
+                            if (codeMatch && codeMatch[2]) {
+                              return (
+                                <div className={styles['code-section']}>
+                                  <h4>💻 실행 코드</h4>
+                                  <div className={styles['code-block']}>
+                                    <div className={styles['code-header']}>
+                                      <span className={styles['code-title']}>
+                                        {step.title} 코드
+                                      </span>
+                                      <button
+                                        className={styles['code-copy-btn']}
+                                        onClick={() => navigator.clipboard.writeText(codeMatch[2].trim())}
+                                      >
+                                        📋 복사
+                                      </button>
+                                    </div>
+                                    <pre className={styles['code-content']}>
+                                      <code>{codeMatch[2].trim()}</code>
+                                    </pre>
+                                  </div>
+                                </div>
+                              );
+                            }
+                          }
+                          
+                          return null;
+                        })()}
                         </div>
                       </div>
                     ));
