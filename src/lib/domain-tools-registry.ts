@@ -515,6 +515,139 @@ export const DOMAIN_TOOLS: DomainToolRegistry = {
         bestFor: ['팀협업', '프로젝트알림', '업무알림', '실시간소통']
       }
     ]
+  },
+
+  // 🎧 고객 지원/서비스 도메인 (새로 추가)
+  customer_support: {
+    dataCollection: [
+      {
+        name: 'Gmail API',
+        category: 'free',
+        difficulty: 'medium',
+        apiSupport: true,
+        webhookSupport: false,
+        pricing: '무료 (API 할당량)',
+        setupTime: '30분',
+        description: '지메일 기반 고객 문의 자동 수집',
+        bestFor: ['이메일문의', '고객지원', '자동분류']
+      },
+      {
+        name: 'Google Forms',
+        category: 'free',
+        difficulty: 'easy',
+        apiSupport: true,
+        webhookSupport: false,
+        pricing: '완전 무료',
+        setupTime: '10분',
+        description: '고객 문의/피드백 폼 자동 수집',
+        bestFor: ['고객피드백', '문의접수', '만족도조사']
+      },
+      {
+        name: 'Typeform',
+        category: 'freemium',
+        difficulty: 'easy',
+        apiSupport: true,
+        webhookSupport: true,
+        pricing: '무료 플랜 있음',
+        setupTime: '15분',
+        description: '고품질 고객 설문/문의 폼',
+        bestFor: ['고객설문', '피드백수집', '만족도조사']
+      }
+    ],
+    automation: [
+      {
+        name: 'Zapier Customer Support',
+        category: 'freemium',
+        difficulty: 'easy',
+        apiSupport: true,
+        webhookSupport: true,
+        pricing: '무료 플랜 있음',
+        setupTime: '15분',
+        description: '고객 지원 프로세스 자동화',
+        bestFor: ['문의자동분류', '티켓생성', '우선순위설정']
+      },
+      {
+        name: 'Google Apps Script',
+        category: 'free',
+        difficulty: 'medium',
+        apiSupport: true,
+        webhookSupport: false,
+        pricing: '완전 무료',
+        setupTime: '45분',
+        description: '이메일 필터링 및 우선 처리 자동화',
+        bestFor: ['긴급키워드감지', '자동분류', '우선순위처리']
+      },
+      {
+        name: 'Make (Integromat)',
+        category: 'freemium',
+        difficulty: 'medium',
+        apiSupport: true,
+        webhookSupport: true,
+        pricing: '무료 1000회/월',
+        setupTime: '30분',
+        description: '복잡한 고객 지원 워크플로우',
+        bestFor: ['다단계처리', '조건부라우팅', '에스컬레이션']
+      }
+    ],
+    reporting: [
+      {
+        name: 'Google Data Studio',
+        category: 'free',
+        difficulty: 'medium',
+        apiSupport: true,
+        webhookSupport: false,
+        pricing: '완전 무료',
+        setupTime: '45분',
+        description: '고객 지원 성과 대시보드',
+        bestFor: ['응답시간분석', '만족도트렌드', 'KPI대시보드']
+      },
+      {
+        name: 'Google Sheets',
+        category: 'free',
+        difficulty: 'easy',
+        apiSupport: true,
+        webhookSupport: false,
+        pricing: '완전 무료',
+        setupTime: '20분',
+        description: '고객 문의 현황 리포트',
+        bestFor: ['기본통계', '처리현황', '담당자별성과']
+      }
+    ],
+    notification: [
+      {
+        name: 'Slack Webhooks',
+        category: 'freemium',
+        difficulty: 'easy',
+        apiSupport: false,
+        webhookSupport: true,
+        pricing: '무료 플랜 있음',
+        setupTime: '5분',
+        description: '긴급 문의 즉시 팀 알림',
+        bestFor: ['긴급알림', '팀협업', '실시간모니터링']
+      },
+      {
+        name: 'Discord Webhooks',
+        category: 'free',
+        difficulty: 'easy',
+        apiSupport: false,
+        webhookSupport: true,
+        pricing: '완전 무료',
+        setupTime: '5분',
+        description: '디스코드로 고객 문의 알림',
+        bestFor: ['팀채널알림', '긴급문의', '실시간협업']
+      },
+      {
+        name: 'Email Notifications',
+        category: 'free',
+        difficulty: 'easy',
+        apiSupport: true,
+        webhookSupport: false,
+        pricing: '완전 무료',
+        setupTime: '5분',
+        description: '관리자/담당자 이메일 알림',
+        bestFor: ['관리자알림', '담당자배정', '처리완료통지']
+      }
+    ]
   }
 };
 
@@ -548,8 +681,18 @@ export function detectDomain(userInput: string, followupAnswers?: any): string {
     return 'finance';
   }
 
-  // 커머스 키워드
-  const ecommerceKeywords = ['쇼핑몰', '주문', '상품', '재고', '배송', '고객', '판매', '온라인스토어', '쇼피파이', '우커머스'];
+  // 고객 지원/서비스 키워드 (새로 추가)
+  const customerSupportKeywords = [
+    '고객사', '고객 지원', '고객 서비스', '문의', '긴급', '우선 처리', '티켓', 'cs', 'support',
+    '헬프데스크', '상담', '응답', '처리', '에스컬레이션', '지원팀', '서비스팀', '고객 문의',
+    '민원', '컴플레인', '불만', '요청 사항', '질문', '답변', '실시간 지원', '챗봇'
+  ];
+  if (customerSupportKeywords.some(keyword => content.includes(keyword))) {
+    return 'customer_support';
+  }
+
+  // 커머스 키워드 (고객 키워드 제거)
+  const ecommerceKeywords = ['쇼핑몰', '주문', '상품', '재고', '배송', '판매', '온라인스토어', '쇼피파이', '우커머스', '결제', '장바구니'];
   if (ecommerceKeywords.some(keyword => content.includes(keyword))) {
     return 'ecommerce';
   }

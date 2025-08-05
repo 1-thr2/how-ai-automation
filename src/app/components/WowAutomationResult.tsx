@@ -1033,33 +1033,48 @@ export default function WowAutomationResult({
               <p className="faq-subtitle">단계별로 따라하시면 자동화가 완성됩니다</p>
             </div>
             <div className="faq-body">
-              {/* 🔍 FAQ 체크 */}
-              {console.log('🔍 [FAQ] items:', faqCard?.items?.length || 0, '개')}
+              {/* 🔍 FAQ 체크 - 다양한 구조 지원 */}
+              {(() => {
+                console.log('🔍 [FAQ] 전체 구조:', faqCard);
+                console.log('🔍 [FAQ] items:', faqCard?.items?.length || 0, '개');
+                console.log('🔍 [FAQ] questions:', faqCard?.questions?.length || 0, '개');
+                console.log('🔍 [FAQ] faqs:', faqCard?.faqs?.length || 0, '개');
+                return null;
+              })()}
 
-              {/* 실제 faqCard.items 우선 렌더링 */}
-              {faqCard?.items && Array.isArray(faqCard.items) && faqCard.items.length > 0 ? (
-                faqCard.items.map((item: any, index: number) => {
-                  if (!item) return null;
-                  return (
-                    <div key={index} className="faq-item">
-                      <div className="faq-question">
-                        <span className="faq-q-icon">Q</span>
-                        <span className="faq-q-text">
-                          {item.question || item.q || '질문이 없습니다.'}
-                        </span>
-                      </div>
-                      <div className="faq-answer">
-                        <span className="faq-a-icon">A</span>
-                        <div className="faq-a-content">
-                          <span className="faq-a-text">
-                            {item.answer || item.a || '답변이 없습니다.'}
-                          </span>
+              {/* 다양한 FAQ 구조 지원 - 우선순위대로 시도 */}
+              {(() => {
+                // 1순위: items 배열
+                const faqItems = faqCard?.items || faqCard?.questions || faqCard?.faqs;
+                
+                if (faqItems && Array.isArray(faqItems) && faqItems.length > 0) {
+                  console.log('✅ [FAQ] 렌더링:', faqItems.length, '개 FAQ 발견');
+                  return faqItems.map((item: any, index: number) => {
+                    if (!item) return null;
+                    
+                    // 다양한 프로퍼티명 지원
+                    const question = item.question || item.q || item.title || '질문이 없습니다.';
+                    const answer = item.answer || item.a || item.content || '답변이 없습니다.';
+                    
+                    return (
+                      <div key={index} className="faq-item">
+                        <div className="faq-question">
+                          <span className="faq-q-icon">Q</span>
+                          <span className="faq-q-text">{question}</span>
+                        </div>
+                        <div className="faq-answer">
+                          <span className="faq-a-icon">A</span>
+                          <div className="faq-a-content">
+                            <span className="faq-a-text">{answer}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
-              ) : (
+                    );
+                  });
+                }
+                
+                console.log('⚠️ [FAQ] 구조화된 FAQ 없음 - fallback 사용');
+                return (
                 <>
                   <div className="faq-item">
                     <div className="faq-question">
@@ -1105,7 +1120,8 @@ export default function WowAutomationResult({
                     </div>
                   </div>
                 </>
-              )}
+                );
+              })()}
             </div>
           </div>
         </div>
