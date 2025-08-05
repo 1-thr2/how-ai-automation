@@ -907,15 +907,46 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                     </div>
                   )}
 
-                  {/* 단계별 가이드 */}
-                  {stepData.guide.steps?.map((step: any, i: number) => (
-                    <div key={i} className={styles['guide-step']}>
-                      <div className={styles['guide-number']}>{step.number}</div>
-                      <div className={styles['guide-content']}>
-                        <h3>{step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</h3>
-                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
-                          {step.description}
-                        </div>
+                  {/* 단계별 가이드 - selectedStep에 맞는 단계만 표시 */}
+                  {(() => {
+                    // 🎯 순서 기반 매칭 (확장성 있는 방식)
+                    const getRelevantSteps = () => {
+                      if (!stepData.guide.steps || !selectedStep) return [];
+                      
+                      const selectedStepId = parseInt(selectedStep.id);
+                      console.log('🔍 [Modal Filter] selectedStep.id:', selectedStepId);
+                      console.log('🔍 [Modal Filter] 전체 guide steps:', stepData.guide.steps.length, '개');
+                      
+                      // 직접 매칭: Flow step id = Guide step number
+                      const directMatch = stepData.guide.steps.find((step: any) => step.number === selectedStepId);
+                      
+                      if (directMatch) {
+                        console.log('✅ [Modal Filter] 직접 매칭 성공:', directMatch.title);
+                        return [directMatch];
+                      }
+                      
+                      // Fallback: 해당 인덱스의 단계 (0-based)
+                      const fallbackStep = stepData.guide.steps[selectedStepId - 1];
+                      if (fallbackStep) {
+                        console.log('🔄 [Modal Filter] 인덱스 기반 매칭:', fallbackStep.title);
+                        return [fallbackStep];
+                      }
+                      
+                      // 최종 Fallback: 첫 번째 단계
+                      console.log('🚨 [Modal Filter] 매칭 실패 - 첫 번째 단계 사용');
+                      return stepData.guide.steps.slice(0, 1);
+                    };
+                    
+                    const relevantSteps = getRelevantSteps();
+                    
+                    return relevantSteps.map((step: any, i: number) => (
+                      <div key={i} className={styles['guide-step']}>
+                        <div className={styles['guide-number']}>{step.number}</div>
+                        <div className={styles['guide-content']}>
+                          <h3>{step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</h3>
+                          <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                            {convertUrlsToLinks(step.description)}
+                          </div>
                         
                         {step.expectedScreen && (
                           <div className={styles['expected-screen']}>
@@ -963,9 +994,10 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                             })()}
                           </div>
                         )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                   
                   {/* 팁 */}
                   {stepData.guide.tips && stepData.guide.tips.length > 0 && (

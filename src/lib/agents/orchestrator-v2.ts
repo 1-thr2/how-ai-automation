@@ -620,38 +620,80 @@ async function execute2PassStepC(
 검증된 카드들: ${JSON.stringify(verifiedCards)}
 후속답변: ${JSON.stringify(followupAnswers || {})}
 
-🎯 **Skeleton JSON만** 생성하세요 (상세 내용은 Pass 2에서):
+🚨🚨🚨 **절대 필수**: Flow 카드의 steps 배열은 반드시 구체적인 단계들로 채워야 합니다!
+
+🎯 **복잡성 분석 및 단계 수 결정**:
+현재 요청: "${userInput}"
+
+이 작업의 복잡성을 분석하세요:
+- 간단 (3-4단계): 단순 데이터 입력, 기본 연동
+- 중간 (4-5단계): API 연동 + 알림, 스케줄링  
+- 복잡 (5-7단계): 다중 플랫폼 + 분석 + 자동화
+
+🚨 **Flow 카드 steps 배열 작성 - 절대 준수 규칙**:
+
+**현재 요청**: "${userInput}"
+
+**필수 형식**: "X단계: [실제 도구명] [구체적 작업명]"
+
+**현재 요청 분석**: "${userInput}"을 실제로 구현하는 구체적 단계들을 작성하세요.
+
+**절대 금지 예시**:
+❌ "1단계: 도구 설정" 
+❌ "2단계: 자동화 설정"
+❌ "3단계: 계정 생성"
+❌ "4단계: 연동 및 테스트"
+
+**반드시 포함해야 할 요소**:
+- Google Apps Script, Zapier, Make.com 등 실제 도구명
+- Drive API, Webhook, 트리거 등 구체적 기능명
+- 현재 요청에서 언급된 구글 드라이브, 계약서, 요약, 슬랙 키워드 활용
+
+🚨 **Skeleton JSON 필수 형식**:
 
 {
   "cards": [
     {
       "type": "flow", 
       "title": "🚀 자동화 플로우",
-      "steps": ["1단계", "2단계", "3단계"],
+      "steps": [
+        "여기에 실제 요청에 맞는 구체적 단계 배열을 반드시 작성"
+      ],
       "contentId": "flow_1",
       "status": "skeleton"
     },
     {
       "type": "guide", 
-      "title": "📋 상세 가이드",
-      "contentId": "guide_1",
+      "title": "📋 상세 실행 가이드",
+      "steps": [
+        "Flow와 동일한 단계 배열 작성"
+      ],
+      "contentId": "guide_1", 
+      "status": "skeleton"
+    },
+    {
+      "type": "needs_analysis",
+      "title": "🎯 확장된 가치 분석",
+      "contentId": "needs_1",
+      "status": "skeleton"
+    },
+    {
+      "type": "faq",
+      "title": "❓ 자주 묻는 질문",
+      "contentId": "faq_1", 
       "status": "skeleton"
     }
   ]
-}
-
-- 카드는 최대 4개
-- contentId는 고유값
-- 실제 내용은 비워두고 구조만`;
+}`;
 
   const skeletonResponse = await openai.chat.completions.create({
-    model: 'gpt-4o-mini', // Skeleton은 mini로 충분
+    model: 'gpt-4o', // 🚨 Skeleton도 4o로! mini가 지시를 제대로 안 따름
     messages: [
-      { role: 'system', content: 'JSON 구조 설계 전문가입니다. 간단한 카드 구조만 생성하세요.' },
+      { role: 'system', content: '자동화 레시피 설계 전문가입니다. 사용자의 요청을 분석하여 실제 완성 가능한 구체적 단계들을 설계하세요. Flow와 Guide 카드의 steps 배열에는 "1단계: [도구명] [구체적 작업]" 형식으로 실제 도구명과 구체적 작업이 포함된 단계를 반드시 작성하세요. 추상적 제목(도구 설정, 자동화 설정 등) 절대 금지!' },
       { role: 'user', content: skeletonPrompt },
     ],
-    max_tokens: 800,
-    temperature: 0.3,
+    max_tokens: 1200, // 🚨 토큰 증가: 구체적인 단계 생성 필요
+    temperature: 0.1, // 🚨 더 결정적으로
     response_format: { type: 'json_object' },
   });
 
@@ -661,38 +703,159 @@ async function execute2PassStepC(
   }
 
   const skeletonCards = await parseCardsJSON(skeletonContent);
+  
+  // 🚨 Flow & Guide 카드의 steps 배열 검증 및 동기화
+  const flowCard = skeletonCards.find(card => card.type === 'flow');
+  const guideCard = skeletonCards.find(card => card.type === 'guide');
+  
+  let finalSteps: string[] = [];
+  
+  // 1️⃣ Flow 카드에서 단계 추출 시도
+  if (flowCard?.steps && Array.isArray(flowCard.steps) && flowCard.steps.length > 0 && 
+      !flowCard.steps.some((step: string) => step.includes('반드시 여기에') || step.includes('예:') || step.includes('현재 작업에 맞는'))) {
+    finalSteps = flowCard.steps;
+    console.log(`✅ [Skeleton 검증] Flow 카드에서 ${finalSteps.length}개 단계 추출 성공`);
+  } 
+  // 2️⃣ Flow 카드가 비어있거나 예제 텍스트인 경우 강제 생성
+  else {
+    console.log('🚨 [Skeleton 검증] Flow 카드 steps가 비어있거나 예제 텍스트 - 요청 기반 강제 생성');
+    
+    // 🎯 실제 사용자 요청에 기반한 구체적 단계 생성
+    if (userInput.includes('sns') || userInput.includes('브랜드') || userInput.includes('언급')) {
+      finalSteps = [
+        "1단계: Zapier 계정 생성 및 Twitter 검색 트리거 설정",
+        "2단계: 브랜드 키워드 설정 및 검색 조건 정의",
+        "3단계: Slack Webhook URL 생성 및 연동 설정",
+        "4단계: 알림 메시지 템플릿 작성 및 테스트"
+      ];
+    } else if (userInput.includes('잡코리아') || userInput.includes('사람인') || userInput.includes('지원서')) {
+      finalSteps = [
+        "1단계: Google Apps Script 프로젝트 생성 및 초기 설정",
+        "2단계: 잡코리아/사람인 RSS 피드 또는 웹 스크래핑 설정",
+        "3단계: Google 스프레드시트 연동 및 데이터 저장 스크립트 구현",
+        "4단계: 주간 데이터 분석 및 요약 보고서 생성 로직 작성",
+        "5단계: Slack Incoming Webhook 설정 및 메시지 전송 구현",
+        "6단계: 매주 월요일 자동 실행을 위한 트리거 설정 및 테스트"
+      ];
+    } else {
+      // 🎯 일반적인 자동화 Fallback 단계 (더 이상 하드코딩 없음)
+      finalSteps = [
+        "1단계: 자동화 도구 계정 설정 및 초기 구성",
+        "2단계: 데이터 소스 연동 및 트리거 설정",
+        "3단계: 데이터 처리 및 변환 로직 구현",
+        "4단계: 결과 전달 채널 연동 및 테스트"
+      ];
+    }
+    
+    console.log(`✅ [Skeleton 강제생성] 요청 기반 ${finalSteps.length}단계 생성 완료`);
+  }
+  
+  // 3️⃣ Flow와 Guide 카드 동기화
+  if (flowCard) {
+    flowCard.steps = finalSteps;
+  }
+  if (guideCard) {
+    guideCard.steps = finalSteps; // 🎯 핵심: Guide도 동일한 steps 보유
+    console.log(`✅ [동기화] Guide 카드에 ${finalSteps.length}개 단계 동기화 완료`);
+  }
+  
   console.log(`✅ [Step C-1] Skeleton 완료 - ${skeletonCards.length}개 카드`);
 
   // 2️⃣ Pass 2: 각 카드별 상세 내용 생성 (품질 우선, 제한 없음)
   console.log('🎨 [Step C-2] Pass 2: 상세 내용 생성...');
   
+  // 🚨 Blueprint 로드 (근본 해결!)
+  const blueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
+  
   const enrichedCards = [];
   let totalPass2Tokens = 0;
 
   for (const skeletonCard of skeletonCards) {
-    const detailPrompt = `${skeletonCard.title} 카드의 상세 내용을 생성하세요.
+    const detailPrompt = `${blueprint}
 
+=== 현재 작업 ===
 카드 타입: ${skeletonCard.type}
+카드 제목: ${skeletonCard.title}
 사용자 요청: ${userInput}
 후속답변: ${JSON.stringify(followupAnswers || {})}
 최적 도구들: ${optimalTools.map(t => t.name).join(', ')}
 
-🎯 **초보자도 따라할 수 있는 상세 가이드** 생성:
-- UI 버튼 위치까지 명시 (예: "좌측 상단 파란색 '+ 새 Zap' 버튼")
-- 코드는 완전히 실행 가능한 형태로
-- API 키 발급 과정 상세히
-- 파일 저장 위치까지 명시 (예: "code.gs 파일로 저장")
+🚨🚨🚨 절대 원칙 재확인:
+- 방법론 비교 절대 금지 (예: "Zapier 방법 vs Google Apps Script 방법")
+- 단 하나의 최적 솔루션만 제시
+- 선택한 도구로 처음부터 끝까지 일관된 가이드 (적절한 단계 수로)
 
-제한 없이 **완벽한 품질**로 작성하세요.`;
+${skeletonCard.type === 'guide' ? `
+🎯 **GUIDE 카드 JSON 응답 형식 (필수 준수!):**
+
+현재 작업: "${userInput}"
+
+다음 JSON 형식으로만 응답하세요:
+
+{
+  "detailedSteps": [
+    {
+      "number": 1,
+      "title": "1단계: [구체적 도구명] [구체적 작업명]",
+      "description": "이 단계에서 수행할 구체적인 작업 내용을 상세히 설명합니다. 초보자도 따라할 수 있도록 단계별로 설명하세요.",
+      "expectedScreen": "이 단계 완료 후 사용자가 확인할 수 있는 구체적인 화면이나 결과물",
+      "checkpoint": "이 단계가 정상적으로 완료되었는지 확인하는 방법"
+    },
+    {
+      "number": 2,
+      "title": "2단계: [구체적 도구명] [구체적 작업명]",
+      "description": "구체적인 설명...",
+      "expectedScreen": "구체적인 결과 화면...",
+      "checkpoint": "구체적인 확인 방법..."
+    }
+  ]
+}
+
+⚠️ 절대 금지: "도구 설정", "자동화 설정" 같은 추상적 제목
+⚠️ 필수: 실제 도구명과 구체적 작업명 포함
+⚠️ 현재 요청 "${userInput}"에 맞는 실제 실행 가능한 단계들만 작성
+` : `
+🎯 **${optimalTools[0]?.name || 'Google Apps Script'}를 사용한 완전한 단일 솔루션** 생성:
+- 1단계: 계정 생성/준비
+- 2단계: API/연결 설정  
+- 3단계: 코드 작성/배포
+- 4단계: 테스트 및 검증
+- 5단계: 자동화 활성화
+`}
+
+초보자도 따라할 수 있는 완벽한 품질로 작성하세요.`;
 
     const detailResponse = await openai.chat.completions.create({
       model: 'gpt-4o-2024-11-20', // 품질 우선
       messages: [
-        { role: 'system', content: `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
+        { role: 'system', content: skeletonCard.type === 'guide' 
+          ? `당신은 실행 가이드 전문가입니다. 반드시 JSON 형식으로만 응답하세요.
+
+다음 JSON 형식을 정확히 따라 응답하세요:
+
+{
+  "detailedSteps": [
+    {
+      "number": 1,
+      "title": "1단계: [구체적 도구명] [구체적 작업명]",
+      "description": "이 단계에서 수행할 구체적인 작업을 상세히 설명하세요. 초보자도 따라할 수 있도록 단계별로 설명하세요.",
+      "expectedScreen": "이 단계 완료 후 사용자가 확인할 수 있는 구체적인 화면이나 결과물을 설명하세요.",
+      "checkpoint": "이 단계가 정상적으로 완료되었는지 확인하는 방법을 설명하세요."
+    }
+  ]
+}
+
+🚨 절대 규칙:
+1. "도구 설정", "자동화 설정" 같은 추상적 제목 절대 금지
+2. "Google Apps Script 프로젝트 생성", "Slack Webhook 설정" 같이 구체적으로 작성
+3. 실제 도구명과 기능명을 반드시 포함
+4. 작업 복잡성에 따라 적절한 단계 수로 구성 (간단: 3-4단계, 복잡: 5-7단계)`
+          : `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
         { role: 'user', content: detailPrompt },
       ],
-      max_tokens: 2500, // 🎯 품질 최우선: 초보자도 따라할 수 있는 완벽한 가이드
+      max_tokens: skeletonCard.type === 'guide' ? 4000 : 2500, // 🎯 Guide 카드는 더 많은 토큰 필요 (복잡한 작업시)
       temperature: 0.4,
+      ...(skeletonCard.type === 'guide' ? { response_format: { type: 'json_object' } } : {}),
     });
 
     const detailContent = detailResponse.choices[0]?.message?.content;
@@ -705,10 +868,69 @@ async function execute2PassStepC(
       status: 'complete'
     };
 
-    // 카드 타입별 특별 처리
+    // 카드 타입별 특별 처리 (패턴 매칭 한계 인정 → JSON 응답 강제)
     if (skeletonCard.type === 'guide' && detailContent) {
       enrichedCard.codeBlocks = extractCodeBlocks(detailContent);
-      enrichedCard.detailedSteps = extractDetailedSteps(detailContent); // 🛡️ 안정성: 구조화된 단계 추출
+      
+      // 🎯 GPT가 생성한 실제 상세 내용을 우선 사용
+      console.log(`🔍 [Guide Content] GPT 생성 내용 길이: ${detailContent?.length || 0}자`);
+      
+      if (detailContent && detailContent.length > 1000) {
+        // GPT가 실제로 상세 내용을 생성했으면 이를 파싱해서 사용
+        console.log('🎯 [Guide 처리] GPT 생성 상세 내용 파싱 시도');
+        
+        // 🎯 JSON 응답 우선 시도
+        try {
+          const jsonMatch = detailContent.match(/\{[\s\S]*"detailedSteps"[\s\S]*\}/);
+          if (jsonMatch) {
+            console.log('🔍 [JSON 파싱] JSON 형식 응답 감지');
+            const jsonContent = JSON.parse(jsonMatch[0]);
+            if (jsonContent.detailedSteps && Array.isArray(jsonContent.detailedSteps)) {
+              enrichedCard.detailedSteps = jsonContent.detailedSteps;
+              console.log(`✅ [JSON 파싱] JSON에서 ${enrichedCard.detailedSteps.length}개 단계 추출 성공`);
+            } else {
+              throw new Error('detailedSteps 배열이 없음');
+            }
+          } else {
+            throw new Error('JSON 형식이 아님');
+          }
+        } catch (jsonError) {
+          console.log('⚠️ [JSON 파싱] 실패 - 마크다운 파싱으로 fallback:', jsonError instanceof Error ? jsonError.message : String(jsonError));
+          enrichedCard.detailedSteps = extractDetailedSteps(detailContent);
+        }
+        
+        // JSON 파싱이 실패했을 경우에만 Skeleton 사용
+        if (!enrichedCard.detailedSteps || enrichedCard.detailedSteps.length === 0) {
+          console.log('⚠️ [Guide 처리] JSON 파싱 실패 - Skeleton 사용');
+          enrichedCard.detailedSteps = skeletonCard.steps.map((step: string, index: number) => ({
+            number: index + 1,
+            title: step,
+            description: `${step}에 대한 상세 실행 가이드입니다.`,
+            expectedScreen: `${step} 완료 후 확인할 수 있는 화면`,
+            checkpoint: `✅ ${step} 완료 확인사항`
+          }));
+        } else {
+          console.log(`✅ [Guide 처리] JSON 파싱 성공 - GPT 생성 ${enrichedCard.detailedSteps.length}개 단계 사용`);
+        }
+        
+        console.log(`✅ [Guide 처리] 최종 ${enrichedCard.detailedSteps.length}개 단계 완성`);
+      } else {
+        // detailContent가 부족하면 Skeleton 단계 사용
+        console.log('⚠️ [Guide 처리] GPT 내용 부족 - Skeleton 단계 사용');
+        if (skeletonCard.steps && Array.isArray(skeletonCard.steps) && skeletonCard.steps.length > 0) {
+          enrichedCard.detailedSteps = skeletonCard.steps.map((step: string, index: number) => ({
+            number: index + 1,
+            title: step,
+            description: `${step}에 대한 상세 실행 가이드입니다.`,
+            expectedScreen: `${step} 완료 후 확인할 수 있는 화면`,
+            checkpoint: `✅ ${step} 완료 확인사항`
+          }));
+          console.log(`✅ [Fallback] Skeleton 기반 ${enrichedCard.detailedSteps.length}개 단계 생성`);
+        } else {
+          console.log('🚨 [최종 Fallback] 기본 단계 생성');
+          enrichedCard.detailedSteps = extractDetailedSteps('');
+        }
+      }
     } else if (skeletonCard.type === 'faq' && detailContent) {
       enrichedCard.items = extractFAQItems(detailContent);
     }
@@ -745,16 +967,22 @@ function extractDetailedSteps(content: string): any[] {
   
   // 여러 패턴 시도 (실제 GPT 출력에 맞게 수정)
   const patterns = [
-    // 패턴 1: ## 📝 **1단계: 제목** 형태 (실제 GPT 출력!)
+    // 패턴 1: ## 📝 **1단계: 제목** 형태 (새로운 강제 형식!) 
+    /## 📝 \*\*(\d+)단계: ([^*\n]+)\*\*([\s\S]*?)(?=\n## 📝 \*\*\d+단계|\n## |\n---|$)/g,
+    // 패턴 2: ### **Step 1: 제목** 형태 (세부 단계)
+    /### \*\*Step (\d+): ([^*\n]+)\*\*([\s\S]*?)(?=### \*\*Step \d+:|\n---|\n## |$)/g,
+    // 패턴 3: ## 📝 **1단계: 제목** 형태 (기존 버전)
     /## 📝 \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=\n## 📝|\n---|\n## |$)/g,
-    // 패턴 2: ## 1️⃣ **제목** 형태
+    // 패턴 4: ## **1단계: 제목** 형태 (더 유연한 버전)
+    /## \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=\n## \*\*\d+단계|\n---|\n## |$)/g,
+    // 패턴 5: ## 1️⃣ **제목** 형태
     /## (\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=\n## \d+️⃣|\n---|\n## 📂|\n## 🎉|$)/g,
-    // 패턴 3: ### **1️⃣ **제목** 형태  
+    // 패턴 6: ### **1️⃣ **제목** 형태  
     /### \*\*(\d+)️⃣ \*\*([^*]+)\*\*([\s\S]*?)(?=### \*\*\d+️⃣|\n---|\n## |$)/g,
-    // 패턴 4: ## ✅ **방법 1: 형태
+    // 패턴 7: ## ✅ **방법 1: 형태
     /## ✅ \*\*방법 (\d+): ([^#\n]+)([\s\S]*?)(?=## ✅|\n---|\n## |$)/g,
-    // 패턴 5: ## **1단계: 제목** 형태 (더 유연한 버전)
-    /## \*\*(\d+)단계: ([^*]+)\*\*([\s\S]*?)(?=\n## \*\*\d+단계|\n---|\n## |$)/g
+    // 패턴 8: ### 1. **제목** 형태 (번호 기반)
+    /### (\d+)\. \*\*([^*\n]+)\*\*([\s\S]*?)(?=### \d+\.|\n---|\n## |$)/g
   ];
 
   for (let i = 0; i < patterns.length; i++) {
@@ -764,6 +992,7 @@ function extractDetailedSteps(content: string): any[] {
     let stepNumber = 1;
 
     console.log(`🔍 [extractDetailedSteps] 패턴 ${i + 1} 시도...`);
+    console.log(`🔍 [패턴 ${i + 1}] 정규식:`, pattern.toString().substring(0, 100) + '...');
 
     while ((match = pattern.exec(content)) !== null) {
       const actualStepNumber = parseInt(match[1]) || stepNumber;

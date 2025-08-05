@@ -57,31 +57,41 @@ export default function WowAutomationResult({
     };
   }
 
-  // 플로우 단계 처리
+  // 플로우 단계 처리 - 강화된 아이콘 선택
   const getStepIcon = (index: number, title: string) => {
-    // 제목 기반 아이콘 자동 선택
+    // 제목 기반 아이콘 자동 선택 (더 많은 키워드 추가)
     const titleLower = title.toLowerCase();
-    if (titleLower.includes('로그인') || titleLower.includes('계정') || titleLower.includes('가입'))
+    
+    // 1단계: 계정/인증/로그인 관련
+    if (titleLower.includes('계정') || titleLower.includes('로그인') || titleLower.includes('가입') || titleLower.includes('인증') || titleLower.includes('sign') || titleLower.includes('auth'))
       return '🔐';
-    if (titleLower.includes('연결') || titleLower.includes('연동') || titleLower.includes('api'))
+    
+    // 2단계: 연결/연동/웹훅/API 관련  
+    if (titleLower.includes('연결') || titleLower.includes('연동') || titleLower.includes('api') || titleLower.includes('웹훅') || titleLower.includes('webhook') || titleLower.includes('url') || titleLower.includes('트리거'))
       return '🔗';
-    if (titleLower.includes('데이터') || titleLower.includes('수집') || titleLower.includes('입력'))
+    
+    // 3단계: 데이터/저장/스프레드시트 관련
+    if (titleLower.includes('데이터') || titleLower.includes('수집') || titleLower.includes('입력') || titleLower.includes('저장') || titleLower.includes('sheet') || titleLower.includes('시트') || titleLower.includes('스프레드'))
       return '📊';
-    if (titleLower.includes('설정') || titleLower.includes('구성') || titleLower.includes('설치'))
-      return '⚙️';
-    if (titleLower.includes('전송') || titleLower.includes('알림') || titleLower.includes('메시지'))
+    
+    // 4단계: 알림/전송/슬랙 관련
+    if (titleLower.includes('알림') || titleLower.includes('전송') || titleLower.includes('메시지') || titleLower.includes('슬랙') || titleLower.includes('slack') || titleLower.includes('보고') || titleLower.includes('리포트'))
       return '📤';
-    if (
-      titleLower.includes('분석') ||
-      titleLower.includes('리포트') ||
-      titleLower.includes('보고서')
-    )
+    
+    // 분석 관련
+    if (titleLower.includes('분석') || titleLower.includes('분석해서') || titleLower.includes('보고서'))
       return '📈';
-    if (titleLower.includes('테스트') || titleLower.includes('확인') || titleLower.includes('검증'))
+    
+    // 설정/구성 관련 (우선순위 낮춤)
+    if (titleLower.includes('설정') || titleLower.includes('구성') || titleLower.includes('설치') || titleLower.includes('config'))
+      return '⚙️';
+    
+    // 테스트/확인 관련
+    if (titleLower.includes('테스트') || titleLower.includes('확인') || titleLower.includes('검증') || titleLower.includes('test'))
       return '✅';
 
-    // 순서 기반 기본 아이콘
-    const defaultIcons = ['🚀', '⚡', '🎯', '🔥', '✨', '💡'];
+    // 순서 기반 다양한 기본 아이콘 (더 다양하게)
+    const defaultIcons = ['🚀', '🔗', '📊', '📤', '✨', '💡', '🎯', '🔥'];
     return defaultIcons[index] || defaultIcons[index % defaultIcons.length];
   };
 
@@ -92,7 +102,23 @@ export default function WowAutomationResult({
     console.log('🔍 [Flow 카드 분석] flowCard.steps:', flowCard.steps);
     console.log('🔍 [Flow 카드 분석] flowCard.content:', flowCard.content?.substring(0, 200));
     
-    if (flowCard.steps && Array.isArray(flowCard.steps)) {
+    // 🎯 신규: Guide 카드의 detailedSteps를 Flow steps로 활용
+    const guideCard = cardData.find((c: any) => c.type === 'guide');
+    if (guideCard?.detailedSteps && Array.isArray(guideCard.detailedSteps) && guideCard.detailedSteps.length > 0) {
+      console.log('✅ [Flow 생성] Guide의 detailedSteps를 Flow로 변환:', guideCard.detailedSteps.length, '개');
+      processedFlowSteps = guideCard.detailedSteps.map((step: any, index: number) => {
+        const stepTitle = step.title?.replace(/^\d+단계:\s*/, '') || `단계 ${index + 1}`;
+        return {
+          id: String(step.number || index + 1),
+          icon: getStepIcon(index, stepTitle),
+          title: stepTitle,
+          subtitle: step.description?.substring(0, 50) + '...' || '자세한 내용은 가이드를 확인하세요',
+          duration: '5-15분',
+          preview: '',
+          techTags: [],
+        };
+      });
+    } else if (flowCard.steps && Array.isArray(flowCard.steps)) {
       // 정상적인 steps 배열이 있는 경우
       processedFlowSteps = flowCard.steps.map((step: any, index: number) => {
         console.log(`🔍 [Step ${index + 1}] 원본 데이터:`, step);

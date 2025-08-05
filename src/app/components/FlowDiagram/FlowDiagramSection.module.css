@@ -1442,6 +1442,38 @@
   font-size: 15px;
 }
 
+/* description 텍스트 가독성 개선 */
+.guide-content div {
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* 번호 목록 스타일 개선 */
+.guide-content div:has-text("1."), 
+.guide-content div:has-text("2."),
+.guide-content div:has-text("3."),
+.guide-content div:has-text("4."),
+.guide-content div:has-text("5.") {
+  margin: 8px 0;
+  padding-left: 4px;
+}
+
+/* 링크 스타일 강화 */
+.guide-content a {
+  color: #4f46e5 !important;
+  text-decoration: underline !important;
+  font-weight: 500 !important;
+  transition: color 0.2s ease;
+}
+
+.guide-content a:hover {
+  color: #3b36df !important;
+  background-color: #f0f0ff;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
 /* 예상 결과 - 하늘색 배경 (기존 디자인 복구) */
 .expected-screen {
   background: #e0f2fe !important;
