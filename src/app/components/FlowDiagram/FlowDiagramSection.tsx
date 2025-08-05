@@ -312,6 +312,78 @@ interface FlowDiagramSectionProps {
   flowSubtitle?: string;
 }
 
+// 각 스텝의 세부 단계 수를 계산하는 함수
+const getStepSubStepsCount = (stepIndex: number, cards: any[]): number => {
+  try {
+    const guideCard = cards.find((card: any) => card.type === 'guide');
+    if (!guideCard) {
+      console.log(`🔍 [세부단계] stepIndex ${stepIndex}: guide 카드 없음, 기본값 3 사용`);
+      return 3;
+    }
+    
+    // detailedSteps 또는 content.detailedSteps에서 찾기
+    const detailedSteps = guideCard.detailedSteps || guideCard.content?.detailedSteps;
+    if (!detailedSteps || !Array.isArray(detailedSteps)) {
+      console.log(`🔍 [세부단계] stepIndex ${stepIndex}: detailedSteps 없음, 기본값 3 사용`);
+      return 3;
+    }
+    
+    // 전체 단계 수를 flow steps 수로 나누어 평균 계산
+    const totalSteps = detailedSteps.length;
+    const flowStepsCount = cards.filter((card: any) => card.type === 'flow')?.[0]?.steps?.length || 1;
+    const avgStepsPerFlow = Math.ceil(totalSteps / flowStepsCount);
+    
+    // 특정 stepIndex의 단계들을 찾기 (1-based number)
+    const stepNumber = stepIndex + 1;
+    const stepsForThisFlow = detailedSteps.filter((step: any) => {
+      // step.number가 현재 플로우 단계와 매칭되는지 확인
+      if (step.number === stepNumber) return true;
+      
+      // 또는 title에서 단계 번호 찾기
+      if (step.title && typeof step.title === 'string') {
+        const titleMatch = step.title.match(/^(\d+)/);
+        if (titleMatch && parseInt(titleMatch[1]) === stepNumber) return true;
+      }
+      
+      return false;
+    });
+    
+    const result = stepsForThisFlow.length > 0 ? stepsForThisFlow.length : avgStepsPerFlow;
+    console.log(`🔍 [세부단계] stepIndex ${stepIndex}: 총 ${totalSteps}개 중 ${result}개 계산됨`);
+    
+    // 해당 단계의 세부 단계가 있으면 그 수를, 없으면 평균값 사용
+    return result;
+  } catch (error) {
+    console.warn('세부 단계 수 계산 중 오류:', error);
+    return 3; // 오류 시 기본값
+  }
+};
+
+// duration 값을 포맷팅하는 함수
+const formatDuration = (duration?: string): string => {
+  if (!duration) return '5-15분';
+  
+  // 이미 한국어 형식이면 그대로 반환
+  if (duration.includes('분') || duration.includes('시간')) {
+    return duration;
+  }
+  
+  // 영어나 숫자만 있으면 분 단위로 가정
+  const numMatch = duration.match(/(\d+)/);
+  if (numMatch) {
+    const num = parseInt(numMatch[1]);
+    if (num < 60) {
+      return `${num}분`;
+    } else {
+      const hours = Math.floor(num / 60);
+      const minutes = num % 60;
+      return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
+    }
+  }
+  
+  return duration;
+};
+
 const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ 
   steps, 
   onStepClick, 
@@ -324,8 +396,124 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 }) => {
   const [activeSteps, setActiveSteps] = useState<number[]>([]);
   const [selectedStep, setSelectedStep] = useState<FlowStep | null>(null);
+
+  // 콘솔에 단계별 세부 가이드 정리해서 출력하는 함수
+  const logStepGuideStructure = () => {
+    try {
+      console.log('\n🎯 ===== 단계별 세부 가이드 구조 =====');
+      
+      const flowCard = cards.find((card: any) => card.type === 'flow');
+      const guideCard = cards.find((card: any) => card.type === 'guide');
+      
+      if (flowCard?.steps) {
+        console.log('\n📊 1. Flow 카드 정보:');
+        console.log(`   제목: ${flowCard.title || '제목 없음'}`);
+        console.log(`   단계 수: ${flowCard.steps.length}개`);
+        
+        flowCard.steps.forEach((step: any, index: number) => {
+          console.log(`\n   ${index + 1}단계:`);
+          console.log(`     🏷️  제목: ${step.title || 'N/A'}`);
+          console.log(`     📝 설명: ${step.description || step.subtitle || 'N/A'}`);
+          console.log(`     🛠️  도구: ${step.tool || step.techTags?.join(', ') || 'N/A'}`);
+          console.log(`     ⏰ 소요시간: ${step.duration || formatDuration(step.duration)}`);
+        });
+      }
+      
+      if (guideCard?.detailedSteps || guideCard?.content?.detailedSteps) {
+        const detailedSteps = guideCard.detailedSteps || guideCard.content.detailedSteps;
+        console.log('\n📋 2. Guide 카드 정보:');
+        console.log(`   제목: ${guideCard.title || '제목 없음'}`);
+        console.log(`   세부 단계 수: ${detailedSteps.length}개`);
+        
+        // 단계별로 그룹화
+        const stepGroups: { [key: number]: any[] } = {};
+        detailedSteps.forEach((detail: any) => {
+          const stepNum = detail.number || 1;
+          if (!stepGroups[stepNum]) stepGroups[stepNum] = [];
+          stepGroups[stepNum].push(detail);
+        });
+        
+        Object.keys(stepGroups).forEach(stepNum => {
+          const stepDetails = stepGroups[parseInt(stepNum)];
+          console.log(`\n   ${stepNum}단계 세부 가이드 (${stepDetails.length}개):`);
+          
+          stepDetails.forEach((detail: any, idx: number) => {
+            console.log(`     ${idx + 1}. ${detail.title || 'N/A'}`);
+            if (detail.description) {
+              const shortDesc = detail.description.length > 100 
+                ? detail.description.substring(0, 100) + '...' 
+                : detail.description;
+              console.log(`        📄 내용: ${shortDesc}`);
+            }
+            if (detail.expectedScreen) {
+              console.log(`        🖥️  화면: ${detail.expectedScreen}`);
+            }
+            if (detail.checkpoint) {
+              console.log(`        ✅ 체크포인트: ${detail.checkpoint}`);
+            }
+          });
+        });
+        
+        // 추가 정보
+        if (guideCard.content) {
+          console.log('\n📁 3. 추가 가이드 정보:');
+          if (guideCard.content.executableCode) {
+            console.log(`   💻 실행 코드: ${guideCard.content.executableCode.filename || 'N/A'}`);
+            console.log(`   📂 저장 위치: ${guideCard.content.executableCode.saveLocation || 'N/A'}`);
+          }
+          if (guideCard.content.commonMistakes?.length) {
+            console.log(`   ⚠️  일반적 실수: ${guideCard.content.commonMistakes.length}개`);
+          }
+          if (guideCard.content.errorSolutions?.length) {
+            console.log(`   🔧 에러 해결책: ${guideCard.content.errorSolutions.length}개`);
+          }
+        }
+      }
+      
+      // 기타 카드 정보
+      const otherCards = cards.filter((card: any) => !['flow', 'guide'].includes(card.type));
+      if (otherCards.length > 0) {
+        console.log('\n🎁 4. 기타 카드 정보:');
+        otherCards.forEach((card: any) => {
+          console.log(`   ${card.type}: ${card.title || 'N/A'}`);
+        });
+      }
+      
+      console.log('\n🎯 ===== 구조 정리 완료 =====\n');
+      
+    } catch (error) {
+      console.warn('단계별 가이드 구조 출력 중 오류:', error);
+    }
+  };
   // 탭 제거 - 기존 0566bb9 UI로 복구
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+
+  // 카드 데이터가 로드되면 콘솔에 구조 출력
+  useEffect(() => {
+    if (cards && cards.length > 0) {
+      // 약간의 지연을 두고 실행 (렌더링 완료 후)
+      setTimeout(() => {
+        logStepGuideStructure();
+      }, 500);
+    }
+  }, [cards]);
+
+  // 개발자가 브라우저 콘솔에서 언제든 호출할 수 있도록 window 객체에 등록
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).logStepGuide = () => {
+        console.log('🔧 [수동 호출] 단계별 가이드 구조를 다시 출력합니다...');
+        logStepGuideStructure();
+      };
+      
+      // 컴포넌트 언마운트 시 정리
+      return () => {
+        if ((window as any).logStepGuide) {
+          delete (window as any).logStepGuide;
+        }
+      };
+    }
+  }, [cards]);
 
   useEffect(() => {
     // 단계별로 순차적으로 애니메이션 적용
@@ -914,10 +1102,10 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                   
                   <div className={styles['restored-meta-info']}>
                     <span className={styles['restored-meta-item']}>
-                      📊 3개 세부단계 포함
+                      📊 {getStepSubStepsCount(index, cards)}개 세부단계 포함
                     </span>
                     <span className={styles['restored-meta-item']}>
-                      ⏰ {step.duration || '5분'}
+                      ⏰ {formatDuration(step.duration)}
                     </span>
                   </div>
                   

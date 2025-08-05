@@ -321,61 +321,114 @@ export default function WowAutomationResult({
     );
   };
 
-  // 동적 헤더 제목 생성 (유저 맞춤형)
+  // 동적 헤더 제목 생성 (사용자 맞춤형)
   const getDynamicTitle = () => {
     const flowCard = cardData.find((c: any) => c.type === 'flow');
     const needsCard = cardData.find((c: any) => c.type === 'needs_analysis');
     const userInput = result.context?.userInput || '';
     
-    // 🔍 디버깅: userInput 확인
     console.log('🔍 [getDynamicTitle] userInput:', userInput);
-    console.log('🔍 [getDynamicTitle] result.context:', result.context);
+    console.log('🔍 [getDynamicTitle] flowCard:', flowCard?.title);
+    console.log('🔍 [getDynamicTitle] needsCard:', needsCard);
 
-    // 1순위: 사용자 입력을 기반으로 구체적인 맞춤형 제목 생성
-    if (userInput) {
-      // SNS/브랜드 모니터링
-      if (userInput.includes('sns') || userInput.includes('브랜드') || userInput.includes('언급')) {
-        return `🔔 ${userInput.includes('슬랙') ? 'SNS 브랜드 언급 → 슬랙 알림' : 'SNS 브랜드 모니터링'} 자동화`;
-      }
-      // 구글 드라이브 관련
-      if (userInput.includes('구글 드라이브') || userInput.includes('pdf') || userInput.includes('계약서')) {
-        return `📁 구글 드라이브 PDF → ${userInput.includes('슬랙') ? '슬랙 알림' : '자동 처리'} 자동화`;
-      }
-      // 데이터 분석
-      if (userInput.includes('데이터') && userInput.includes('분석')) {
-        return `📊 ${userInput.includes('채용') ? '채용 데이터' : '데이터'} 분석 자동화`;
-      }
-      // 이메일/메일
-      if (userInput.includes('메일') || userInput.includes('이메일')) {
-        return `📧 이메일 자동화 시스템`;
-      }
-      // 스프레드시트
-      if (userInput.includes('스프레드시트') || userInput.includes('시트')) {
-        return `📊 스프레드시트 자동화`;
-      }
-      // 일반적인 경우 - 사용자 입력의 핵심 키워드 추출하여 제목 생성
-      const keywords = userInput.split(' ').slice(0, 3).join(' ');
-      if (keywords.length > 5) {
-        return `🚀 ${keywords} 자동화`;
-      }
+    // 1순위: needs_analysis 카드의 expandedSystem 활용 (가장 정확한 제목)
+    if (needsCard?.expandedSystem && needsCard.expandedSystem !== '확장된 자동화 시스템') {
+      return `🎯 ${needsCard.expandedSystem}`;
     }
 
-    // 2순위: flow 카드의 제목 사용 (기본값이 아닌 경우)
-    if (
-      flowCard?.title &&
-      flowCard.title !== '자동화 플로우' &&
-      flowCard.title !== '🚀 자동화 플로우'
-    ) {
+    // 2순위: flow 카드의 제목 활용 (GPT가 생성한 정교한 제목)
+    if (flowCard?.title && 
+        flowCard.title !== '자동화 플로우' && 
+        flowCard.title !== '🚀 자동화 플로우' &&
+        !flowCard.title.includes('기본') &&
+        !flowCard.title.includes('샘플')) {
       return flowCard.title;
     }
 
-    // 3순위: needs_analysis 카드의 실제 니즈 사용
+    // 3순위: 사용자 입력을 지능적으로 분석하여 맞춤형 제목 생성
+    if (userInput) {
+      const title = generateSmartTitle(userInput, needsCard, flowCard);
+      if (title) return title;
+    }
+
+    // 4순위: needs_analysis의 기타 정보 활용
     if (needsCard?.realNeed) {
       return `🎯 ${needsCard.realNeed}`;
     }
 
-    // 4순위: 기본 제목
-      return '🚀 맞춤형 자동화';
+    // 5순위: 기본 제목
+    return '🚀 맞춤형 자동화';
+  };
+
+  // 지능적 제목 생성 함수
+  const generateSmartTitle = (userInput: string, needsCard: any, flowCard: any): string | null => {
+    try {
+      // 입력값에서 핵심 요소 추출
+      const input = userInput.toLowerCase();
+      
+      // 데이터 소스 파악
+      const dataSources = [];
+      if (input.includes('인스타그램') || input.includes('instagram')) dataSources.push('인스타그램');
+      if (input.includes('페이스북') || input.includes('facebook')) dataSources.push('페이스북');
+      if (input.includes('유튜브') || input.includes('youtube')) dataSources.push('유튜브');
+      if (input.includes('구글') || input.includes('google')) dataSources.push('구글');
+      if (input.includes('엑셀') || input.includes('excel')) dataSources.push('엑셀');
+      if (input.includes('csv') || input.includes('스프레드시트')) dataSources.push('스프레드시트');
+      if (input.includes('이메일') || input.includes('메일')) dataSources.push('이메일');
+      if (input.includes('슬랙') || input.includes('slack')) dataSources.push('슬랙');
+      if (input.includes('노션') || input.includes('notion')) dataSources.push('노션');
+      
+      // 작업 목적 파악
+      let purpose = '';
+      if (input.includes('분석') || input.includes('리포트') || input.includes('보고서')) purpose = '분석 리포트';
+      else if (input.includes('모니터링') || input.includes('추적') || input.includes('감시')) purpose = '모니터링';
+      else if (input.includes('알림') || input.includes('노티') || input.includes('notification')) purpose = '알림';
+      else if (input.includes('수집') || input.includes('크롤링') || input.includes('수집')) purpose = '데이터 수집';
+      else if (input.includes('정리') || input.includes('관리') || input.includes('조직')) purpose = '데이터 정리';
+      else if (input.includes('차트') || input.includes('시각화') || input.includes('그래프')) purpose = '시각화';
+      else if (input.includes('자동화') || input.includes('automation')) purpose = '자동화';
+      else if (input.includes('통합') || input.includes('연동')) purpose = '통합';
+      
+      // 결과물 파악
+      let output = '';
+      if (input.includes('대시보드') || input.includes('dashboard')) output = '대시보드';
+      else if (input.includes('pdf') || input.includes('보고서')) output = 'PDF 보고서';
+      else if (input.includes('차트') || input.includes('그래프')) output = '차트';
+      else if (input.includes('슬랙') && (input.includes('전송') || input.includes('알림'))) output = '슬랙 알림';
+      else if (input.includes('이메일') && (input.includes('전송') || input.includes('발송'))) output = '이메일';
+      
+      // 제목 조합
+      const sourceText = dataSources.length > 0 ? dataSources.slice(0, 2).join(' + ') : '';
+      
+      if (sourceText && purpose && output) {
+        return `📊 ${sourceText} ${purpose} → ${output} 자동화`;
+      } else if (sourceText && purpose) {
+        return `📊 ${sourceText} ${purpose} 자동화`;
+      } else if (purpose && output) {
+        return `🚀 ${purpose} → ${output} 자동화`;
+      } else if (sourceText) {
+        return `📊 ${sourceText} 자동화`;
+      }
+      
+      // 도메인 특화 제목
+      if (input.includes('브랜드') && input.includes('언급')) {
+        return `🔔 브랜드 언급 모니터링 자동화`;
+      }
+      if (input.includes('채용') || input.includes('hr') || input.includes('인사')) {
+        return `👥 채용 데이터 자동화`;
+      }
+      if (input.includes('마케팅') || input.includes('광고')) {
+        return `📈 마케팅 데이터 자동화`;
+      }
+      if (input.includes('매출') || input.includes('판매') || input.includes('sales')) {
+        return `💰 매출 분석 자동화`;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('제목 생성 중 오류:', error);
+      return null;
+    }
   };
 
   // 동적 헤더 설명 생성
