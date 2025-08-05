@@ -577,6 +577,9 @@
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #e9ecef;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .code-section h4 {
@@ -594,6 +597,10 @@
 .code-block {
   background: #ffffff;
   border-radius: 0 0 12px 12px;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .code-header {
@@ -639,6 +646,9 @@
   line-height: 1.5;
   color: #2d3748;
   overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .code-content code {
@@ -1791,6 +1801,10 @@
   position: relative;
   background: #1a202c;
   border-radius: 0;
+  max-width: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .copy-button {
