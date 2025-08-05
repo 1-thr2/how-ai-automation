@@ -879,44 +879,63 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 
   return (
     <div className={styles.container}>
-      {/* 중복 제목 제거 - 상위 컴포넌트에서 이미 렌더링됨 */}
+      {/* 제목 섹션 제거 - 상위 컴포넌트에서 이미 렌더링됨 */}
 
-      {/* impact-bar 제거 - 중복 표시 */}
-
-      <div className={styles['flow-container']}>
-        <div className={styles['progress-line']}>
-          <div 
-            className={styles['progress-fill']}
-            style={{ width: `${(completedSteps.size / steps.length) * 100}%` }}
-          />
-        </div>
-
-        <div className={styles['flow-steps']}>
-          {steps.map((step, index) => (
+      {/* 기존 디자인 복원 (두 번째 사진 스타일) */}
+      <div className={styles['restored-flow-container']}>
+        {steps.map((step, index) => (
+          <React.Fragment key={step.id || index}>
+            {/* 카드 */}
             <div
-              key={step.id || index}
-              className={`${styles['flow-step']} ${
+              className={`${styles['restored-step-card']} ${
                 activeSteps.includes(index) ? styles.active : ''
               }`}
               onClick={() => handleStepClick(step)}
             >
-              <div className={styles['step-icon']}>{step.icon || '✨'}</div>
-              <div className={styles['step-title']}>
-                {step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+              {/* 단계 번호 */}
+              <div className={styles['restored-step-number']}>
+                {index + 1}
               </div>
-              <div className={styles['step-subtitle']}>
-                {step.subtitle?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+              
+              {/* 카드 내용 */}
+              <div className={styles['restored-card-content']}>
+                {/* 왼쪽: 그라데이션 아이콘 박스 */}
+                <div className={styles['restored-icon-box']} data-step-index={index}>
+                  <div className={styles['restored-icon']}>
+                    {step.icon || (index === 0 ? '🚀' : index === 1 ? '⚡' : '📊')}
+                  </div>
+                </div>
+                
+                {/* 오른쪽: 콘텐츠 영역 */}
+                <div className={styles['restored-content-area']}>
+                  <h3 className={styles['restored-title']}>
+                    {step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+                  </h3>
+                  
+                  <div className={styles['restored-meta-info']}>
+                    <span className={styles['restored-meta-item']}>
+                      📊 3개 세부단계 포함
+                    </span>
+                    <span className={styles['restored-meta-item']}>
+                      ⏰ {step.duration || '5분'}
+                    </span>
+                  </div>
+                  
+                  <button className={styles['restored-guide-btn']}>
+                    클릭해서 상세 가이드 보기
+                  </button>
+                </div>
               </div>
-              <div className={styles['step-duration']}>{step.duration || '5-15분'}</div>
-              <button className={styles['step-guide-btn']}>
-                클릭해서 세부 가이드 보기
-              </button>
-              {step.preview && (
-                <div className={styles['step-preview']}>{step.preview}</div>
-              )}
             </div>
-          ))}
-        </div>
+            
+            {/* 카드 외부 연결선 (화살표 없음) */}
+            {index < steps.length - 1 && (
+              <div className={styles['external-connector']}>
+                <div className={styles['external-connector-line']}></div>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
       </div>
 
       {selectedStep && (
