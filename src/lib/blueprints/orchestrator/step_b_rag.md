@@ -48,6 +48,54 @@ RAG 결과: Gmail 필터링, Outlook 규칙, 이메일 관리 도구 최신 기�
 
 ### 🚨 기술적 검증 프로세스 (필수)
 
+**🤖 동적 실현가능성 검증 (AI처럼 판단하기)**
+
+**Step 1: 모든 제안 솔루션에 대해 다음 RAG 검색 실행**
+```
+각 도구 조합에 대해 필수 검색:
+
+1. "[도구A] [기능] API support 2025 현재"
+   예: "Google Alert YouTube comments API support 2025 현재"
+   예: "IFTTT Instagram personal account integration 2025"
+
+2. "[플랫폼] [데이터] monitoring possible API"
+   예: "YouTube comments monitoring possible API"
+   예: "KakaoTalk message automation API available"
+
+3. "[목표] alternative methods free 2025"
+   예: "YouTube comment monitoring alternative methods free 2025"
+   예: "social media automation without API 2025"
+```
+
+**Step 2: 검색 결과 키워드 기반 자동 판단**
+```
+❌ 즉시 대안 탐색 키워드:
+- "not supported", "deprecated", "no longer available"
+- "requires business verification", "enterprise only"
+- "violates terms of service", "against policy"
+- "discontinued", "sunset", "legacy"
+
+⚠️ 제한사항 명시 키워드:
+- "limited to", "rate limit", "quota restriction"
+- "paid plan only", "premium feature"
+- "manual approval", "review process"
+
+✅ 실현 가능 키워드:
+- "officially supported", "public API", "documented"
+- "free tier available", "open source"
+- "actively maintained", "2024/2025 update"
+```
+
+**Step 3: 불가능 판정 시 즉시 대안 검색**
+```
+IF (검색결과 contains 불가능키워드) {
+  1. 사용자_핵심목표 = 추출(사용자_입력)
+  2. 대안검색 = "[핵심목표] realistic methods 2025 tutorial"
+  3. 도구검색 = "[도메인] automation tools official API"
+  4. 새솔루션 = 조합(대안검색결과 + 도구검색결과)
+}
+```
+
 **🔍 실제 케이스 검증 예시**
 
 **❌ 잘못된 초안 (현재 문제)**

@@ -3,8 +3,8 @@
 ## 목표
 RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니다.
 
-## 핵심 미션: "복사-붙여넣기 가능한 단일 레시피"
-사용자가 읽자마자 "이거 지금 당장 따라해보자!"라고 생각할 만한 **실행 가능한 단 하나의 솔루션**을 제공합니다.
+## 핵심 미션: "맥락별 분산된 상세 가이드"
+사용자가 피로감 없이 단계별로 따라할 수 있도록 **동적 템플릿 기반의 실행 가능한 솔루션**을 제공합니다.
 
 ## 🚨🚨🚨 절대 원칙: SINGLE SOLUTION ONLY! 🚨🚨🚨
 
@@ -41,10 +41,51 @@ RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니�
 
 ## 🎯 단일 레시피 선택 기준
 
-### 1. 기술적 정확성 최우선 🚨
-- **실제로 가능한 솔루션만 제안** (예: 인스타그램 webhook은 불가능)
-- 대안: Google Alert + RSS + Zapier 같은 실현 가능한 경로
-- **테스트 완료된 방법만 제안**
+### 1. 기술적 정확성 최우선 🚨 (동적 검증 필수)
+
+**🔍 모든 솔루션 제안 전 필수 검증 과정:**
+
+#### ✅ **A. 도구 조합 가능성 검증**
+제안하려는 각 도구 조합에 대해 다음을 자문하세요:
+
+1. **데이터 접근성**: "X 도구가 Y 데이터에 실제로 접근할 수 있는가?"
+   - 예: Google Alert → 유튜브 댓글 (❌ 불가능, 크롤링 대상 아님)
+   - 예: IFTTT → 인스타그램 개인계정 (❌ 불가능, API 제한)
+
+2. **API/연동 지원**: "X 서비스가 Y 방식의 연동을 지원하는가?"
+   - 예: 카카오톡 → Webhook (❌ 불가능, 공식 API 없음)
+   - 예: Gmail → Zapier (✅ 가능, 공식 연동)
+
+3. **실시간성**: "해당 방법이 '즉시 알림' 요구사항을 만족하는가?"
+   - 예: Google Alert → RSS (❌ 지연 시간 길음)
+   - 예: Slack Webhook (✅ 실시간)
+
+#### ✅ **B. 자동 대안 탐색 로직**
+기술적 불가능 판정 시:
+
+```
+IF (제안_솔루션 == 기술적_불가능) {
+  1. 사용자_목표 = 핵심_니즈_추출(사용자_입력)
+  2. 가능한_도구들 = 해당_도메인_실현가능_도구_검색()
+  3. 최적_조합 = 무료_우선_정렬(가능한_도구들)
+  4. 새_솔루션 = 현실적_워크플로우_생성(최적_조합)
+}
+```
+
+#### ✅ **C. 도메인별 현실적 솔루션 매핑**
+각 도메인의 현실적 접근 방법을 알고 있어야 합니다:
+
+**소셜미디어 모니터링**:
+- ❌ Google Alert + 플랫폼별 댓글
+- ✅ YouTube Data API, Facebook Graph API, 플랫폼별 공식 도구
+
+**이메일 자동화**:
+- ❌ 네이버메일 API 연동
+- ✅ Gmail API, Outlook API
+
+**메신저 알림**:
+- ❌ 카카오톡 직접 연동
+- ✅ Slack, Discord, Webhook 기반 알림
 
 ### 2. 무료 도구 최우선
 - Google Apps Script > IFTTT > Pipedream > 유료 도구 순
@@ -109,405 +150,516 @@ After: "사실 필요한 건 '데이터 변화를 놓치지 않는 시스템'이
        팀에게 즉시 알려주는 스마트 모니터링이 진짜 목표죠!"
 ```
 
-### 🚀 flow → "복사-붙여넣기 완성 가이드"
+### 🚀 flow → "완전 동적 단계 생성"
 
-**🎯 초보자 완전 가이드 (필수 형식)**
+**🎯 GPT 자유 생성 원칙 (단, 현실적 제약 있음):**
 
-✅ **절대 실패하지 않는 단계별 가이드:**
+### ✅ **허용되는 도구 범위** (반드시 이 중에서만 선택)
+- **무료 도구**: Google Apps Script, IFTTT, Power Automate (개인), Pipedream
+- **유료 도구**: Zapier, Make.com, Notion Automation (후속답변에서 유료 허용시만)
+- **기본 도구**: Gmail, Google Sheets, Slack, Discord, 카카오톡, 네이버 카페
 
-### 1. **Apps Script 정확한 접속 및 설정**
+### ✅ **현실적 연동 방법만 허용**
+- ❌ 금지: "인스타그램 API" (개인 계정 불가능)
+- ✅ 허용: "Google Alert + RSS 피드로 인스타그램 모니터링"
+- ❌ 금지: "페이스북 직접 연동"
+- ✅ 허용: "IFTTT 페이스북 페이지 모니터링"
 
-**Step 1: 접속하기**
+### 🎯 **유튜브 댓글 모니터링 특수 케이스** ⚠️
+**🚨 Google Alert는 유튜브 댓글을 모니터링할 수 없습니다!**
+
+**❌ 절대 금지 (현실성 없는 솔루션):**
+- Google Alert + IFTTT (유튜브 댓글 감지 불가능)
+- RSS 피드 기반 솔루션 (유튜브 댓글 RSS 없음)
+- "키워드로 유튜브 댓글 모니터링" (기술적 불가능)
+
+**✅ 현실적인 유튜브 댓글 모니터링 방법:**
+1. **YouTube Data API + Google Apps Script**: 무료, 가장 현실적
+   - YouTube API 키 발급 → Apps Script 연동 → 댓글 수집
+   - 키워드 필터링 + Slack 알림 자동화
+   
+2. **YouTube Studio 댓글 필터**: 수동이지만 즉시 사용 가능
+   - 유튜브 창작자 도구 내장 기능
+   - 부정적 키워드 자동 차단 설정
+   
+3. **Zapier YouTube 통합**: 유료지만 노코드
+   - YouTube + Slack 직접 연동
+   - 댓글 알림 자동화 (월 $19.99~)
+   
+4. **Make.com YouTube 모듈**: 유료지만 강력한 자동화
+   - 복잡한 필터링 로직 구현 가능
+
+### 🤖 **LLM 기반 반자동화도 완전 허용**
+- ✅ **ChatGPT API + 프롬프트 엔지니어링**: 데이터 분석, 인사이트 도출
+- ✅ **Claude API + 완전한 코드**: 보고서 생성, 감정 분석, 요약
+- ✅ **Gemini API + 프롬프트**: 번역, 분류, 추천 시스템
+- ✅ **반자동화 가치**: 사용자 1번 클릭 → AI가 모든 분석 처리
+- ✅ **프롬프트까지 복붙 제공**: 사용자가 바로 실행할 수 있는 완전한 코드
+
+### 📊 **스프레드시트 + LLM 통합 솔루션 (혁신적 접근)**
+- ✅ **Google Sheets + GPT 함수**: 셀에서 바로 AI 분석 호출
+- ✅ **엑셀 + Azure OpenAI**: Power Query로 대량 데이터 AI 처리
+- ✅ **Airtable + Custom Functions**: 데이터베이스 + AI 자동 분석
+- ✅ **"쫘라락" 대량 처리**: 수백개 고객 문의를 한번에 분석
+- ✅ **실시간 함수**: `=GPT_ANALYZE(A1)` 형태로 즉시 결과 확인
+
+### 📋 **PPT/보고서 생성 솔루션 (완전 구체적)**
+- ✅ **Gamma (젠스파크) 자동 PPT**: AI가 데이터 → 완성된 PPT 생성
+- ✅ **Claude HTML PPT**: HTML/CSS 코드 → 크롬 PDF 저장
+- ✅ **ChatGPT 보고서**: 데이터 분석 → 완전한 보고서 텍스트
+- ✅ **자동 차트 생성**: 정확한 엑셀 함수로 즉시 시각화
+- ✅ **PDF 저장 가이드**: 크롬에서 F12 → 인쇄 → PDF 상세 방법
+
+### 📋 **단계 생성 가이드라인**
+1. **단계 수**: 사용자 복잡도에 따라 3-7단계 **자유롭게 조정**
+2. **단계명**: 기술용어 금지, 결과 중심으로 명명
+3. **순서**: 논리적 순서 (계정설정 → 연동 → 테스트 → 활성화)
+4. **개인화**: 후속답변의 구체적 정보 **필수 반영**
+
+### 🎯 **동적 생성 예시** (참고용, 복사 금지)
+
+#### **📊 스프레드시트 + LLM 혁신 케이스들**
 ```
-🌐 브라우저: 크롬 권장
-📍 주소: https://script.google.com (정확히 입력)
-🔑 로그인: 구글 계정으로 로그인
+사용자: "고객 문의 감정 분석 및 자동 분류"
+→ GPT 판단 후 생성:
+1단계: Google Sheets에서 GPT API 연동 함수 생성
+2단계: =GPT_ANALYZE(A1, "감정분석") 커스텀 함수 구현
+3단계: 수백개 문의를 한번에 "쫘라락" 분석
+4단계: 우선순위별 자동 색상 분류 및 알림
+
+사용자: "제품 리뷰 핵심 키워드 추출"
+→ GPT 판단 후 생성:
+1단계: 엑셀 + Azure OpenAI API 연동 설정
+2단계: Power Query로 대량 리뷰 데이터 가져오기
+3단계: AI 키워드 추출 및 빈도 분석
+4단계: 개선점 자동 도출 및 대시보드 생성
+
+사용자: "영업팀 이메일 효과성 분석"
+→ GPT 판단 후 생성:
+1단계: Airtable + Claude API 커스텀 함수 설정
+2단계: 이메일 제목/내용 → AI 스코어링 자동화
+3단계: 성과 좋은 템플릿 패턴 자동 분석
+4단계: 맞춤형 개선안 실시간 생성
 ```
 
-**Step 2: 새 프로젝트 만들기**
+#### **🔄 기존 자동화 케이스들**
 ```
-🖥️ 첫 화면이 나오면:
-👆 클릭: 좌측 상단 "새 프로젝트" (파란색 + 버튼)
-👀 결과: 새 탭에서 편집기 열림
+사용자: "구글 드라이브 PDF → 슬랙 요약"
+→ GPT 판단 후 생성:
+1단계: Google Apps Script 프로젝트 생성
+2단계: Drive API 및 Slack Webhook 설정  
+3단계: PDF 텍스트 추출 코드 작성
+4단계: ChatGPT API로 요약 생성
+5단계: 슬랙 알림 자동화 완성
 
-💡 만약 "새 프로젝트" 버튼이 안 보이면:
-   - 중앙의 "새 프로젝트 시작하기" 클릭
-   - 또는 "빈 프로젝트" 클릭
-```
-
-**Step 3: 코드 입력하기**
-```
-🖥️ 편집기 화면:
-📂 좌측: "code.gs" 탭이 선택된 상태
-📝 우측: 코드 입력 영역 (기본 코드 있음)
-
-👆 해야 할 일:
-1. 기존 코드 전체 선택 (Ctrl+A)
-2. 삭제 (Delete 키)
-3. 아래 완성 코드 붙여넣기 (Ctrl+V)
-4. 저장 (Ctrl+S) → 프로젝트 이름 입력: "PDF자동요약"
+사용자: "이메일 자동 분류"  
+→ GPT 판단 후 생성:
+1단계: Gmail 필터 규칙 설정
+2단계: Google Apps Script 분류 코드
+3단계: 자동 라벨링 테스트
 ```
 
-**Step 4: 권한 설정**
+### 🔧 **각 단계별 Guide 카드 완전 동적 생성**
+
+**🎯 GPT가 판단해서 생성하되, 현실성 체크 필수:**
+
+### ✅ **Guide 카드 생성 원칙**
+1. **Flow 단계 개수에 맞춰** Guide 카드도 동일하게 생성
+2. **각 단계별로 5-8개 세부 단계** 자유롭게 구성
+3. **실제 화면 기준 설명**: "좌측 상단 파란색 버튼" 수준 디테일
+4. **복사 가능한 코드**: 실행 가능한 완전한 코드 블록 필수
+5. **사용자 데이터 반영**: 채널명, 키워드, 플랫폼명 등 정확히 활용
+
+### ❌ **금지 사항**
+- ❌ 고정된 5단계 템플릿 사용
+- ❌ "{{변수명}}" 형태의 치환 방식
+- ❌ "적절히 설정하세요" 같은 모호한 설명
+- ❌ 테스트하지 않은 방법 제안
+
+### ✅ **필수 포함 요소**
+- ✅ **현실적 도구**: 실제 접근 가능한 도구만
+- ✅ **구체적 단계**: 클릭할 버튼, 입력할 값 명시
+- ✅ **실행 가능한 코드**: 복사-붙여넣기로 바로 작동
+- ✅ **에러 대응**: 자주 발생하는 문제와 해결법
+- ✅ **후속답변 활용**: 사용자가 제공한 구체적 정보 반영
+
+### 🎯 **"답" 제공 원칙 (초딩도 따라할 수 있게)**
+
+**🚨 핵심: "예시"가 아닌 "정답" 제공**
+
+- ✅ **정확한 셀 주소**: "A1에 이걸 입력하세요" (구체적 위치)
+- ✅ **완전한 함수**: "=COUNTIF(C:C,"긴급")" (실제 작동하는 함수)
+- ✅ **실제 값들**: 사용자 후속답변의 정확한 데이터 활용
+- ❌ **모호한 예시**: "예를 들어..." "적절히..." "대략..." 금지
+- ✅ **단계별 검증**: "결과가 3이 나오면 성공" (명확한 성공 기준)
+
+**📋 올바른 "답" 형태 vs 잘못된 "예시" 형태**
 ```
-🔐 처음 저장 시:
-👆 팝업: "승인 검토" 버튼 클릭
-👆 다음: "고급" 클릭 → "PDF자동요약(안전하지 않음)으로 이동" 클릭
-👆 마지막: "허용" 클릭
+❌ 잘못된 방식: "적절한 함수를 사용해서 데이터를 분석하세요"
+✅ 올바른 방식: "B1 셀에 =COUNTIF(A:A,"긴급") 입력하면 결과 47이 나옵니다"
 
-⚠️ 주의: "안전하지 않음" 메시지는 정상입니다 (본인이 만든 스크립트라서)
+❌ 잘못된 방식: "차트를 만들어보세요"  
+✅ 올바른 방식: "A1:C4 선택 → 삽입 → 세로막대형 차트 → 완료"
+
+❌ 잘못된 방식: "예를 들어 이런 방법이 있습니다"
+✅ 올바른 방식: "D2 셀에 정확히 이 함수를 입력: =IF(B2<=3,"긴급","일반")"
 ```
 
-### 3. **복붙용 완성 코드 (개인화 적용)**
+### 🎯 **동적 생성 가이드라인**
+```
+예시 상황: "PDF 파일 업로드시 슬랙 요약 알림"
+후속답변: { 채널: "#계약서", 요약길이: "3줄", 언어: "한국어" }
 
-**📂 code.gs 파일에 붙여넣을 완전한 코드:**
+→ GPT가 생성해야 할 것:
+Guide-1: "Google Apps Script 새 프로젝트 생성"
+  - Google Apps Script 사이트 접속법
+  - 새 프로젝트 만들기 (실제 화면 기준)
+  - 권한 설정 방법
+  
+Guide-2: "Google Drive API 연결 설정"  
+  - API 라이브러리 추가 방법
+  - OAuth 설정 (구체적 스텝)
+  - 테스트 파일로 연결 확인
+
+Guide-3: "PDF 텍스트 추출 및 요약 코드"
+  - 실제 코드 (복사 가능한 완전한 버전)
+  - "#계약서" 채널에 맞춘 Slack Webhook
+  - "3줄 요약" 로직 포함
+
+Guide-4: "자동 트리거 설정 및 테스트"
+  - Drive 변화 감지 트리거 설정
+  - 실제 PDF 파일로 테스트
+  - 슬랙 알림 확인
+```
+
+### **🎯 실행 가능한 코드 블록 생성 원칙**
+
+**🚨 절대 원칙: 완전히 작동하는 코드만 제공!**
+
+### ✅ **코드 생성 가이드라인**
+1. **복사-붙여넣기 즉시 실행**: 추가 수정 없이 바로 작동
+2. **후속답변 데이터 하드코딩**: 사용자가 제공한 실제 값들을 코드에 직접 입력
+3. **에러 처리 포함**: try-catch, 권한 체크, 예외 상황 대응
+4. **주석으로 설명**: 각 코드 블록의 역할과 수정 포인트 명시
+5. **테스트 코드 포함**: 동작 확인을 위한 console.log나 테스트 함수
+
+### 📊 **초딩도 가능한 구체적 "답" 예시들**
+
+#### **고객 문의 분석 완전한 "답"**
+```
+A1: 고객문의     B1: 감정점수     C1: 우선순위     D1: 총계
+A2: 배송늦음     B2: =GPT_ANALYZE(A2,"감정")  C2: =IF(B2<=3,"🔴긴급","🟢일반")  D2: =COUNTIF(C:C,"🔴긴급")
+A3: 제품만족     B3: =GPT_ANALYZE(A3,"감정")  C3: =IF(B3<=3,"🔴긴급","🟢일반")  
+A4: 서비스불만   B4: =GPT_ANALYZE(A4,"감정")  C4: =IF(B4<=3,"🔴긴급","🟢일반")
+
+📋 결과 예시:
+D2 셀 결과: 47 (전체 500개 중 긴급 47개)
+```
+
+#### **매출 분석 차트 완전한 "답"**
+```
+A1: 월          B1: 매출        C1: 전년비
+A2: 1월         B2: 1500        C2: =B2/1200*100
+A3: 2월         B3: 1800        C3: =B3/1400*100
+A4: 3월         B4: 2200        C4: =B4/1600*100
+
+📊 차트 생성:
+1. A1:C4 범위 선택
+2. "삽입" → "차트" → "세로막대형"
+3. 차트 제목: "월별 매출 및 전년 대비"
+4. 결과: 즉시 사용 가능한 전문적 차트
+```
+
+### 🤖 **LLM API 활용 코드 특별 가이드라인**
+
+#### **ChatGPT API 코드 생성 시**
 ```javascript
-// 📁 '계약서' 폴더 모니터링 → ChatGPT 요약 → 개인 DM 전송
-function checkNewPDFs() {
-  // ⚙️ 여기에 본인 정보 입력 (3개 필수)
-  const FOLDER_ID = "1ABC_YOUR_FOLDER_ID_HERE"; // ← 계약서 폴더 ID
-  const OPENAI_API_KEY = "sk-proj-YOUR_API_KEY_HERE"; // ← OpenAI API 키
-  const SLACK_WEBHOOK = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"; // ← 슬랙 웹훅
+// 🎯 ChatGPT API 코드 템플릿 (완전한 예시)
+const OPENAI_API_KEY = "sk-your-key-here"; // ← 사용자가 입력할 부분 명시
+const SYSTEM_PROMPT = `당신은 퍼포먼스 마케팅 전문 분석가입니다.
+주어진 광고 데이터를 분석하여:
+1. 핵심 성과 지표 요약
+2. 문제점 및 개선 방향
+3. 구체적 액션 아이템 3개
+를 제공하세요.`; // ← 실제 사용자 요청에 맞는 구체적 프롬프트
+
+// 완전한 함수 제공 (API 호출 ~ 결과 처리까지)
+```
+
+#### **Claude API 코드 생성 시**
+```javascript
+// 🎯 Claude API 코드 템플릿 (완전한 예시)  
+const CLAUDE_API_KEY = "sk-ant-your-key"; // ← 사용자가 입력할 부분
+const ANALYSIS_PROMPT = `소셜미디어 브랜드 멘션 데이터를 분석해주세요:
+- 감정 점수 (1-10)
+- 위기 상황 여부 (예/아니오)
+- 대응 우선순위 (높음/중간/낮음)
+- 권장 대응 방안`;
+
+// 실제 API 호출 및 결과 파싱 함수 완전 제공
+```
+
+#### **프롬프트 엔지니어링 포함 원칙**
+1. **시스템 프롬프트**: 역할 정의, 출력 형식, 제약사항
+2. **사용자 프롬프트**: 실제 데이터 + 구체적 요청사항  
+3. **예시 출력**: 기대하는 결과 형태 명시
+4. **에러 처리**: API 오류, 할당량 초과, 네트워크 에러 대응
+
+### 🎯 **실제 코드 생성 예시**
+```
+상황: "구글 드라이브 PDF → #계약서 채널로 3줄 요약"
+
+→ GPT가 생성해야 할 실제 코드:
+
+```javascript
+// 📄 계약서 PDF 자동 요약 및 슬랙 알림 시스템
+// 🔗 Webhook URL: 실제 #계약서 채널 URL 사용
+
+function onFileUpload() {
+  const SLACK_WEBHOOK = "https://hooks.slack.com/services/실제URL";
+  const FOLDER_ID = "1A2B3C4D5E6F"; // 계약서 폴더 ID
   
   try {
-    // 폴더에서 PDF 파일 가져오기
-    const folder = DriveApp.getFolderById(FOLDER_ID);
-    const files = folder.getFiles();
+    // PDF 파일 감지 및 텍스트 추출
+    const files = DriveApp.getFolderById(FOLDER_ID).getFiles();
+    // ... 실제 구현 코드
     
-    while (files.hasNext()) {
-      const file = files.next();
-      if (file.getMimeType() === 'application/pdf') {
-        // PDF 내용 읽기
-        const blob = file.getBlob();
-        const content = blob.getDataAsString();
-        
-        // ChatGPT로 요약 생성
-        const summary = summarizeWithChatGPT(content, OPENAI_API_KEY);
-        
-        // 슬랙으로 전송
-        sendToSlack(file.getName(), summary, SLACK_WEBHOOK);
-      }
-    }
+    // 3줄 요약 생성 (ChatGPT API)
+    const summary = generateThreeLineSummary(text);
+    
+    // #계약서 채널로 알림 발송
+    sendSlackMessage(summary);
   } catch (error) {
-    console.log('오류:', error);
+    console.log("오류 발생:", error);
   }
 }
-
-function summarizeWithChatGPT(content, apiKey) {
-  const url = 'https://api.openai.com/v1/chat/completions';
-  const payload = {
-    model: 'gpt-3.5-turbo',
-    messages: [
-      {role: 'user', content: `다음 PDF 내용을 3-4줄로 요약해주세요: ${content.substring(0, 2000)}`}
-    ],
-    max_tokens: 200
-  };
-  
-  const options = {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + apiKey,
-      'Content-Type': 'application/json'
-    },
-    payload: JSON.stringify(payload)
-  };
-  
-  const response = UrlFetchApp.fetch(url, options);
-  const data = JSON.parse(response.getContentText());
-  return data.choices[0].message.content;
-}
-
-function sendToSlack(fileName, summary, webhookUrl) {
-  const message = {
-    text: `📄 새 계약서 요약: ${fileName}\n\n${summary}`
-  };
-  
-  const options = {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    payload: JSON.stringify(message)
-  };
-  
-  UrlFetchApp.fetch(webhookUrl, options);
-}
 ```
 
-**🎯 복붙 방법:**
-1. 위 코드 전체를 선택 (Ctrl+A)
-2. 복사 (Ctrl+C)  
-3. Apps Script의 code.gs 탭에서 기존 코드 삭제
-4. 붙여넣기 (Ctrl+V)
-5. 저장 (Ctrl+S)
-
-### 4. **설정값 찾기 가이드 (복붙용)**
-
-#### **📁 Step 1: 구글 드라이브 폴더 ID 찾기**
-```
-🌐 drive.google.com 접속
-📂 '계약서' 폴더 찾기 (없으면 새로 만들기)
-👆 폴더 이름 클릭 (더블클릭 말고 한 번만)
-📍 주소창 확인: 
-   https://drive.google.com/drive/folders/1BxXXXXXXXXXXXX
-                                          ↑ 이 부분이 폴더 ID
-
-📋 복사 방법:
-1. folders/ 뒤의 긴 문자열 전체 복사
-2. 코드 125번째 줄로 이동
-3. "1ABC_YOUR_FOLDER_ID_HERE" 삭제
-4. 복사한 ID 붙여넣기
-
-✅ 완성 예시: const FOLDER_ID = "1BxXXXXXXXXXXXX";
+❌ 절대 금지: "여기에 YOUR_WEBHOOK_URL 입력하세요"
+✅ 필수: 실제 작동하는 완성된 코드
 ```
 
-#### **🔑 Step 2: OpenAI API 키 발급 (⚠️ 유료)**
-```
-💰 중요 비용 정보:
-- 월 최소 $20 충전 필수 (신용카드 등록)
-- 토큰당 $0.002 과금 (요약 1회당 약 $0.01-0.05)
-- 월 예상 비용: $25-50 (사용량에 따라)
+### **🎯 codeBlocks 배열 생성 규칙**
 
-🔗 https://platform.openai.com/api-keys 접속
-🔐 OpenAI 계정 생성/로그인
-💳 Billing → Add payment method → 신용카드 정보 입력
-💰 Credits → Add credits → 최소 $20 충전
+**🚨 필요한 단계에만 실행 가능한 codeBlocks 배열 포함:**
 
-🔑 API 키 생성:
-1. 좌측 "API keys" 클릭
-2. "Create new secret key" (초록색 버튼) 클릭
-3. Name: "PDF요약용" 입력
-4. "Create secret key" 클릭
-5. 나타나는 키 전체 복사 (sk-proj-로 시작)
+### ✅ **codeBlocks 포함 기준**
+- **실제 코드가 필요한 단계만**: 계정 생성, UI 설정 등은 코드 불필요
+- **복사 가능한 완전한 코드**: 함수명, 변수명, API 키까지 실제 값
+- **언어 자동 판단**: Google Apps Script → javascript, 설정 파일 → json 등
+- **저장 위치 명시**: "Google Apps Script 편집기에 붙여넣기" 등
 
-📋 코드에 입력:
-1. 코드 126번째 줄로 이동
-2. "sk-proj-YOUR_API_KEY_HERE" 삭제
-3. 복사한 키 붙여넣기
-
-⚠️ 주의: API 키는 한 번만 보여주므로 꼭 복사해두세요!
-```
-
-#### **📱 Step 3: 슬랙 개인 DM 웹훅 설정**
-```
-🏢 슬랙 워크스페이스 접속 (app.slack.com)
-🔧 좌측 하단 "앱" 클릭
-🔍 "Incoming Webhooks" 검색 → "추가" 클릭
-⚙️ "Slack에 추가" → "허용" 클릭
-
-📬 채널 설정:
-👆 "채널 선택" 드롭다운 클릭
-👤 "나에게 직접 메시지 (본인이름)" 선택
-✅ "Incoming Webhook 통합 추가" 클릭
-
-🔗 웹훅 URL 복사:
-📍 "Webhook URL" 섹션에서 긴 URL 복사
-   https://hooks.slack.com/services/TXXXXXXX/BXXXXXXX/XXXXXXXXX
-
-📋 코드에 입력:
-1. 코드 127번째 줄로 이동
-2. "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" 삭제
-3. 복사한 URL 붙여넣기
-
-🧪 테스트: 웹훅 설정 페이지에서 "샘플 요청 보내기" 클릭
-✅ 슬랙 DM에 메시지 도착하면 성공!
-```
-
-### 5. **테스트 및 완료 확인**
-```
-🧪 테스트 방법:
-1. 코드 저장 (Ctrl+S)
-2. '계약서' 폴더에 테스트 PDF 업로드
-3. 5분 내 슬랙 DM 도착 확인
-
-✅ 성공 신호: 슬랙에 "📄 새 계약서 요약: [파일명]" 메시지 도착
-❌ 실패 시: Apps Script 로그에서 오류 메시지 확인
-```
-
-✅ **No-Code 도구 우선 표현:**
-- "코딩 없이 클릭만으로 설정"
-- "5분 내 완성 가능"
-- "무료 플랜으로 충분"
-
-❌ **피해야 할 어려운 표현:**
-- "API 연동", "스크립트", "엔드포인트"
-- "적절히 설정하세요"
-- "고급 설정에서..."
-
-```
-Before: "여러 방법이 있습니다: Zapier, Make.com, Google Apps Script..."
-After: "🎯 가장 쉬운 방법 (Google Apps Script 사용):
-
-📋 1단계: script.google.com 접속 → 오른쪽 상단 '새 프로젝트' 클릭
-📋 2단계: 기본 코드 삭제 후 아래 코드 전체 복사해서 붙여넣기:
-```javascript
-function autoEmailSort() {
-  var label = GmailApp.getUserLabelByName('VIP고객');
-  if (!label) label = GmailApp.createLabel('VIP고객');
-  
-  var threads = GmailApp.search('from:중요고객@company.com');
-  label.addToThreads(threads);
-}
-```
-📋 3단계: 저장 → 트리거 설정 → 매시간 실행
-
-✨ 완성! 이제 VIP 고객 메일은 자동으로 분류됩니다!"
-```
-
-### ❓ faq → "실전 고민 해결"
-
-**🎯 실제 사용자 상황에 맞는 FAQ 생성 원칙:**
-- 후속답변에서 언급된 구체적 상황 반영 (계약서 폴더, 개인 DM)
-- 기술적 문제 해결 방법 포함  
-- 비용/보안 관련 실질적 우려사항 다루기
-- "복사-붙여넣기" 과정에서 발생할 수 있는 오류 대응
-
-```json
-{
-  "type": "faq",
-  "title": "❓ 자주 묻는 질문",
-  "subtitle": "실전 궁금증 해결",
-  "items": [
-    {
-      "question": "코드를 붙여넣었는데 오류가 나요",
-      "answer": "1) code.gs 탭에 붙여넣었는지 확인 2) 기존 코드를 완전히 삭제했는지 확인 3) 따옴표가 깨지지 않았는지 확인하세요"
-    },
-    {
-      "question": "폴더 ID를 어디서 찾나요?",
-      "answer": "드라이브에서 '계약서' 폴더를 한 번만 클릭(더블클릭X) → 주소창의 folders/ 뒤 긴 문자열이 ID입니다"
-    },
-    {
-      "question": "OpenAI API 비용이 너무 비싸지 않나요?",
-      "answer": "PDF 요약 1회당 약 $0.01-0.05입니다. 월 50개 요약해도 $2-3 수준이니 $20 충전으로 충분합니다"
-    },
-    {
-      "question": "개인 DM으로 메시지가 안 와요",
-      "answer": "웹훅 URL이 정확한지 확인 → 슬랙에서 '나에게 직접 메시지' 선택했는지 확인 → 웹훅 테스트 먼저 실행해보세요"
-    }
-  ]
-}
-```
-
-**🚨 FAQ 생성 필수 조건:**
-- 사용자 입력과 후속답변에서 언급된 구체적 도구/채널/폴더명 반영
-- 코드 복붙 과정에서 실제 발생할 수 있는 오류 포함
-
-### 📋 guide → "복사-붙여넣기 완전정복"
-
-**🚨 GUIDE 카드 생성 시 절대 원칙:**
-1. **방법론 비교 절대 금지** - "Zapier 방법" vs "Google Apps Script 방법" 같은 구조 금지
-2. **단일 도구로 일관된 5-7단계 가이드** - 처음부터 끝까지 하나의 도구만 사용
-3. **구체적 실행 단계** - "계정 생성 → API 설정 → 코드 배포 → 테스트" 같은 순차적 진행
-
-**🎯 실행 가능한 코드 블록 생성 필수:**
-모든 guide 카드에는 반드시 `codeBlocks` 배열을 포함하여 사용자가 바로 복사-붙여넣기할 수 있는 코드를 제공하세요.
-
+### 🎯 **실제 생성해야 할 구조 예시**
 ```json
 {
   "type": "guide",
-  "stepId": "1", 
-  "title": "Google Apps Script 설정 완벽 가이드",
-  "subtitle": "초보자도 5분만에 완료",
-  "content": "상세 설명...",
+  "stepId": "3",
+  "title": "PDF 텍스트 추출 및 슬랙 알림 코드 작성",
+  "content": "구글 드라이브 PDF 파일을 자동으로 감지하고 3줄 요약 후 #계약서 채널로 알림을 보내는 완전한 코드입니다.",
+  "detailedSteps": [
+    "Google Apps Script 편집기에서 새 스크립트 파일 생성",
+    "아래 코드를 전체 복사하여 붙여넣기",
+    "실행 권한 승인 (Drive, Slack 접근)",
+    "수동 테스트로 동작 확인",
+    "드라이브 트리거 설정으로 자동화 완성"
+  ],
   "codeBlocks": [
     {
-      "title": "PDF 자동 요약 스크립트",
-      "language": "javascript",
-      "code": "function processPDF() {\n  // 실제 실행 가능한 코드\n  const folder = DriveApp.getFolderById('YOUR_FOLDER_ID');\n  const files = folder.getFiles();\n  \n  while (files.hasNext()) {\n    const file = files.next();\n    console.log('처리 중: ' + file.getName());\n  }\n}",
-      "copyInstructions": "이 코드를 Apps Script 편집기의 code.gs 파일에 붙여넣으세요",
-      "saveLocation": "Google Apps Script > 새 프로젝트 > code.gs"
-    }
-  ],
-  "status": "verified"
-}
-```
-
-**🚨 codeBlocks 필수 구조:**
-- title: 코드 블록 제목
-- language: 프로그래밍 언어 (javascript, python 등)
-- code: 실제 실행 가능한 코드 (이스케이프 처리 필수)
-- copyInstructions: 붙여넣기 방법 안내
-- saveLocation: 저장 위치 가이드
-- 비용/권한/설정 관련 실질적 문제 해결방법 제시
-- "내 개인 DM", "계약서 폴더" 등 개인화된 내용으로 질문 구성
-
-### 🚀 expansion → "꿈의 업그레이드" (단순 구조 사용)
-🚨 **JSON 안정성을 위해 expansion 카드는 단순한 구조로 제한합니다.**
-
-```json
-{
-  "type": "expansion", 
-  "title": "🌱 확장 아이디어",
-  "content": "🎯 1단계 확장: 고객 감정 분석 추가 → 화난 고객 메일 즉시 감지\n🎯 2단계 확장: 자동 답변 생성 → 80% 문의는 AI가 자동 답변\n🎯 3단계 확장: 예측 분석 → 고객 이탈 위험을 미리 경고\n\n→ 결과: 고객 만족도 40% 상승, CS 업무 시간 70% 절약!"
-}
-```
-
-❌ **절대 사용 금지**: `ideas` 배열, 중첩된 객체 구조
-
-## 🚨 후속답변 데이터 필수 활용 체크리스트
-
-### ✅ 반드시 확인할 항목들
-1. **채널명 반영**: slack_channel 값을 코드/설정에 정확히 입력
-2. **플랫폼 반영**: sns_platform 배열의 모든 값을 모니터링 대상으로 설정
-3. **목표 반영**: goal 내용을 실제 메시지 템플릿에 적용
-4. **브랜드명 추출**: 사용자 입력에서 브랜드/회사명을 찾아서 키워드로 설정
-
-### 📋 실제 적용 예시
-```
-후속답변: {
-  "sns_platform": ["인스타그램", "네이버 블로그"],
-  "slack_channel": "기타:#sns_alerts", 
-  "goal": "sns에 우리 브랜드가 언급되면, 슬랙으로 알림을 줬으면 좋겠어요. 링크와 함께"
-}
-
-↓ 반영 결과
-
-채널명: #sns_alerts (정확히 매칭)
-검색 키워드: "우리 브랜드" + "인스타그램" OR "네이버 블로그"  
-메시지: "🚨 브랜드 언급 발견! {{제목}} - {{링크}}"
-```
-
-## 최종 품질 기준
-
-### ✅ 통과 기준
-1. **읽는 순간 감탄**: "우와, 이거 정말 좋다!"
-2. **즉시 행동 욕구**: "지금 당장 해보고 싶어!"
-3. **완전한 신뢰감**: "이 방법이면 틀림없이 성공할 것 같아"
-4. **확장성 흥미**: "이렇게까지 발전시킬 수 있구나!"
-5. **개인화 완벽**: "정확히 내 상황에 맞춰져 있어!"
-
-### ❌ 재작업 필요
-1. 평범한 반응: "그냥 그렇구나..."
-2. 불안감: "이걸로 될까?"
-3. 복잡함: "너무 어려워 보인다"
-4. 제한적: "이것만으로는 부족해"
-5. **개인화 실패**: "내 답변이 반영 안됐네"
-
-## 최종 JSON 형식 (간소화)
-🚨 **중요**: JSON 파싱 안정성을 위해 복잡한 중첩 구조를 피하고 단순한 형식을 사용하세요.
-
-```json
-{
-  "cards": [
-    {
-      "type": "needs_analysis",
-      "title": "🎯 진짜 니즈 발견",
-      "content": "단순 텍스트 내용"
-    },
-    {
-      "type": "flow", 
-      "title": "🚀 실행 가이드",
-      "steps": ["1단계: 준비", "2단계: 설정", "3단계: 완료"]
-    },
-    {
-      "type": "expansion",
-      "title": "🌱 확장 아이디어", 
-      "content": "확장 가능성 설명"
+      "title": "PDF 자동 요약 및 슬랙 알림 시스템",
+      "language": "javascript", 
+      "code": "// 실제 완성된 코드 (500-1000줄 수준)\nfunction onFileUpload() {\n  const SLACK_WEBHOOK = 'https://hooks.slack.com/services/실제채널URL';\n  // ... 완전한 구현\n}",
+      "copyInstructions": "전체 선택 후 Google Apps Script 편집기에 붙여넣기",
+      "saveLocation": "Google Apps Script 편집기 (script.google.com)"
     }
   ]
 }
 ```
 
-❌ **절대 금지**: 과도한 중첩, 복잡한 객체 구조  
-✅ **필수**: flow 카드는 `steps` 배열 포함 (UI 렌더링 필수)
-✅ **권장**: 나머지 카드는 단순한 `content` 문자열 사용
+## 🎯 사용자 데이터 완전 활용 원칙
+
+### ✅ **필수 반영 데이터**
+1. **사용자 원본 요청**: 정확한 요구사항 파악
+2. **후속질문 답변**: 구체적 설정값 (채널명, 키워드, 플랫폼 등)
+3. **Step B 검증 결과**: 검증된 도구와 방법론
+4. **사용자 환경**: 기술수준, 예산, 팀 규모 등
+
+### 🎯 **실제 데이터 활용 방식**
+- ❌ 변수 치환: `"{{channelName}}"` 방식 금지
+- ✅ 직접 활용: 후속답변 `"#계약서"`를 코드에 `CHANNEL = "#계약서"` 직접 입력
+- ❌ 일반화: "원하는 채널명 입력"
+- ✅ 개인화: 사용자가 답한 정확한 채널명 사용
+
+### 📋 **LLM 기반 반자동화 데이터 활용 예시**
+
+#### **퍼포먼스마케팅 분석 케이스**
+```
+사용자 입력: "전주의 퍼포먼스마케팅 성과를 분석하고, 인사이트를 도출해서 보고서의 형태로 받고싶어"
+후속답변: { 
+  "data_source": ["페이스북 광고", "구글 애널리틱스"],
+  "report_destination": ["슬랙"],
+  "execution_environment": ["잘모름 (AI가 추천)"]
+}
+
+→ GPT가 생성해야 할 LLM 기반 코드:
+const OPENAI_API_KEY = "your-openai-api-key";      // ← 사용자 설정
+const SLACK_WEBHOOK = "https://hooks.slack.com/your-webhook";
+const ANALYSIS_FOCUS = "전주 지역 퍼포먼스 마케팅";  // ← 실제 답변 반영
+const DATA_SOURCES = ["페이스북 광고", "구글 애널리틱스"]; // ← 실제 답변 반영
+
+const MARKETING_ANALYSIS_PROMPT = `당신은 전주 지역 마케팅 전문가입니다.
+다음 광고 데이터를 분석하여:
+1. 전주 지역 특성을 반영한 성과 분석
+2. 페이스북 광고와 구글 애널리틱스 데이터 비교
+3. 구체적 개선 방안 3가지
+를 슬랙 보고서 형태로 제공하세요.`;                // ← 맞춤형 프롬프트
+```
+
+#### **브랜드 모니터링 케이스**
+```
+사용자 입력: "우리 브랜드 SNS 멘션 감정 분석"
+후속답변: { 
+  "brand_name": "맛있는빵집",
+  "monitoring_platforms": ["인스타그램", "페이스북"],
+  "alert_channel": "#마케팅팀"
+}
+
+→ GPT가 생성해야 할 Claude 기반 코드:
+const CLAUDE_API_KEY = "your-claude-api-key";
+const BRAND_NAME = "맛있는빵집";                   // ← 실제 브랜드명
+const PLATFORMS = ["인스타그램", "페이스북"];        // ← 실제 플랫폼
+const ALERT_CHANNEL = "#마케팅팀";                // ← 실제 채널
+
+const SENTIMENT_ANALYSIS_PROMPT = `브랜드 "맛있는빵집"의 SNS 멘션을 분석해주세요:
+- 전체 감정 점수 (1-10)
+- 긍정/부정/중립 비율
+- 주요 언급 키워드 Top 5  
+- 즉시 대응이 필요한 부정 멘션 여부
+- 마케팅팀 대응 권장사항`;                         // ← 맞춤형 분석 프롬프트
+```
+
+#### **📊 스프레드시트 + LLM 혁신 케이스 (접근성 최고)**
+```
+사용자 입력: "고객 문의 500개를 감정분석해서 우선순위별로 분류하고 싶어"
+후속답변: { 
+  "data_location": "Google Sheets A열",
+  "analysis_type": "감정분석 + 우선순위 분류",
+  "output_format": "색상별 분류 + 자동 알림"
+}
+
+→ GPT가 생성해야 할 스프레드시트 LLM 코드:
+// 🎯 Google Sheets Apps Script - 커스텀 GPT 함수
+function GPT_ANALYZE(text, analysisType) {
+  const API_KEY = "your-openai-api-key";        // ← 사용자 설정
+  const url = "https://api.openai.com/v1/chat/completions";
+  
+  const prompt = `다음 고객 문의를 분석해주세요:
+"${text}"
+
+분석 결과를 JSON 형태로 반환:
+{
+  "sentiment_score": 1-10,
+  "priority": "높음/중간/낮음", 
+  "category": "문의유형",
+  "response_needed": true/false,
+  "keywords": ["키워드1", "키워드2"]
+}`;                                            // ← 맞춤형 분석 프롬프트
+
+  // 실제 OpenAI API 호출 코드 완전 제공
+  const response = UrlFetchApp.fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + API_KEY,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify({
+      model: "gpt-3.5-turbo",
+      messages: [{"role": "user", "content": prompt}],
+      max_tokens: 200
+    })
+  });
+  
+  const result = JSON.parse(response.getContentText());
+  return result.choices[0].message.content;
+}
+
+// 🎯 사용법: 스프레드시트 B1 셀에 =GPT_ANALYZE(A1, "감정분석") 입력
+// → A1~A500까지 한번에 "쫘라락" 분석 가능!
+
+// 📋 구체적 사용 예시 (초딩도 따라할 수 있게):
+// A1: "배송이 늦어서 화가 납니다"
+// B1: =GPT_ANALYZE(A1, "감정분석") → 결과: {"sentiment_score": 2, "priority": "높음"}
+// C1: =IF(B1.sentiment_score<=3, "🔴긴급", "🟢일반") → 결과: 🔴긴급
+// D1: =COUNTIF(C:C,"🔴긴급") → 결과: 47 (긴급 문의 개수)
+```
+
+#### **📋 PPT/보고서 자동 생성 케이스 (구체적 방법)**
+```
+사용자 입력: "고객 만족도 분석 결과를 PPT로 만들고 싶어"
+후속답변: { 
+  "data_source": "Google Sheets A1:D100",
+  "chart_type": "막대그래프 + 원형차트",
+  "presentation_style": "깔끔한 비즈니스"
+}
+
+→ GPT가 생성해야 할 구체적 방법들:
+
+🎯 방법 1: Gamma (젠스파크) 활용
+1. gamma.app 접속 → "Create with AI" 클릭
+2. 프롬프트 입력: "고객 만족도 분석 PPT 만들어줘. 데이터: 만족 85%, 불만족 15%, 주요 키워드: 배송, 품질, 서비스"
+3. 템플릿 선택: "Business Professional" 
+4. 생성 완료 → "Export as PDF" 클릭
+5. 다운로드 완료 (5분 소요)
+
+🎯 방법 2: Claude HTML PPT → PDF 저장 (완전 무료)
+1. Claude에게 요청: "다음 데이터로 HTML PPT 만들어줘: [실제 데이터]"
+2. 생성된 HTML 코드 전체 복사
+3. 메모장 열기 → 붙여넣기 → "presentation.html"로 저장
+4. Chrome에서 해당 파일 열기
+5. F12 → 우클릭 → "인쇄" → "PDF로 저장" 선택
+6. 여백 "없음" 설정 → "저장" 클릭
+7. 완성된 PPT PDF 다운로드
+
+🎯 방법 3: 엑셀 자동 차트 → 복사 붙여넣기
+A1: "만족도"    B1: "비율"    C1: "개수"
+A2: "만족"      B2: 85        C2: =B2*100
+A3: "불만족"    B3: 15        C3: =B3*100
+A4: 범위 A1:C3 선택 → "삽입" → "차트" → "원형차트"
+A5: 차트 우클릭 → "복사" → PowerPoint 붙여넣기
+```
+
+### ❓ **FAQ 카드 동적 생성**
+
+**🎯 선택된 도구와 후속답변 기반으로 실전 FAQ 생성:**
+
+### ✅ **FAQ 생성 원칙**
+- **실제 발생 가능한 문제**: 선택된 도구의 알려진 이슈들
+- **사용자 환경 맞춤**: 후속답변 데이터 기반 구체적 해결책
+- **단계별 해결법**: "1-2-3 순서대로 해보세요" 형태
+- **대안 방법**: 메인 해결법이 안 될 때의 우회 방법
+
+### 🚀 **확장 카드 동적 생성**
+
+**🎯 현재 자동화를 더 큰 시스템으로 발전시키는 아이디어:**
+
+### ✅ **확장 아이디어 생성 원칙**
+- **점진적 발전**: 현재 → 1단계 확장 → 2단계 확장
+- **비즈니스 가치**: 효율성 → 인사이트 → 예측
+- **실현 가능성**: 현재 인프라 기반으로 추가 구축 가능한 것들
+- **구체적 결과**: "이렇게 하면 이런 효과" 명시
+
+## 🎯 **최종 Cards 배열 생성 규칙**
+
+### ✅ **필수 카드 타입들**
+1. **needs_analysis**: 진짜 니즈 발견
+2. **flow**: 동적 단계 구성 (3-7단계 자유 조정)
+3. **guide**: Flow 단계 수만큼 생성 (각각 5-8개 세부 단계)
+4. **faq**: 선택된 도구 기반 실전 FAQ
+5. **expansion**: 확장 가능성 아이디어
+
+### ✅ **JSON 구조 안정성**
+- **단순한 구조**: 과도한 중첩 금지
+- **필수 속성**: type, title, content/steps 기본 구조
+- **codeBlocks**: 필요한 guide 카드에만 포함
+- **detailedSteps**: guide 카드의 세부 단계 배열
 
 이 단계가 끝나면 사용자는 "와! AI가 나보다 나를 더 잘 아는 것 같아!"라고 느끼게 됩니다.

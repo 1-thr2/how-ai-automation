@@ -20,6 +20,8 @@ export interface RAGResult {
   content: string;
   score: number;
   publishedDate?: string;
+  relevanceScore?: number; // 추가: 관련성 점수
+  qualityScore?: number;   // 추가: 품질 점수
 }
 
 /**
@@ -324,27 +326,53 @@ const ragSessionCache = new Map<string, any>();
  * 🎯 도메인별 맞춤형 검색 쿼리 생성
  */
 function generateDomainSpecificQuery(userInput: string, domain: string, tools: string[]): string {
-  const baseInput = userInput.slice(0, 100); // 너무 긴 입력은 축약
+  // 🎯 핵심 키워드 추출 (더 정확한 검색을 위해)
+  const keywords = extractCoreKeywords(userInput);
+  const coreKeywords = keywords.slice(0, 4).join(' '); // 최대 4개 핵심 키워드만
+  
+  // 🔍 구글시트/스프레드시트 특별 처리
+  if (userInput.includes('구글시트') || userInput.includes('google sheets') || userInput.includes('스프레드시트')) {
+    return `Google Sheets ${coreKeywords} automation tutorial 2024`;
+  }
   
   switch (domain) {
     case 'customer_support':
-      return `${baseInput} 고객 지원 시스템 자동화 ${tools.join(' ')} 튜토리얼 ticketing helpdesk automation 2024`;
+      return `${coreKeywords} customer support automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
       
     case 'advertising':
-      return `${baseInput} 광고 마케팅 자동화 ${tools.join(' ')} 성과 분석 campaign automation tutorial 2024`;
+      return `${coreKeywords} marketing automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
       
     case 'hr':
-      return `${baseInput} 인사 관리 자동화 ${tools.join(' ')} 채용 온보딩 workflow automation 2024`;
+      return `${coreKeywords} HR automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
       
     case 'finance':
-      return `${baseInput} 재무 회계 자동화 ${tools.join(' ')} 정산 예산 financial automation 2024`;
+      return `${coreKeywords} financial automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
       
     case 'ecommerce':
-      return `${baseInput} 이커머스 자동화 ${tools.join(' ')} 주문 재고 ecommerce automation 2024`;
+      return `${coreKeywords} ecommerce automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
       
     default:
-      return `${baseInput} workflow automation ${tools.join(' ')} tutorial guide 2024`;
+      return `${coreKeywords} automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
   }
+}
+
+/**
+ * 🎯 더 정확한 핵심 키워드 추출 (검색 최적화)
+ */
+function extractCoreKeywords(input: string): string[] {
+  const stopWords = ['를', '을', '이', '가', '의', '에', '와', '과', '로', '으로', '에서', '만들고', '싶어요', '하고', '있어요', '해줘', '자동으로', '바로'];
+  const keywords = input
+    .toLowerCase()
+    .replace(/[^\w\s가-힣]/g, ' ') // 특수문자 제거
+    .split(/\s+/)
+    .filter(word => word.length > 1 && !stopWords.includes(word));
+    
+  // 🎯 중요 키워드 우선 순위 부여
+  const priorityKeywords = ['구글시트', 'google sheets', '스프레드시트', '그래프', '보고서', '차트', '대시보드'];
+  const priority = keywords.filter(k => priorityKeywords.some(p => k.includes(p) || p.includes(k)));
+  const others = keywords.filter(k => !priorityKeywords.some(p => k.includes(p) || p.includes(k)));
+  
+  return [...priority, ...others].slice(0, 6); // 최대 6개
 }
 
 /**
@@ -366,15 +394,19 @@ function validateAndFilterResults(results: RAGResult[], userInput: string, domai
       qualityScore: calculateQualityScore(result)
     }))
     .filter(result => {
-      const isRelevant = result.relevanceScore >= 0.3; // 최소 관련성 기준
-      const isQuality = result.qualityScore >= 0.4; // 최소 품질 기준
-      const hasContent = result.content && result.content.length > 50; // 최소 내용 길이
+      // 🎯 필터링 기준 완화 (실용성 개선)
+      const isRelevant = result.relevanceScore >= 0.15; // 0.3 → 0.15 완화
+      const isQuality = result.qualityScore >= 0.25;    // 0.4 → 0.25 완화  
+      const hasContent = result.content && result.content.length > 30; // 50 → 30 완화
       
       if (!isRelevant) {
         console.log(`❌ [RAG] 관련성 부족 제외: ${result.title} (점수: ${result.relevanceScore.toFixed(2)})`);
       }
       if (!isQuality) {
         console.log(`❌ [RAG] 품질 부족 제외: ${result.title} (점수: ${result.qualityScore.toFixed(2)})`);
+      }
+      if (!hasContent) {
+        console.log(`❌ [RAG] 내용 부족 제외: ${result.title} (길이: ${result.content?.length || 0})`);
       }
       
       return isRelevant && isQuality && hasContent;
@@ -431,18 +463,47 @@ function getDomainKeywords(domain: string): string[] {
 }
 
 /**
- * 📈 관련성 점수 계산
+ * 📈 관련성 점수 계산 (개선된 한국어 지원)
  */
 function calculateRelevanceScore(result: RAGResult, userKeywords: string[], domainKeywords: string[]): number {
   const text = `${result.title} ${result.content}`.toLowerCase();
   
-  const userMatches = userKeywords.filter(keyword => text.includes(keyword)).length;
-  const domainMatches = domainKeywords.filter(keyword => text.includes(keyword)).length;
+  // 🎯 더 유연한 키워드 매칭 (부분 매칭 포함)
+  const userMatches = userKeywords.filter(keyword => {
+    if (text.includes(keyword)) return true;
+    // 부분 매칭 (3글자 이상일 때)
+    if (keyword.length >= 3) {
+      const partial = keyword.slice(0, -1); // 마지막 글자 제거하고 매칭
+      return text.includes(partial);
+    }
+    return false;
+  }).length;
+  
+  const domainMatches = domainKeywords.filter(keyword => {
+    if (text.includes(keyword)) return true;
+    // 영어-한국어 동의어 매칭
+    const synonyms: Record<string, string[]> = {
+      'sheets': ['시트', '스프레드시트'],
+      'graph': ['그래프', '차트'],
+      'report': ['보고서', '리포트'],
+      'automation': ['자동화', '자동'],
+      'dashboard': ['대시보드', '대쉬보드']
+    };
+    
+    return Object.entries(synonyms).some(([eng, korList]) => {
+      return (keyword === eng && korList.some(kor => text.includes(kor))) ||
+             (korList.includes(keyword) && text.includes(eng));
+    });
+  }).length;
   
   const userScore = userMatches / Math.max(userKeywords.length, 1);
   const domainScore = domainMatches / Math.max(domainKeywords.length, 1);
   
-  return (userScore * 0.7) + (domainScore * 0.3); // 사용자 키워드에 더 높은 가중치
+  // 🎯 최소 점수 보장 (검색 엔진이 찾은 결과라면 기본 관련성 부여)
+  const baseScore = result.score ? Math.min(result.score * 0.3, 0.2) : 0.1;
+  const calculatedScore = (userScore * 0.7) + (domainScore * 0.3);
+  
+  return Math.max(baseScore, calculatedScore);
 }
 
 /**
@@ -621,13 +682,33 @@ export async function generateRAGContext(
     
     // 🎯 도메인별 맞춤형 검색 쿼리 생성
     const smartQuery = generateDomainSpecificQuery(userInput, detectedDomain, uniqueTools.slice(0, 3));
-    console.log(`🔍 [RAG] 스마트 검색 (1회): "${smartQuery}"`);
+    console.log(`🔍 [RAG] 개선된 쿼리: "${smartQuery}"`);
+    console.log(`🎯 [RAG] 원본 입력: "${userInput}"`);
+    console.log(`🏷️ [RAG] 감지된 도메인: ${detectedDomain}`);
     
     const searchResults = await searchWithRAG(smartQuery, { maxResults: 4 });
     
+    // 🔍 원시 검색 결과 로깅
+    if (searchResults && searchResults.length > 0) {
+      console.log(`📊 [RAG] 원시 검색 결과: ${searchResults.length}개`);
+      searchResults.forEach((result, i) => {
+        console.log(`  ${i+1}. "${result.title}" (Tavily점수: ${result.score?.toFixed(3) || 'N/A'})`);
+      });
+    }
+    
     // 🔍 검색 결과 검증 및 필터링 (품질 개선)
     const validatedResults = validateAndFilterResults(searchResults, userInput, detectedDomain);
-    console.log(`✅ [RAG] 검색 결과 검증: ${searchResults.length}개 → ${validatedResults.length}개 (필터링 완료)`);
+    console.log(`✅ [RAG] 검증 완료: ${searchResults.length}개 → ${validatedResults.length}개 (필터링 완료)`);
+    
+    // 🔍 최종 결과 로깅
+    if (validatedResults.length > 0) {
+      console.log(`📋 [RAG] 최종 채택된 결과:`);
+      validatedResults.forEach((result, i) => {
+        console.log(`  ${i+1}. "${result.title}" (관련성: ${result.relevanceScore?.toFixed(2)}, 품질: ${result.qualityScore?.toFixed(2)})`);
+      });
+    } else {
+      console.log(`⚠️ [RAG] 모든 결과가 필터링됨 - 기본 지식 사용`);
+    }
     
     const allToolResults = validatedResults;
 

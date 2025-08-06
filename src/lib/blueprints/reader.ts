@@ -85,6 +85,11 @@ export const FOLLOWUP_DRAFT = `# Draft 단계: 빠른 질문 초안
 2. **"잘모름 (AI가 추천)"** → 텍스트 입력창 + "현재 상황을 간단히 설명해주세요" 플레이스홀더
 3. **채널명/계정명 등 고유값** → 직접 입력이 필요한 경우
 
+### 🎯 입력창 트리거 키워드들:
+다음 키워드들이 포함된 옵션들은 **반드시** inputTriggers를 설정해야 합니다:
+- "이름", "명칭", "채널", "계정", "파일", "폴더", "키워드", "URL", "주소", "경로"
+- "입력", "작성", "설정", "지정", "선택"
+
 ### 📋 출력 형식에서 반드시 포함:
 반드시 다음과 같은 inputTriggers 구조를 포함하세요:
 - "네, 채널이름이 무엇인가요?" 같은 직접 값 입력이 필요한 옵션
@@ -95,10 +100,10 @@ export const FOLLOWUP_DRAFT = `# Draft 단계: 빠른 질문 초안
 {
   "key": "channel_name",
   "question": "슬랙에서 보고서를 보낼 채널 이름은 무엇인가요?",
-  "type": "single",
-  "options": ["#general", "#marketing", "#reports", "네, 채널이름이 무엇인가요?", "기타 (직접입력)", "잘모름 (AI가 추천)"],
+  "type": "single", 
+  "options": ["#general", "#marketing", "#reports", "채널 이름", "기타 (직접입력)", "잘모름 (AI가 추천)"],
   "inputTriggers": {
-    "네, 채널이름이 무엇인가요?": {
+    "채널 이름": {
       "requiresInput": true,
       "inputPlaceholder": "채널명을 입력해주세요 (예: #data-reports)"
     },
@@ -112,6 +117,12 @@ export const FOLLOWUP_DRAFT = `# Draft 단계: 빠른 질문 초안
     }
   }
 }
+
+### 🎯 입력창 옵션명 패턴:
+- "채널 이름" → inputPlaceholder: "채널명을 입력해주세요 (예: #general)"
+- "파일 이름" → inputPlaceholder: "파일명을 입력해주세요 (예: report.pdf)"
+- "키워드" → inputPlaceholder: "모니터링할 키워드를 입력해주세요"
+- "URL 주소" → inputPlaceholder: "URL을 입력해주세요 (예: https://example.com)"
 
 각 트리거는 requiresInput: true와 적절한 inputPlaceholder를 포함해야 합니다.
 
