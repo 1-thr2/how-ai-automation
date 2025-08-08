@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import pMap from 'p-map';
 import { z } from 'zod';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
+import { findContextualPatterns, quickDangerCheck, learnFromFailure, type ContextualMatch } from './failure-patterns';
 import {
   generateRAGContext,
   searchToolInfo,
@@ -9,7 +10,8 @@ import {
   checkToolIntegration,
   searchWithRAG,
 } from '../services/rag';
-import { detectDomain, getOptimalToolsForDomain } from '../domain-tools-registry';
+import { detectDomainEnhanced, getOptimalAITools, performPeerToolSearch } from '../services/ai-tools-registry';
+import { checkSystematicFeasibility, quickFeasibilityCheck } from '../services/feasibility-checker';
 import { getCodeTemplate, personalizeCodeTemplate } from '../code-templates';
 import {
   analyzeUserIntent,
@@ -61,20 +63,69 @@ async function executeStepA(
   tokens: number;
   latency: number;
   model: string;
+  feasibilityAnalysis: any;
 }> {
   const startTime = Date.now();
   console.log('📝 [Step A] 카드 뼈대 초안 생성 시작...');
 
+  // 🧠 시스템적 현실성 분석 - AI 도구 레지스트리 기반 동적 체크!
+  console.log('🧠 [Step A] 시스템적 현실성 분석 시작...');
+  let feasibilityAnalysis;
+  try {
+    feasibilityAnalysis = await checkSystematicFeasibility(userInput, followupAnswers);
+  } catch (error) {
+    console.error('🚨 [Step A] 시스템적 현실성 체크 실패:', error);
+    feasibilityAnalysis = await fallbackFeasibilityAnalysis(userInput, followupAnswers);
+  }
+  
+  console.log(`🎯 [Step A] 현실성: ${feasibilityAnalysis.isRealistic ? '가능' : '제한적'}`);
+  console.log(`📊 [Step A] 실행 가능성 점수: ${feasibilityAnalysis.feasibilityScore}/10`);
+  console.log(`⚠️ [Step A] 불가능한 요소: ${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'}`);
+  console.log(`💰 [Step A] 비용 경고: ${feasibilityAnalysis.costWarnings?.join(', ') || '없음'}`);
+  console.log(`✅ [Step A] 실행 가능한 대안: ${feasibilityAnalysis.viableAlternatives?.join(', ') || '없음'}`);
+
+  // 🎯 AI 도구 레지스트리 기반 현실적 도구 추천
+  const detectedDomain = detectDomainEnhanced(userInput, followupAnswers);
+  const domainTools = getOptimalAITools(detectedDomain, 'automation', true);
+  const optimalTools = [...domainTools.primary, ...domainTools.secondary];
+  
+  console.log(`🎯 [Step A] 감지된 도메인: ${detectedDomain}`);
+  console.log(`🛠️ [Step A] 추천 도구들: ${optimalTools.map(t => t.toolSlug).join(', ')}`);
+
     // Blueprint 읽기
     const stepABlueprint = await BlueprintReader.read('orchestrator/step_a_draft.md');
 
-    // 프롬프트 구성
+    // 🔧 AI 도구 레지스트리 기반 현실적 프롬프트 구성
+    const optimalToolsList = optimalTools.map(tool => 
+      `- ${tool.toolSlug}: ${tool.capabilityTags.join(', ')} (${tool.pricingHint})`
+    ).join('\n');
+
     const systemPrompt = stepABlueprint;
-    const userPrompt = `사용자 요청: "${userInput}"
+    const userPrompt = `🎯 **사용자 요청**: "${userInput}"
 후속 답변: ${JSON.stringify(followupAnswers || {})}
 
-위 정보를 바탕으로 자동화 플로우의 핵심 단계들만 빠르게 생성하세요.
-Step B에서 실현 가능성을 검증하고, Step C에서 상세 가이드를 작성할 예정입니다.
+🧠 **시스템적 현실성 분석 결과**:
+📊 실행 가능성 점수: ${feasibilityAnalysis.feasibilityScore}/10 (${feasibilityAnalysis.isRealistic ? '현실적' : '제한적'})
+⚠️ 불가능한 요소들: ${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'}
+💰 비용 경고: ${feasibilityAnalysis.costWarnings?.join(', ') || '없음'}
+🔧 복잡성 경고: ${feasibilityAnalysis.difficultyWarnings?.join(', ') || '없음'}
+✅ 현실적 대안들: ${feasibilityAnalysis.viableAlternatives?.join(', ') || '기본 자동화'}
+
+🛠️ **2025년 현실적 도구 추천 (AI 레지스트리 기반)**:
+감지된 도메인: ${detectedDomain}
+추천 도구들:
+${optimalToolsList}
+
+🚨 **핵심 원칙: 시스템적 현실성 기반 플로우 생성**:
+1. **현실성 우선**: 점수 ${feasibilityAnalysis.feasibilityScore}/10 기준으로 실현 가능한 방법만 제시
+2. **비용 고려**: ${feasibilityAnalysis.costWarnings?.length > 0 ? '비용 경고 있음 - 무료/저비용 대안 우선' : '비용 제약 없음'}
+3. **복잡성 배제**: ${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'} 요소는 완전히 배제
+4. **권장 접근법**: ${feasibilityAnalysis.recommendedApproach}
+
+**실제로 구현 가능한** 자동화 플로우만 생성하세요:
+- 불가능한 요소는 아예 언급하지 마세요
+- LLM이 도움될 부분은 적극 활용하세요
+- 현실적 대안들로만 플로우를 구성하세요
 
 JSON 형식으로 응답하세요:
 {
@@ -87,14 +138,14 @@ JSON 형식으로 응답하세요:
   ]
 }
 
-단계는 3-7개, 각 단계는 구체적이고 실행 가능하게 작성하세요.`;
+단계는 3-7개, 각 단계는 구체적이고 **현실적으로 실행 가능하게** 작성하세요.`;
 
     const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
 
   // 🛡️ 백업 모델 시퀀스: gpt-4o-mini → gpt-3.5-turbo → fallback
   // 🔧 비용 최적화: 간단한 요청은 mini만 사용
   const isSimpleRequest = userInput.length < 100 && Object.keys(followupAnswers || {}).length < 3;
-  const modelSequence = isSimpleRequest ? ['gpt-4o-mini'] : ['gpt-4o-mini', 'gpt-3.5-turbo'];
+  const modelSequence = isSimpleRequest ? ['gpt-4o-mini'] : ['gpt-4o-mini', 'gpt-3.5-turbo']; // 🔧 안정성 우선: mini 모델이 JSON 생성에 더 안정적
   let lastError: Error | null = null;
   let totalTokens = 0;
 
@@ -110,7 +161,7 @@ JSON 형식으로 응답하세요:
         { role: 'user', content: userPrompt },
       ],
         max_tokens: 300, // ⚡ Step A 더욱 축소
-        temperature: 0.3, // 🔧 더 결정적으로
+        temperature: 0.1, // 🔥 JSON 안정성을 위해 더 낮은 온도
         response_format: { type: 'json_object' }, // 🎯 JSON 전용 모드
     });
 
@@ -141,6 +192,7 @@ JSON 형식으로 응답하세요:
           tokens: totalTokens,
       latency,
       model,
+      feasibilityAnalysis,
     };
       } else {
         throw new Error(`${model}에서 유효한 플로우 생성 실패 (단계 없음)`);
@@ -171,6 +223,7 @@ JSON 형식으로 응답하세요:
     tokens: estimatedTokens, // 추정값 사용
     latency,
     model: 'fallback',
+    feasibilityAnalysis, // fallback에서도 현실성 분석 포함
   };
 }
 
@@ -232,41 +285,72 @@ function createFallbackFlow(userInput: string, followupAnswers: any): {
 function extractProposedMethodsFromFlow(flow: {steps: string[], title: string, subtitle: string}): Array<{tool: string, action: string, details: string}> {
   const methods: Array<{tool: string, action: string, details: string}> = [];
   
-  // 플로우의 각 단계에서 도구 및 방법론 추출 (엄격한 검증)
-  flow.steps.forEach((step: string) => {
+  console.log(`🔍 [방법추출] 플로우 분석 시작: ${flow.steps.length}개 단계`);
+  
+  // 플로우의 각 단계에서 도구 및 방법론 추출 (AI 수준 정교함)
+  flow.steps.forEach((step: string, index: number) => {
     if (step && typeof step === 'string') {
-      // 🚨 구체적 서비스/API 검증이 필요한 도구들 (영어/한글 모두 지원)
-      const criticalServicesMatches = step.match(/(잡코리아|jobkorea|사람인|saramin|인크루트|incruit|링크드인|linkedin|Facebook API|Instagram API|카카오톡|kakao|네이버 카페|naver|유튜브 API|youtube api)/gi);
+      console.log(`🔍 [방법추출] ${index+1}단계 분석: "${step}"`);
+      
+      // 🚨 1순위: 크롤링/스크래핑 (가장 문제가 되는 방법)
+      const crawlingMatches = step.match(/(크롤링|crawling|스크래핑|scraping|매물.*가져오기|데이터.*수집|HTML.*추출)/gi);
+      if (crawlingMatches) {
+        const platformMatch = step.match(/(네이버.*부동산|직방|다방|부동산.*사이트|부동산.*플랫폼)/gi);
+        const platform = platformMatch ? platformMatch[0] : '웹사이트';
+        methods.push({
+          tool: `${platform} 크롤링`,
+          action: step,
+          details: flow.title + ' (웹 크롤링은 법적/기술적 제약 있음 - 검증 필요)'
+        });
+        console.log(`🚨 [방법추출] 크롤링 방법 발견: ${platform}`);
+      }
+      
+      // 🚨 2순위: 구체적 서비스/API 검증이 필요한 도구들
+      const criticalServicesMatches = step.match(/(네이버.*부동산|직방|다방|잡코리아|jobkorea|사람인|saramin|링크드인|linkedin|Facebook API|Instagram API|카카오톡|kakao|유튜브 API|youtube api)/gi);
       if (criticalServicesMatches) {
         methods.push({
           tool: criticalServicesMatches[0],
           action: step,
           details: flow.title + ' (개인 사용자 API 지원 여부 검증 필요)'
         });
+        console.log(`🔍 [방법추출] 중요 서비스 발견: ${criticalServicesMatches[0]}`);
       }
       
-      // 일반적인 도구들 (검증 필요하지만 보통 지원됨)
-      const generalToolMatches = step.match(/(Google Apps Script|Zapier|Make\.com|Slack|Gmail|Drive|Sheets|Forms|IFTTT|Airtable|Notion)/gi);
-      if (generalToolMatches) {
+      // 🚨 3순위: 알림 방법 (카카오톡 등)
+      const notificationMatches = step.match(/(카카오톡.*알림|카톡.*전송|kakao.*message|텔레그램|telegram|슬랙.*알림|slack.*webhook)/gi);
+      if (notificationMatches) {
+        methods.push({
+          tool: notificationMatches[0],
+          action: step, 
+          details: flow.title + ' (개인 알림 서비스 API 제약 검증 필요)'
+        });
+        console.log(`🔔 [방법추출] 알림 방법 발견: ${notificationMatches[0]}`);
+      }
+      
+      // 4순위: 일반적인 도구들 (보통 지원됨)
+      const generalToolMatches = step.match(/(Google Apps Script|Apps Script|Zapier|Make\.com|Slack|Gmail|Drive|Sheets|Forms|IFTTT|Airtable|Notion)/gi);
+      if (generalToolMatches && !crawlingMatches && !criticalServicesMatches) {
         methods.push({
           tool: generalToolMatches[0],
           action: step,
           details: flow.title || ''
         });
+        console.log(`✅ [방법추출] 일반 도구 발견: ${generalToolMatches[0]}`);
       }
       
-      // 🔍 웹훅/API 관련 키워드는 더 구체적으로 검증
+      // 5순위: 웹훅/API 관련
       const webhookMatches = step.match(/(웹훅|webhook|API.*연결|직접.*연동)/gi);
-      if (webhookMatches) {
+      if (webhookMatches && !crawlingMatches && !criticalServicesMatches) {
         methods.push({
           tool: 'Custom API Integration',
           action: step,
           details: flow.title + ' (API 개인 지원 여부 및 개발 복잡도 검증 필요)'
         });
+        console.log(`🔗 [방법추출] API 연동 발견`);
       }
       
-      // 일반적 액션들 (낮은 우선순위)
-      else {
+      // 6순위: 액션 키워드 기반 (최종 폴백)
+      if (!crawlingMatches && !criticalServicesMatches && !notificationMatches && !generalToolMatches && !webhookMatches) {
         const actionKeywords = step.match(/(연결|설정|구성|모니터링|수집|분석|전송|알림|저장|생성)/gi);
         if (actionKeywords) {
           methods.push({
@@ -306,9 +390,25 @@ async function generateVerifiedSteps(
     const originalStep = originalSteps[i];
     
     // 이 단계가 문제 있는 방법을 포함하는지 확인
-    const isProblematic = problematicMethods.some(pm => 
-      originalStep.toLowerCase().includes(pm.tool.toLowerCase())
-    );
+    const isProblematic = problematicMethods.some(pm => {
+      const stepLower = originalStep.toLowerCase();
+      const toolLower = pm.tool.toLowerCase();
+      
+      // 🔍 다양한 매칭 방식으로 문제 단계 감지
+      if (toolLower === 'manual process') {
+        // Manual Process는 특별 처리: 주요 키워드로 감지
+        return stepLower.includes('인스타그램') || 
+               stepLower.includes('카카오톡') || 
+               stepLower.includes('네이버') ||
+               stepLower.includes('페이스북') ||
+               stepLower.includes('api') ||
+               stepLower.includes('dm') ||
+               stepLower.includes('메시지');
+      }
+      
+      // 일반적인 도구명 매칭
+      return stepLower.includes(toolLower);
+    });
     
     if (isProblematic) {
       // 문제 있는 단계를 현실적 대안으로 교체
@@ -325,34 +425,237 @@ async function generateVerifiedSteps(
 }
 
 /**
+ * 🛡️ Fallback 현실성 분석 (시스템적 체크 실패 시)
+ */
+async function fallbackFeasibilityAnalysis(userInput: string, followupAnswers: any) {
+  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, 간단한 키워드 체크 사용');
+  
+  const quickCheck = quickFeasibilityCheck(userInput);
+  
+  // 기본 구조로 변환
+  return {
+    isRealistic: quickCheck.isRealistic ?? true,
+    feasibilityScore: quickCheck.feasibilityScore ?? 7,
+    impossibleElements: quickCheck.impossibleElements ?? [],
+    viableAlternatives: quickCheck.viableAlternatives ?? ['Google Apps Script', 'IFTTT'],
+    costWarnings: [],
+    difficultyWarnings: [],
+    recommendedApproach: quickCheck.isRealistic ? '추천 도구로 직접 구현' : '단순한 대안으로 목적 달성'
+  };
+}
+
+/**
+ * 🧠 사용자 입력에서 진짜 목적과 불가능한 요소들을 분석하는 함수 (폴백용)
+ * 🎯 나(Claude)의 사고방식을 모방한 목적 중심 분석
+ */
+function analyzePurposeFromInput(userInput: string, followupAnswers: any) {
+  const inputLower = userInput.toLowerCase();
+  const answersStr = JSON.stringify(followupAnswers || {}).toLowerCase();
+  
+  // 🎯 진짜 목적 추출 (더 정교하게)
+  let mainGoal = '';
+  
+  // 고객 지원/소통 관련
+  if (inputLower.includes('고객') || inputLower.includes('문의') || inputLower.includes('응답') || inputLower.includes('dm')) {
+    mainGoal = '고객 문의를 놓치지 않고 빠르게 응답하기';
+  }
+  // 데이터 수집/모니터링 관련
+  else if (inputLower.includes('수집') || inputLower.includes('모니터링') || inputLower.includes('감지') || inputLower.includes('새 글')) {
+    mainGoal = '중요한 정보를 놓치지 않고 실시간으로 파악하기';
+  }
+  // 업무 효율성 관련
+  else if (inputLower.includes('알림') || inputLower.includes('알려') || inputLower.includes('전송')) {
+    mainGoal = '중요한 상황을 팀에게 즉시 공유하기';
+  }
+  // 데이터 정리/분석 관련
+  else if (inputLower.includes('분류') || inputLower.includes('정리') || inputLower.includes('저장')) {
+    mainGoal = '데이터를 체계적으로 정리하고 관리하기';
+  }
+  else {
+    mainGoal = '반복적인 업무를 효율적으로 처리하기';
+  }
+  
+  // ⚠️ 불가능한 요소들 감지 (더 정교하게)
+  const impossibleElements = [];
+  const viableAlternatives = [];
+  
+  // 카카오톡 관련
+  if (inputLower.includes('카카오톡') || answersStr.includes('카카오톡')) {
+    impossibleElements.push('카카오톡 직접 API 연동');
+    if (mainGoal.includes('고객')) {
+      viableAlternatives.push('웹사이트 문의 폼 + 이메일 자동 응답');
+      viableAlternatives.push('채널톡 또는 Intercom 도입');
+    } else {
+      viableAlternatives.push('이메일 알림 + Google Forms');
+      viableAlternatives.push('Slack 또는 Discord 활용');
+    }
+  }
+  
+  // 인스타그램 관련
+  if (inputLower.includes('인스타그램') || inputLower.includes('instagram')) {
+    impossibleElements.push('인스타그램 DM 자동화');
+    if (mainGoal.includes('고객')) {
+      viableAlternatives.push('웹사이트 문의 폼 설정');
+      viableAlternatives.push('이메일 기반 고객 지원 시스템');
+      viableAlternatives.push('채널톡 또는 크리스프 도입');
+    } else {
+      viableAlternatives.push('이메일 수집 + 자동 처리');
+      viableAlternatives.push('Google Forms + 자동 알림');
+    }
+  }
+  
+  // 네이버 카페 관련
+  if (inputLower.includes('네이버') && inputLower.includes('카페')) {
+    impossibleElements.push('네이버 카페 API 연동');
+    viableAlternatives.push('RSS 피드 모니터링 (공식 피드 활용)');
+    viableAlternatives.push('이메일 알림 설정');
+    viableAlternatives.push('Google Alerts 활용');
+  }
+  
+  // 소셜미디어 일반
+  if (inputLower.includes('페이스북') || inputLower.includes('facebook')) {
+    impossibleElements.push('개인 페이스북 API');
+    viableAlternatives.push('공식 비즈니스 도구 활용');
+    viableAlternatives.push('RSS 피드 기반 모니터링');
+  }
+  
+  // 유튜브 관련 (동적 확장 예시)
+  if (inputLower.includes('유튜브') || inputLower.includes('youtube')) {
+    if (inputLower.includes('댓글') || inputLower.includes('comment')) {
+      impossibleElements.push('유튜브 댓글 실시간 모니터링');
+      viableAlternatives.push('Google Alerts + 브랜드명 모니터링');
+      viableAlternatives.push('수동 댓글 확인 + 자동 알림 설정');
+      viableAlternatives.push('YouTube Data API (제한적) + 수동 검토');
+    } else {
+      impossibleElements.push('유튜브 댓글 자동 응답');
+      if (mainGoal.includes('고객')) {
+        viableAlternatives.push('웹사이트 문의 폼 + 유튜브 커뮤니티 탭 활용');
+        viableAlternatives.push('이메일 기반 고객 지원');
+      } else {
+        viableAlternatives.push('유튜브 RSS 피드 활용 (새 동영상 감지용)');
+        viableAlternatives.push('YouTube Data API (공식) 활용');
+      }
+    }
+  }
+  
+  // 틱톡 관련 (새 플랫폼 추가)
+  if (inputLower.includes('틱톡') || inputLower.includes('tiktok')) {
+    impossibleElements.push('틱톡 댓글/DM 자동화');
+    viableAlternatives.push('Google Alerts + 브랜드 모니터링');
+    viableAlternatives.push('수동 모니터링 + 자동 알림 시스템');
+  }
+  
+  // 링크드인 관련 (B2B 특화)
+  if (inputLower.includes('링크드인') || inputLower.includes('linkedin')) {
+    impossibleElements.push('링크드인 개인 메시지 API');
+    if (mainGoal.includes('고객') || mainGoal.includes('영업')) {
+      viableAlternatives.push('웹사이트 B2B 문의 폼');
+      viableAlternatives.push('이메일 기반 영업 시스템');
+    } else {
+      viableAlternatives.push('링크드인 공식 Sales Navigator');
+      viableAlternatives.push('CRM 직접 연동');
+    }
+  }
+  
+  // 기본 대안이 없다면 목적에 맞는 범용 대안 추가
+  if (viableAlternatives.length === 0) {
+    if (mainGoal.includes('고객')) {
+      viableAlternatives.push('웹사이트 문의 폼 + 이메일 자동화');
+      viableAlternatives.push('Google Forms + Apps Script');
+    } else if (mainGoal.includes('모니터링')) {
+      viableAlternatives.push('RSS 피드 + IFTTT');
+      viableAlternatives.push('Google Alerts + 이메일 필터');
+    } else {
+      viableAlternatives.push('Gmail + Google Sheets 조합');
+      viableAlternatives.push('Zapier/Make.com 활용');
+    }
+  }
+  
+  return {
+    mainGoal,
+    impossibleElements,
+    viableAlternatives
+  };
+}
+
+/**
  * 🔄 문제 있는 단계를 현실적 대안으로 교체하는 함수
+ * 🎯 핵심 변화: 도구 중심 → 목적 중심 사고로 전환
  */
 async function generateAlternativeStep(
   problematicStep: string,
   problematicMethods: any[]
 ): Promise<string> {
   
-  // 빠른 대안 생성 (패턴 기반)
   const stepLower = problematicStep.toLowerCase();
   
-  // 일반적인 대안 패턴들
-  if (stepLower.includes('rss') || stepLower.includes('피드')) {
-    return problematicStep.replace(/rss|피드/gi, 'Visualping 웹 모니터링');
+  // 🧠 목적 중심 대안 생성 (작업 자체를 재구성)
+  for (const pm of problematicMethods) {
+    const toolLower = pm.tool.toLowerCase();
+    
+    // 🚨 카카오톡 특별 처리 (가장 흔한 불가능 케이스)
+    if (toolLower.includes('카카오톡')) {
+      if (stepLower.includes('메시지') && stepLower.includes('감지')) {
+        return problematicStep.replace(/카카오톡.*?감지/gi, '이메일 알림 감지 (카카오톡 → 이메일 설정 활용)');
+      }
+      if (stepLower.includes('채널')) {
+        return problematicStep.replace(/카카오톡.*?채널/gi, '채널톡 또는 이메일 기반');
+      }
+      // 기본 카카오톡 대안
+      return problematicStep.replace(/카카오톡.*?([가-힣\s]+)/gi, '이메일 알림 + Google Forms $1');
+    }
+    
+    // 🚨 인스타그램 특별 처리 (DM 자동화 불가능)
+    if (toolLower.includes('instagram') || stepLower.includes('인스타그램')) {
+      if (stepLower.includes('dm') || stepLower.includes('메시지') || stepLower.includes('감지')) {
+        return problematicStep.replace(/인스타그램.*?(dm|메시지|감지)/gi, '이메일 기반 고객 문의 시스템 (인스타그램 DM 자동화 불가능)');
+      }
+      if (stepLower.includes('자동')) {
+        return problematicStep.replace(/인스타그램.*?자동/gi, '수동 처리 + 자동 알림 조합 (인스타그램 API 제한)');
+      }
+      // 일반적인 인스타그램 대안
+      return problematicStep.replace(/인스타그램/gi, '이메일 또는 웹사이트 기반 대안');
+    }
+    
+    // 🚨 네이버 카페 특별 처리
+    if (toolLower.includes('네이버') && stepLower.includes('카페')) {
+      if (stepLower.includes('새 글') || stepLower.includes('모니터링')) {
+        return problematicStep.replace(/네이버.*?카페.*?([가-힣\s]+)/gi, 'RSS 피드 모니터링 (공식 피드 활용) $1');
+      }
+    }
+    
+    // 🚨 API 불가능 케이스 처리
+    if (stepLower.includes('api') && (toolLower.includes('facebook') || toolLower.includes('instagram'))) {
+      return problematicStep.replace(/API.*?([가-힣\s]+)/gi, '수동 수집 + Google Forms 자동화 $1');
+    }
+    
+    // 🚨 웹 스크래핑 불가능 케이스
+    if (stepLower.includes('스크래핑') || stepLower.includes('크롤링')) {
+      return problematicStep.replace(/(스크래핑|크롤링).*?([가-힣\s]+)/gi, 'RSS 피드 또는 공식 알림 활용 $2');
+    }
   }
   
-  if (stepLower.includes('facebook') || stepLower.includes('instagram')) {
-    return problematicStep.replace(/facebook|instagram/gi, 'Google Apps Script + 웹스크래핑');
+  // 🎯 일반적인 목적 기반 대안 패턴들
+  if (stepLower.includes('실시간') && stepLower.includes('모니터링')) {
+    return problematicStep.replace(/실시간.*?모니터링/gi, '주기적 체크 + 즉시 알림 (Google Apps Script)');
   }
   
-  if (stepLower.includes('api') && stepLower.includes('직접')) {
-    return problematicStep.replace(/api.*직접/gi, '웹훅 및 공식 연동 도구');
+  if (stepLower.includes('자동') && stepLower.includes('분류')) {
+    return problematicStep.replace(/자동.*?분류/gi, 'Gmail 필터 + 키워드 기반 자동 분류');
   }
   
-  // 기본 대안: 원본에서 문제 도구만 교체
+  // 📋 최종 폴백: 목적은 유지하되 실행 방법을 현실적으로
   let alternativeStep = problematicStep;
   problematicMethods.forEach(pm => {
     const toolPattern = new RegExp(pm.tool, 'gi');
-    alternativeStep = alternativeStep.replace(toolPattern, 'Google Apps Script');
+    // 🔧 단순 도구 교체가 아닌, 실행 가능한 방법으로 재구성
+    if (pm.tool.toLowerCase().includes('카카오톡')) {
+      alternativeStep = alternativeStep.replace(toolPattern, '이메일 기반 대안');
+    } else if (pm.tool.toLowerCase().includes('api')) {
+      alternativeStep = alternativeStep.replace(toolPattern, 'Google Apps Script + 공식 도구');
+    } else {
+      alternativeStep = alternativeStep.replace(toolPattern, 'Google Apps Script');
+    }
   });
   
   return alternativeStep;
@@ -378,13 +681,19 @@ async function validateMethodCurrentStatus(
     // 🔍 Step 1: 구체적이고 현실적인 검증 쿼리 생성
     const searchQueries = [];
     
-    // 🚨 Critical Services: 개인 사용자 API 지원 여부 검증
-    if (['잡코리아', '사람인', '인크루트', '링크드인', 'Facebook API', 'Instagram API', '카카오톡'].includes(method.tool)) {
+    // 🧠 Claude 스타일 최신 정보 검색: 정책 변경 중심
+    if (method.tool.toLowerCase().includes('api') || 
+        method.action.toLowerCase().includes('api') ||
+        method.action.toLowerCase().includes('자동화') ||
+        method.action.toLowerCase().includes('연동')) {
       searchQueries.push(
-        `"${method.tool}" 개인 사용자 API 지원 여부 2025`,
-        `"${method.tool}" personal developer API access restrictions 2025`,
-        `"${method.tool}" 웹훅 개인계정 지원 안함 2025`,
-        `"${method.tool}" alternative methods without API 개인용 2025`
+        // 2024-2025 정책 변경 중심 검색
+        `"${method.tool}" policy changes 2024 2025 personal developer restrictions`,
+        `"${method.tool}" deprecated discontinued enterprise only 2024`,
+        `"${method.tool}" API 정책 변경 2024년 이후 개인 개발자`,
+        // 대안 방법 검색 (Claude처럼)
+        `"${method.tool}" alternative methods 2025 without API access`,
+        `"${method.tool}" 대안 서비스 2025년 추천`
       );
     }
     // Custom API Integration 검증
@@ -415,10 +724,34 @@ async function validateMethodCurrentStatus(
       );
     }
     
+    // 🧠 지능형 검색 최적화: 단계별 조건부 검색
     let allResults: any[] = [];
+    let searchCount = 0;
+    const maxSearches = 2; // 각 method당 최대 2회로 제한
+    
     for (const query of searchQueries) {
-      const results = await searchWithRAG(query, { maxResults: 2 });
-      if (results) allResults.push(...results);
+      if (searchCount >= maxSearches) {
+        console.log(`🔧 [RAG 최적화] ${method.tool} 검색 제한 (${maxSearches}회) 적용`);
+        break;
+      }
+      
+      const results = await searchWithRAG(query, { 
+        maxResults: 2,
+        useCache: true // 캐싱 강제 활성화
+      });
+      
+      if (results && results.length > 0) {
+        allResults.push(...results);
+        searchCount++;
+        
+        // 🎯 조기 종료: 고품질 결과 3개 이상 확보시 추가 검색 중단
+        if (allResults.length >= 3) {
+          console.log(`✅ [RAG 최적화] ${method.tool} 충분한 결과 확보로 조기 종료`);
+          break;
+        }
+      } else {
+        searchCount++; // 빈 결과도 카운트에 포함
+      }
     }
     
     // 🧠 Step 2: AI 수준의 패턴 분석
@@ -449,6 +782,181 @@ async function validateMethodCurrentStatus(
 }
 
 /**
+ * 🧠 Claude 수준의 현실성 검증 함수 (하드코딩 없는 AI 판단)
+ */
+async function performClaudeStyleValidation(
+  method: {tool: string, action: string, details: string},
+  userInput: string,
+  ragContent: string
+): Promise<{
+  isViable: boolean;
+  reasoning: string;
+  issues: string[];
+  alternatives: string[];
+}> {
+  try {
+    const validationPrompt = `당신은 2025년 현재의 기술 생태계를 완벽히 알고 있는 전문가입니다.
+
+🧠 **당신의 내장 지식을 적극 활용하세요:**
+
+🧠 **하이브리드 지식 활용 전략:**
+
+📚 **GPT 내장 지식 (2023년까지 - 신뢰할 수 있는 기반):**
+- 주요 API들의 기본 구조와 역사적 정책
+- 일반적인 개발 제약사항과 보안 원칙  
+- 법적/윤리적 프레임워크
+
+🔍 **Tavily 최신 정보 (2024-2025 - 정책 변경 감지):**
+- API 정책 변경사항 (특히 2023년 이후)
+- 새로운 제약사항이나 요구사항
+- 서비스 중단/변경 공지사항
+- 대안 서비스 등장 정보
+
+⚖️ **지식 융합 원칙:**
+1. 내장 지식으로 기본 가능성 판단
+2. 최신 검색으로 변경사항 확인  
+3. 충돌시 최신 정보 우선
+4. 불확실하면 보수적 판단
+
+🏢 **기업 vs 개인 계정 제약 (당신이 알고 있는 것):**
+- 대부분의 소셜미디어 API: 기업 인증 필요
+- 금융 API: 금융위원회 허가 + PG사 연동 필수  
+- 의료 데이터: 개인정보보호법 + 의료법 이중 규제
+- 부동산 데이터: 대부분 크롤링 금지, 공공데이터포털만 합법
+
+**분석 대상**: ${method.tool} - ${method.action}
+**사용자**: ${userInput}
+**추가 검색 정보**: ${ragContent}
+
+🔍 **Claude 스타일 하이브리드 분석:**
+
+1️⃣ **내장 지식 기반 1차 판단 (2023년까지):**
+   - 이 API/도구가 역사적으로 어떤 정책을 가졌나?
+   - 일반적인 개인/기업 구분 원칙은?
+   - 유사한 서비스들의 패턴은?
+
+2️⃣ **최신 정보로 검증 및 업데이트:**
+   - 검색 결과에서 "2024", "2025", "정책 변경" 키워드 확인
+   - "더 이상 지원하지 않음", "deprecated", "enterprise only" 등 감지
+   - 새로운 대안 서비스나 우회 방법 발견
+
+3️⃣ **지식 융합 및 최종 판단:**
+   - 내장 지식 + 최신 정보 = 종합 결론
+   - 충돌 시 최신 정보 우선 (특히 정책 변경)
+   - 불확실한 경우 → 보수적 판단 + 대안 제시
+
+4️⃣ **Claude 수준 추론:**
+   - 단순 기술적 가능성 ≠ 실제 사용자 도움
+   - 사용자 의도 파악 + 현실적 제약 + 윤리적 고려
+   - 완전한 솔루션만 제안 (불완전한 것은 명시적 거부)
+
+다음 기준으로 실현가능성을 엄격하게 판단하세요:
+
+1. **API 접근성**: 개인 사용자가 해당 서비스의 API나 데이터에 접근할 수 있는가?
+2. **정책 제약**: 서비스 이용약관이나 개발자 정책상 허용되는가?
+3. **기술적 실현**: 웹스크래핑, 데이터 수집 등이 기술적으로 실제 가능한가?
+4. **초보자 실행**: 비개발자가 실제로 따라할 수 있는 수준인가?
+5. **2025년 현재**: 최신 정보 기준으로 여전히 유효한가?
+
+**동적 현실성 체크 (2025년 기준):**
+- API 정책 변경사항 반영
+- 개인/기업 계정 구분 및 제약사항
+- 실제 데이터 접근 가능성
+- 법적/윤리적 제약사항
+- 기술적 실현 가능성
+
+**동적 검증 질문들:**
+1. 이 조합이 2025년에도 실제로 작동하는가?
+2. 검색 결과에서 "deprecated", "discontinued", "enterprise only" 키워드가 있는가?
+3. 개인 사용자 vs 비즈니스 계정 제약이 있는가?
+4. 실제 튜토리얼이나 성공 사례가 최근에 있는가?
+5. 법적/윤리적 문제가 없는가?
+
+**특별 주의 조합들:**
+- "카카오톡" + "자동화" → 비즈니스 계정 필요성 체크
+- "크롤링" + "부동산사이트" → 이용약관 위반 가능성
+- "개인 SNS" + "데이터 수집" → API 정책 변경 확인
+- "투자" + "자동화" → 금융 규제 고려
+- "의료/개인정보" + "수집" → 법적 제약 강화
+
+**🔥 핵심: Claude 수준 지식 융합**
+
+💡 **정보 우선순위:**
+1. **최신 검색 정보** (2024-2025 정책 변경) → 최우선
+2. **내장 지식** (2023년까지 기본 원칙) → 기반 지식
+3. **충돌 시** → 최신 정보가 내장 지식을 덮어씀
+
+🧠 **융합 추론 예시:**
+- 내장 지식: "카카오톡 API 존재함" 
+- 검색 정보: "2024년 비즈니스 계정만 허용"
+- 융합 결론: ❌ 개인 사용자 불가능
+
+🚫 **절대 허용 금지:**
+- Math.random() 같은 가짜 데이터
+- "여기에 로직 추가" 같은 빈 구현부  
+- 불완전한 솔루션을 완전한 것처럼 포장
+
+JSON 형태로 응답:
+{
+  "isViable": boolean,
+  "confidence": 0-100,
+  "reasoning": "구체적인 판단 이유 (의미적 가치 포함)",
+  "issues": ["문제점1", "문제점2"],
+  "alternatives": ["현실적인 대안1", "현실적인 대안2"],
+  "dataSourceIssues": ["데이터 소스 관련 문제들"],
+  "implementationGaps": ["초보자가 막힐 수 있는 부분들"]
+}`;
+
+    // 🔧 자동 모델 호환성 시스템 적용
+    const { generateOptimalParams, executeWithAutoRecovery } = await import('../utils/model-compatibility');
+    
+    const optimalParams = generateOptimalParams('o3-mini', {
+      maxTokens: 1500,
+      temperature: 0.1, // 원하는 값 (자동으로 필터링됨)
+      jsonMode: false
+    });
+    
+    const requestParams = {
+      model: 'o3-mini',
+      messages: [{ role: 'user', content: validationPrompt }],
+      ...optimalParams
+    };
+    
+    const response = await executeWithAutoRecovery('o3-mini', requestParams, 
+      (params) => openai.chat.completions.create(params)
+    );
+
+    const content = response.choices[0].message.content || '{}';
+    
+    // 🔧 자동 JSON 복구 시스템 사용
+    const { parseJSONWithRecovery } = await import('../utils/json-sanitizer');
+    const result = parseJSONWithRecovery(content) || {
+      isViable: false,
+      reasoning: 'JSON 파싱 실패',
+      issues: ['파싱 오류'],
+      alternatives: []
+    };
+    
+    return {
+      isViable: result.isViable || false,
+      reasoning: result.reasoning || 'AI 판단 결과 없음',
+      issues: result.issues || [],
+      alternatives: result.alternatives || []
+    };
+
+  } catch (error) {
+    console.error('❌ [AI Validation] 검증 실패:', error);
+    // 에러 시 보수적으로 불가능 판정
+    return {
+      isViable: false,
+      reasoning: 'AI 검증 중 오류 발생 - 보수적 판정',
+      issues: ['검증 프로세스 오류'],
+      alternatives: ['수동 확인 필요']
+    };
+  }
+}
+
+/**
  * 🧠 AI처럼 방법론의 실현가능성을 종합 분석하는 함수 (Claude 수준 엄격함)
  */
 async function analyzeMethodViabilityWithAI(
@@ -466,65 +974,18 @@ async function analyzeMethodViabilityWithAI(
   const combinedContent = ragResults.map(r => r.content || '').join(' ').toLowerCase();
   const userGoal = userInput.toLowerCase();
   
-  // 🚨 1단계: Claude 수준 엄격한 불가능 패턴 감지
-  const impossibilityChecks = [
-    // 채용 플랫폼들의 개인 API 제한
-    {
-      pattern: /(잡코리아|jobkorea).*(api|웹훅|webhook|연동)/,
-      applies: () => method.tool.includes('잡코리아'),
-      reason: "잡코리아는 개인 사용자에게 웹훅 API를 제공하지 않음 (기업용 ATS만 지원)"
-    },
-    {
-      pattern: /(사람인|saramin).*(api|웹훅|webhook|연동)/,
-      applies: () => method.tool.includes('사람인'),
-      reason: "사람인은 개인 사용자에게 API 접근을 제공하지 않음"
-    },
-    {
-      pattern: /(인크루트|incruit).*(api|웹훅|webhook)/,
-      applies: () => method.tool.includes('인크루트'),
-      reason: "인크루트는 개인 개발자 API를 지원하지 않음"
-    },
-    // 기존 소셜미디어 제한들
-    {
-      pattern: /(google alert|google 알림).*(youtube|유튜브).*(comment|댓글)/,
-      applies: () => method.tool.includes('Google Alert') && userGoal.includes('유튜브') && userGoal.includes('댓글'),
-      reason: "Google Alert는 YouTube 댓글을 크롤링할 수 없음 (기술적 불가능)"
-    },
-    {
-      pattern: /(instagram|인스타).*(personal|개인).*(api|연동)/,
-      applies: () => method.tool.includes('Instagram') && !userGoal.includes('business'),
-      reason: "Instagram 개인계정 API는 Meta 정책으로 제한됨"
-    },
-    {
-      pattern: /(kakao|카카오).*(api|연동).*(webhook|웹훅)/,
-      applies: () => method.tool.includes('카카오') || method.action.includes('카카오'),
-      reason: "카카오톡 공식 API는 비즈니스 인증 필요"
-    },
-    {
-      pattern: /(facebook|페이스북).*(personal|개인).*(api|직접)/,
-      applies: () => method.tool.includes('Facebook') && !userGoal.includes('page'),
-      reason: "Facebook 개인계정 직접 API 연동 제한"
-    },
-    // 복잡한 커스텀 API 통합
-    {
-      pattern: /(custom api|커스텀|직접.*연동).*(개발|구현)/,
-      applies: () => method.tool === 'Custom API Integration' && !userGoal.includes('개발자'),
-      reason: "커스텀 API 통합은 개발 지식이 필요하여 초보자에게 부적합"
-    }
-  ];
+  // 🧠 1단계: Claude 수준 AI 판단으로 현실성 검증
+  const aiValidationResult = await performClaudeStyleValidation(method, userInput, combinedContent);
   
-  // 명백한 불가능 케이스 체크
-  for (const check of impossibilityChecks) {
-    if (check.applies() || check.pattern.test(combinedContent + ' ' + userGoal)) {
-      return {
-        isViable: false,
-        reasoning: check.reason,
-        issues: [check.reason],
-        status: 'Technically Impossible',
-        uiChanges: [],
-        recommendations: await generateSmartAlternatives(method, userInput)
-      };
-    }
+  if (!aiValidationResult.isViable) {
+    return {
+      isViable: false,
+      reasoning: aiValidationResult.reasoning,
+      issues: aiValidationResult.issues,
+      status: 'AI Validated - Impossible',
+      uiChanges: [],
+      recommendations: aiValidationResult.alternatives
+    };
   }
   
   // 🔍 2단계: RAG 결과 키워드 분석
@@ -593,13 +1054,92 @@ async function analyzeMethodViabilityWithAI(
   }
 }
 
+
+
 /**
  * 🎯 현실적 반자동화 대안 생성 (Claude 수준 엄격함)
  */
 async function generateSmartAlternatives(
-  method: {tool: string, action: string, details: string},
+  method: {tool: string, action: string, details: string}, 
   userInput: string
 ): Promise<string[]> {
+  
+  console.log('🧠 [2025 도구 검색] RAG + AI 도구 레지스트리 통합 검색...');
+  
+  try {
+    // 🎯 1단계: 도메인 기반 AI 도구 피어 서치
+    const detectedDomain = detectDomainEnhanced(userInput);
+    const peerTools = await performPeerToolSearch(detectedDomain, method.tool, userInput);
+    
+    console.log(`🔍 [피어 서치] ${peerTools.length}개 도구 발견: ${peerTools.slice(0, 3).join(', ')}`);
+    
+    // 🔎 2단계: Tavily RAG 폴백 검색 (피어 서치가 부족한 경우)
+    const { searchWithRAG } = await import('../services/rag');
+    const ragResults = await searchWithRAG(`"${method.tool}" alternative tools 2025 realistic legal free options korean`, { maxResults: 3 });
+    const ragContent = ragResults.map(r => `${r.title}: ${r.content.substring(0, 200)}`).join('\n');
+    
+    console.log(`📊 [RAG 검색] ${ragResults.length}개 핵심 소스에서 정보 수집`);
+    
+    // 🧠 2단계: 젠스파크 수준 컨텍스트 인식 + 추론
+    
+    const alternativePrompt = `당신은 AI 도구 레지스트리를 활용하는 2025년 자동화 전문가입니다. 현실성과 법적 안전성을 최우선으로 합니다.
+
+🚨 **한국 플랫폼 현실성 체크 (필수)**:
+- ❌ 네이버 카페 API: 공식 지원 없음, 크롤링 시 이용약관 위반
+- ❌ 카카오톡 개인 API: 2022년부터 비즈니스 계정만 허용  
+- ❌ 웹 스크래핑: 대부분 이용약관 위반, 법적 위험
+- ✅ 대안: RSS 피드, 이메일 알림, Google Forms, 공식 API만
+
+🧠 **컨텍스트 분석:**
+- **실패한 방법**: ${method.tool} - ${method.action}
+- **사용자 실제 목표**: ${userInput}
+- **AI 레지스트리 추천**: ${peerTools.join(', ')}
+- **최신 검색 결과**: ${ragContent}
+
+🎯 **2025년 현실적 대안 원칙:**
+1. **법적 안전성**: 이용약관 준수, 공식 API 우선
+2. **개인 접근성**: 개발자 인증 없이 가능한 방법
+3. **비용 효율성**: 무료 > 저비용 > 유료 순서
+4. **실행 가능성**: 초보자도 30분 내 설정 가능
+
+**현실적 대안 패턴**:
+- 🆓 Google Apps Script: 완전 무료, 강력한 자동화
+- 📧 이메일 기반: Gmail + 필터 + 스프레드시트 연동
+- 📋 RSS 활용: 공식 피드 + IFTTT/Zapier
+- 🤖 AI 도우미: ChatGPT/Claude 프롬프트 + 수동 실행
+- 📊 반자동화: 사람 판단 + 도구 처리
+
+사용자의 **진짜 목표**를 달성할 수 있는 3-5개의 구체적이고 현실적인 대안을 JSON 배열로 반환하세요:
+["대안1: 구체적 도구 + 방법", "대안2: 구체적 도구 + 방법", "대안3: 구체적 도구 + 방법"]`;
+
+    // 💰 저비용 최적화: 단일 호출로 고품질 결과 달성
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-2024-11-20',
+      messages: [{ role: 'user', content: alternativePrompt }],
+      temperature: 0.2, // 더 결정적으로 (품질 향상)
+      max_tokens: 1000 // 더 상세한 답변 허용
+    });
+
+    const content = response.choices[0].message.content || '[]';
+    
+    // 🔧 Robust JSON 파싱 사용
+    const { parseRobustJSON } = await import('../utils/robust-json-parser');
+    const generatedAlternatives = parseRobustJSON(content, ['수동 프로세스 + 부분 자동화', 'IFTTT 연동', '이메일 기반 워크플로우']);
+    console.log(`🎯 [AI 대안생성] ${generatedAlternatives.length}개 현실적 대안 생성 완료`);
+    
+    return Array.isArray(generatedAlternatives) ? generatedAlternatives : ['수동 프로세스 + 부분 자동화', 'IFTTT 연동', '이메일 기반 워크플로우'];
+    
+  } catch (error) {
+    console.error('❌ [AI 대안생성] 실패:', error);
+    // 폴백: 기본적인 현실적 대안들
+  return [
+      '공공 API + 스프레드시트 자동화',
+      'RSS 피드 + IFTTT 연동', 
+      '이메일 알림 + ChatGPT 분석',
+      'Telegram Bot + 수동 입력',
+      '스프레드시트 + Google Apps Script'
+    ];
+  }
   console.log('🧠 [스마트 대안] GPT에게 동적 대안 생성 요청...');
   
   // 사용자 요청에서 도메인 파악
@@ -661,11 +1201,11 @@ async function generateSmartAlternatives(
 3. ✅ 초보자도 따라할 수 있는 구체적 단계
 4. ✅ 법적/윤리적 문제 없음
 
-🚫 **절대 제안 금지 (Claude 기준):**
-- 잡코리아/사람인 등 채용사이트 직접 API (지원 안함)
-- Instagram/Facebook 개인계정 직접 API (정책 위반)
-- 카카오톡 개인 메시지 자동화 (불법)
-- 개인정보 무단 수집 (개인정보보호법 위반)
+🧠 **동적 제약 검증 (Claude 방식):**
+- 제안된 방법의 현재 정책 상태 실시간 확인
+- 개인 vs 기업 계정 제약사항 동적 판별
+- 법적/윤리적 문제 컨텍스트 기반 검토
+- 사용자 의도와 실현 가능성 종합 평가
 
 ✅ **추천 현실적 대안들:**
 ${specificAlternatives.map((alt, i) => `${i+1}. ${alt}`).join('\n')}
@@ -674,12 +1214,13 @@ ${specificAlternatives.map((alt, i) => `${i+1}. ${alt}`).join('\n')}
 {"alternatives": ["대안1", "대안2", "대안3", "대안4"]}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-11-20', // Claude 수준의 스마트한 대안 생성
-      messages: [
-        { 
-          role: 'system', 
-          content: `당신은 Claude처럼 창의적이고 현실적인 대안을 찾는 전문가입니다.
+    // 🔧 자동 모델 호환성 시스템 적용
+    const { generateOptimalParams, executeWithAutoRecovery } = await import('../utils/model-compatibility');
+    
+    const messages = [
+      { 
+        role: 'system', 
+        content: `당신은 Claude처럼 창의적이고 현실적인 대안을 찾는 전문가입니다.
 
 🧠 Claude의 창의적 문제해결:
 1. 문제의 근본 원인 파악
@@ -687,13 +1228,25 @@ ${specificAlternatives.map((alt, i) => `${i+1}. ${alt}`).join('\n')}
 3. 예상치 못한 해결책 고려
 4. 실용성과 안전성 균형
 5. 단계적 구현 가능성 검토` 
-        },
-        { role: 'user', content: alternativePrompt }
-      ],
-      max_tokens: 500,
-      temperature: 0.4,
-      response_format: { type: 'json_object' }
+      },
+      { role: 'user', content: alternativePrompt }
+    ];
+    
+    const optimalParams = generateOptimalParams('o3-mini', {
+      maxTokens: 500,
+      temperature: 0.4, // 원하는 값 (자동으로 필터링됨)
+      jsonMode: true
     });
+    
+    const requestParams = {
+      model: 'o3-mini',
+      messages: messages,
+      ...optimalParams
+    };
+    
+    const response = await executeWithAutoRecovery('o3-mini', requestParams,
+      (params: any) => openai.chat.completions.create(params)
+    );
 
     const result = JSON.parse(response.choices[0]?.message?.content || '{"alternatives": []}');
     const alternatives = result.alternatives || [];
@@ -748,7 +1301,7 @@ async function findAlternativeMethods(
       // 관련성 점수 확인
       const avgScore = validationResults.reduce((sum, r) => sum + (r.relevanceScore || 0), 0) / validationResults.length;
       
-      if (avgScore > 0.2) { // 낮은 임계값으로 현실적 방법 허용
+      if (avgScore > 0.1) { // 더 낮은 임계값으로 현실적 방법 허용
         alternatives.push({
           tool: alternative.primaryTool,
           action: alternative.action,
@@ -857,8 +1410,20 @@ function getMethodologicalAlternatives(
       {
         approach: "Google Sheets + GPT 함수로 고객 문의 대량 분석",
         primaryTool: "Google Sheets",
-        action: "=GPT_ANALYZE(A1, '감정분석') 커스텀 함수로 수백개 문의 한번에 분석",
-        viabilityReason: "스프레드시트에서 바로 AI 분석, 접근성 최고"
+        action: "=GPT_ANALYZE(A1, '다음 고객 리뷰의 감정(긍정/부정/중립)과 주요 키워드를 분석해줘') 수식으로 즉시 분석",
+        viabilityReason: "복잡한 설정 없이 스프레드시트에서 바로 AI 분석 가능, 실무진이 즉시 활용"
+      },
+      {
+        approach: "Excel + Power Query + Azure OpenAI 대량 처리",
+        primaryTool: "Microsoft Excel",
+        action: "파워쿼리로 데이터 정제 → Azure OpenAI API 호출 → 감정분석 결과 자동 정리",
+        viabilityReason: "기업환경에서 안전하고 대량 데이터 처리 가능"
+      },
+      {
+        approach: "Claude 프롬프트 복붙 솔루션 (비개발자용)",
+        primaryTool: "Claude/ChatGPT",
+        action: "고객 리뷰 복사 → 제공된 프롬프트에 붙여넣기 → 즉시 감정분석 + 대응방안 추천",
+        viabilityReason: "기술 지식 전혀 없어도 즉시 활용 가능, 정교한 분석 결과"
       },
       {
         approach: "엑셀 + Azure OpenAI로 리뷰/피드백 키워드 추출",
@@ -1077,7 +1642,8 @@ function generateValidationSummary(
  */
 async function executeStepB(
   flow: {steps: string[], title: string, subtitle: string},
-  userInput: string
+  userInput: string,
+  feasibilityAnalysis: any
 ): Promise<{
   verifiedFlow: {steps: string[], title: string, subtitle: string};
   tokens: number;
@@ -1091,6 +1657,10 @@ async function executeStepB(
   try {
     console.log(`📋 [Step B] 검증할 플로우: ${flow.title} (${flow.steps.length}개 단계)`);
     console.log(`🔍 [Step B] 단계들: ${flow.steps.map((s, i) => `${i+1}. ${s.substring(0, 40)}...`).join(' | ')}`);
+    
+    // 🚨 현실성 분석 결과 활용
+    console.log(`🧠 [Step B] 현실성 분석 적용: 불가능 요소 ${feasibilityAnalysis.impossibleElements?.length || 0}개 제거`);
+    console.log(`✅ [Step B] 권장 접근법: ${feasibilityAnalysis.recommendedApproach}`);
 
     // 1. 플로우 단계들에서 구체적 방법론 추출
     const proposedMethods = extractProposedMethodsFromFlow(flow);
@@ -1201,14 +1771,42 @@ function extractCardsFromParsedResult(parsedResult: any, verifiedFlow: any): any
     console.log(`🔍 [Step C] cards 배열 형식 감지 - ${parsedResult.cards.length}개 카드`);
     console.log('🔍 [Step C] 카드 타입들:', parsedResult.cards.map((c: any) => c.type));
     
-    // cards 배열을 그대로 사용하되, 각 카드에 ID와 기본값 추가
-    const processedCards = parsedResult.cards.map((card: any, index: number) => {
-      return {
-        ...card,
-        id: card.id || `${card.type}_${Date.now()}_${index}`,
-        status: card.status || 'completed'
-      };
-    });
+    // 🚨 CRITICAL: 단일 guide 카드를 단계별로 분리
+    const processedCards = [];
+    let flowCard = null;
+    
+    for (const card of parsedResult.cards) {
+      if (card.type === 'flow') {
+        flowCard = {
+          ...card,
+          id: card.id || `flow_${Date.now()}_0`,
+          status: card.status || 'completed'
+        };
+        processedCards.push(flowCard);
+      } else if (card.type === 'guide') {
+        // 🔍 이미 stepId가 있으면 분리된 guide이므로 그대로 사용
+        if (card.stepId) {
+          console.log(`✅ [Guide 유지] 이미 분리된 guide (stepId: ${card.stepId}) 그대로 사용`);
+          processedCards.push({
+            ...card,
+            id: card.id || `guide_${Date.now()}_${card.stepId}`,
+            status: card.status || 'completed'
+          });
+        } else {
+          // 🔧 단일 guide를 단계별로 분리 (stepId가 없는 경우만)
+          const separatedGuides = separateGuideBySteps(card, flowCard);
+          processedCards.push(...separatedGuides);
+          console.log(`🔧 [Guide 분리] 1개 guide → ${separatedGuides.length}개 step-specific guides`);
+        }
+      } else {
+        // faq, expansion 등 기타 카드는 그대로 추가
+        processedCards.push({
+          ...card,
+          id: card.id || `${card.type}_${Date.now()}_${processedCards.length}`,
+          status: card.status || 'completed'
+        });
+      }
+    }
     
     console.log(`✅ [Step C] ${processedCards.length}개 카드 처리 완료`);
     return processedCards;
@@ -1221,10 +1819,137 @@ function extractCardsFromParsedResult(parsedResult: any, verifiedFlow: any): any
       id: parsedResult.id || `${parsedResult.type}_${Date.now()}`,
       status: parsedResult.status || 'completed'
     }];
-  } else {
+    } else {
     // 예상치 못한 형식 - fallback cards 생성
     console.log('⚠️ [Step C] 예상치 못한 JSON 형식 - fallback cards 생성');
     return createFallbackCards(verifiedFlow);
+  }
+}
+
+/**
+ * 🔧 단일 guide 카드를 단계별로 분리하는 함수
+ */
+function separateGuideBySteps(guideCard: any, flowCard: any): any[] {
+  if (!guideCard || !flowCard || !flowCard.steps) {
+    console.log('⚠️ [Guide 분리] flowCard.steps가 없어서 분리 불가');
+    return [guideCard]; // 분리 실패 시 원본 그대로 반환
+  }
+
+  const stepCount = flowCard.steps.length;
+  console.log(`🔧 [Guide 분리] ${stepCount}개 단계로 guide 분리 시작`);
+
+  const separatedGuides = [];
+  
+  // 각 단계별로 개별 guide 카드 생성
+  for (let i = 0; i < stepCount; i++) {
+    const stepId = (i + 1).toString(); // "1", "2", "3", ...
+    const stepTitle = flowCard.steps[i] || `${stepId}단계`;
+    
+    // 기존 detailedSteps에서 해당 단계 정보 추출
+    let stepDetailedSteps: any[] = [];
+    if (guideCard.detailedSteps && Array.isArray(guideCard.detailedSteps)) {
+      // detailedSteps가 배열인 경우, 인덱스로 접근
+      if (guideCard.detailedSteps[i]) {
+        stepDetailedSteps = [guideCard.detailedSteps[i]];
+      }
+    }
+
+    // 코드 블록 분할 (있는 경우)
+    let stepCodeBlock = null;
+    if (guideCard.codeBlocks && Array.isArray(guideCard.codeBlocks)) {
+      stepCodeBlock = guideCard.codeBlocks[i] || null;
+    } else if (guideCard.codeBlock && i === 0) {
+      // 단일 코드블록이 있고 첫 번째 단계라면 할당
+      stepCodeBlock = guideCard.codeBlock;
+    }
+
+    const stepGuide: any = {
+      type: 'guide',
+      stepId: stepId,
+      title: `${stepId}단계: ${stepTitle.replace(/^\d+단계:\s*/, '')}`,
+      subtitle: `${stepTitle} 상세 가이드`,
+      basicConcept: `${stepTitle}를 구현하는 방법`,
+      automationLevel: guideCard.automationLevel || '반자동',
+      detailedSteps: stepDetailedSteps.length > 0 ? stepDetailedSteps : [
+        {
+          number: 1,
+          title: stepTitle.replace(/^\d+단계:\s*/, ''),
+          description: `${stepTitle} 작업을 수행합니다.`,
+          expectedScreen: '작업 완료 화면',
+          checkpoint: '작업이 정상적으로 완료되었는지 확인하세요.'
+        }
+      ],
+      commonMistakes: guideCard.commonMistakes || [],
+      practicalTips: guideCard.practicalTips || [],
+      id: `guide_${Date.now()}_${i + 1}`,
+      status: 'completed'
+    };
+
+    // 코드 블록이 있으면 추가
+    if (stepCodeBlock) {
+      stepGuide.codeBlock = stepCodeBlock;
+    }
+
+    separatedGuides.push(stepGuide);
+  }
+
+  console.log(`✅ [Guide 분리] ${separatedGuides.length}개 단계별 guide 카드 생성 완료`);
+  return separatedGuides;
+}
+
+/**
+ * 🧠 실시간 현실성 검증 시스템 (Claude-Level Reasoning)
+ */
+async function validateRealismInRealTime(userInput: string, stepContent: string): Promise<{isRealistic: boolean, issues: string[], alternatives: string[]}> {
+  const realisticCheck = `
+당신은 2025년 현실성 검증 전문가입니다. 다음 자동화 단계가 실제로 가능한지 판단하세요.
+
+사용자 요청: "${userInput}"
+제안된 단계: "${stepContent}"
+
+🔍 검증 항목:
+1. 기술적 실현 가능성 (API 제약, CORS 정책 등)
+2. 초보자 설정 가능성 (복잡도, 비용)
+3. 2025년 현재 서비스 상태 (deprecated API 등)
+4. 보안 및 개인정보 보호
+5. 실제 ROI (비용 대비 효과)
+
+JSON 형식으로 응답:
+{
+  "isRealistic": true/false,
+  "realismScore": 1-10,
+  "issues": ["구체적인 문제점들"],
+  "alternatives": ["현실적인 대안들"],
+  "reasoning": "판단 근거"
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: '당신은 기술 현실성 검증 전문가입니다. 반드시 JSON 형식으로만 응답하세요.' },
+        { role: 'user', content: realisticCheck }
+      ],
+      max_tokens: 500,
+      temperature: 0.1,
+      response_format: { type: 'json_object' }
+    });
+
+    const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+    console.log(`🧠 [현실성 검증] 점수: ${result.realismScore}/10, 실현가능: ${result.isRealistic}`);
+    
+    return {
+      isRealistic: result.isRealistic || false,
+      issues: result.issues || [],
+      alternatives: result.alternatives || []
+    };
+  } catch (error) {
+    console.error('🚨 [현실성 검증] 실패:', error);
+    return {
+      isRealistic: false,
+      issues: ["현실성 검증 시스템 오류"],
+      alternatives: ["대안 생성 불가"]
+    };
   }
 }
 
@@ -1277,7 +2002,8 @@ async function executeStepC(
   verifiedFlow: {steps: string[], title: string, subtitle: string},
   userInput: string,
   followupAnswers: any,
-  ragMetadata: any
+  ragMetadata: any,
+  feasibilityAnalysis: any
 ): Promise<{
   cards: any[];
   tokens: number;
@@ -1310,37 +2036,83 @@ ${ragMetadata.targetedRagContext || '관련 정보 없음'}`;
     const userPrompt = `사용자 요청: "${userInput}"
 후속답변: ${JSON.stringify(followupAnswers || {})}
 
+🚨 **현실성 분석 결과 (절대 준수!):**
+✅ 진짜 목적: ${feasibilityAnalysis.mainGoal}
+📊 실행 가능성: ${feasibilityAnalysis.feasibilityScore}/10
+❌ 절대 금지 요소: ${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'}
+🤖 LLM 활용 필수: ${feasibilityAnalysis.llmOpportunities?.join(', ') || '없음'}
+✅ 현실적 대안만: ${feasibilityAnalysis.viableAlternatives?.join(', ') || '기본 자동화'}
+🎯 권장 접근법: ${feasibilityAnalysis.recommendedApproach}
+⚠️ 주의사항: ${feasibilityAnalysis.warnings?.join(', ') || '없음'}
+
 검증된 플로우 단계들:
 ${verifiedFlow.steps.map((step, i) => `${i+1}. ${step}`).join('\n')}
 
-위 검증된 플로우를 바탕으로 초보자도 따라할 수 있는 상세한 실행 가이드를 생성하세요.
-각 단계별로 구체적인 방법, 스크린샷 위치, 체크포인트를 포함해야 합니다.
+🚨 **현실성 강제 적용 규칙**:
+1. 불가능 요소(${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'})는 절대 언급 금지
+2. LLM 활용 기회(${feasibilityAnalysis.llmOpportunities?.join(', ') || '없음'})는 적극 활용
+3. 권장 접근법(${feasibilityAnalysis.recommendedApproach})에 맞는 도구만 사용
+4. 현실적 대안(${feasibilityAnalysis.viableAlternatives?.join(', ') || '기본 자동화'})으로만 구성
+
+위 현실성 분석을 절대적으로 준수하여 초보자도 따라할 수 있는 상세한 실행 가이드를 생성하세요.
+
+🚨🚨🚨 **CRITICAL: 각 단계별 Guide 카드 개별 생성 (필수!)**
 
 JSON 형식으로 응답하세요:
 {
-  "type": "guide",
-  "title": "📋 상세 실행 가이드",
-  "subtitle": "단계별 완벽 가이드",
-  "detailedSteps": [
+  "cards": [
     {
-      "title": "1단계: 구체적 작업명",
-      "description": "자세한 설명",
-      "content": "단계별 상세 내용",
-      "screen": "어떤 화면에서 작업할지",
-      "checkpoint": "완료 확인 방법"
-    }
+      "type": "flow",
+      "title": "${verifiedFlow.title}",
+      "steps": [${verifiedFlow.steps.map(step => `"${step}"`).join(', ')}],
+      "id": "flow_main"
+    },
+${verifiedFlow.steps.map((step, i) => `    {
+      "type": "guide",
+      "stepId": "${i + 1}",
+      "title": "${step}",
+      "subtitle": "${step} 상세 실행 방법",
+      "basicConcept": "${step.replace(/^\d+단계:\s*/, '')}가 필요한 이유와 목표",
+      "automationLevel": "반자동",
+      "detailedSteps": [
+        {
+          "number": 1,
+          "title": "${step.replace(/^\d+단계:\s*/, '')} 시작하기",
+          "description": "${step.replace(/^\d+단계:\s*/, '')}를 위한 구체적인 첫 번째 실행 방법 (정확한 사이트 주소, 버튼명, 입력값 포함)",
+          "expectedScreen": "이 작업 후 화면에 나타날 구체적 요소들",
+          "checkpoint": "이 단계가 성공했는지 확인하는 방법"
+        },
+        {
+          "number": 2,
+          "title": "${step.replace(/^\d+단계:\s*/, '')} 완료하기",
+          "description": "앞 작업에서 이어지는 다음 구체적 실행 방법",
+          "expectedScreen": "다음에 나타날 화면 요소들",
+          "checkpoint": "이 단계 완료 확인 방법"
+        }
+      ],
+      "commonMistakes": ["${step.replace(/^\d+단계:\s*/, '')} 시 흔한 실수들"],
+      "practicalTips": ["${step.replace(/^\d+단계:\s*/, '')} 실행 시 유용한 팁들"],
+      "id": "guide_step_${i + 1}"
+    }`).join(',\n')}
   ]
-}`;
+}
+
+⚠️ **절대 금지**: "작업을 수행합니다", "공식 문서를 참조하세요" 같은 fallback 내용
+✅ **필수**: 각 단계마다 구체적인 사이트 주소, 버튼명, 입력값까지 명시`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-11-20', // Step C는 품질 우선
+      model: 'gpt-4.1', // 🔥 최신 모델 복원 - 1M context로 현실성 판단 강화
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 5000, // 🔧 상세 가이드를 위해 토큰 증가 (2000 → 5000)
-      temperature: 0.3,
-      response_format: { type: 'json_object' }
+      max_tokens: 32000, // 🔥 GPT-4.1 최대 출력 토큰 복원 - 완전한 가이드 생성
+      temperature: 0.1, // 🔥 JSON 안정성을 위해 더 낮은 온도  
+      response_format: { type: 'json_object' },
+      // 🛡️ JSON 안정성 강화 설정
+      top_p: 0.8, // 더 집중된 출력
+      frequency_penalty: 0.2, // 반복 방지 강화
+      presence_penalty: 0.1 // 일관성 향상
     });
 
     const content = response.choices[0]?.message?.content;
@@ -1367,17 +2139,30 @@ JSON 형식으로 응답하세요:
       try {
         let fixedContent = content.trim();
         
-        // 일반적인 JSON 문제들 수정
+        // 강화된 JSON 문제들 수정
         if (!fixedContent.endsWith('}') && !fixedContent.endsWith(']}')) {
           console.log('🔧 [JSON 복구] 불완전한 JSON 끝부분 감지');
           
-          // detailedSteps 배열이 열려있는 경우
+          // 다양한 미완성 패턴 처리
           if (fixedContent.includes('"detailedSteps":[') && !fixedContent.includes(']}')) {
             fixedContent += ']}';
             console.log('🔧 [JSON 복구] detailedSteps 배열 닫기 시도');
+          } else if (fixedContent.includes('"codeBlocks":[') && !fixedContent.includes(']}')) {
+            fixedContent += ']}';
+            console.log('🔧 [JSON 복구] codeBlocks 배열 닫기 시도');
+          } else if (fixedContent.includes('"practicalTips":[') && !fixedContent.includes(']}')) {
+            fixedContent += ']}';
+            console.log('🔧 [JSON 복구] practicalTips 배열 닫기 시도');
           } else if (!fixedContent.endsWith('}')) {
-            fixedContent += '}';
-            console.log('🔧 [JSON 복구] 객체 닫기 시도');
+            // 배열 중간에 끊어진 경우 감지
+            const openBraces = (fixedContent.match(/\{/g) || []).length;
+            const closeBraces = (fixedContent.match(/\}/g) || []).length;
+            const missingBraces = openBraces - closeBraces;
+            
+            for (let i = 0; i < missingBraces; i++) {
+              fixedContent += '}';
+            }
+            console.log(`🔧 [JSON 복구] ${missingBraces}개 객체 닫기 시도`);
           }
         }
         
@@ -1506,6 +2291,16 @@ export async function generate3StepAutomation(
     const dynamicTemplate = generateDynamicTemplate(intentAnalysis);
     console.log('🎨 [Template] 동적 템플릿 생성 완료');
 
+    // 🛡️ 조기 위험 패턴 감지
+    console.log('🛡️ [조기 감지] 위험 패턴 체크 시작...');
+    const dangerCheck = quickDangerCheck(userInput);
+    if (dangerCheck.hasDanger) {
+      console.warn(`⚠️ [조기 감지] ${dangerCheck.warnings.length}개 위험 패턴 발견:`);
+      dangerCheck.warnings.forEach(warning => console.warn(`  - ${warning}`));
+      console.log('💡 [조기 감지] 권장 대안:');
+      dangerCheck.quickAlternatives.forEach(alt => console.log(`  - ${alt}`));
+    }
+
     // 🚀 Step A: 빠른 플로우 생성 (논리적 구조)
     console.log('🚀 [Step A] 빠른 플로우 생성 시작...');
     const stepAResult = await executeStepA(userInput, followupAnswers, intentAnalysis);
@@ -1521,12 +2316,12 @@ export async function generate3StepAutomation(
 
     // 🔍 Step B: 플로우 검증 및 수정 (논리적 구조)
     console.log('🔍 [Step B] 플로우 검증 및 수정 시작...');
-    const stepBResult = await executeStepB(stepAResult.flow, userInput);
+    const stepBResult = await executeStepB(stepAResult.flow, userInput, stepAResult.feasibilityAnalysis);
     metrics.stagesCompleted.push('B-verification');
     metrics.totalTokens += stepBResult.tokens;
     metrics.ragSearches = stepBResult.ragMetadata.ragSearches || 0;
     metrics.ragSources = stepBResult.ragMetadata.ragSources || 0;
-    metrics.urlsVerified = 0; // URL 검증은 더 이상 수행하지 않음
+    metrics.urlsVerified = stepBResult.ragMetadata.urlsVerified || 0;
     metrics.costBreakdown.stepB = {
       tokens: stepBResult.tokens,
       ragCalls: metrics.ragSearches,
@@ -1540,7 +2335,8 @@ export async function generate3StepAutomation(
       stepBResult.verifiedFlow,
       userInput,
       followupAnswers,
-      stepBResult.ragMetadata
+      stepBResult.ragMetadata,
+      stepAResult.feasibilityAnalysis
     );
     metrics.stagesCompleted.push('C-guide');
     metrics.modelsUsed.push(stepCResult.model);
@@ -1552,6 +2348,64 @@ export async function generate3StepAutomation(
     };
     console.log(`✅ [Step C] 카드 생성 완료: ${stepCResult.cards?.length || 0}개 카드`);
 
+    // 🔍 결과 검증 시스템
+    console.log('🔍 [품질 검증] 결과 검증 시작...');
+    const validationResult = await validateAutomationResult(stepCResult.cards, userInput, followupAnswers);
+    
+    // 🧠 맥락 기반 실패 패턴 매칭
+    console.log('🧠 [패턴 매칭] 스마트 실패 패턴 분석 시작...');
+    const guideCard = stepCResult.cards?.find(card => card.type === 'guide');
+    const proposedSolution = guideCard ? JSON.stringify(guideCard.detailedSteps) : '';
+    const contextualMatches = await findContextualPatterns(userInput, proposedSolution, followupAnswers);
+    
+    if (contextualMatches.length > 0) {
+      console.warn(`🚨 [패턴 매칭] ${contextualMatches.length}개 위험 패턴 발견:`);
+      contextualMatches.forEach(match => {
+        console.warn(`  - ${match.pattern.id}: ${match.pattern.reason} (매칭도: ${Math.round(match.matchScore * 100)}%)`);
+        console.warn(`    감지 이유: ${match.matchReasons.join(', ')}`);
+        console.warn(`    대안: ${match.pattern.alternatives.slice(0, 2).join(', ')}`);
+      });
+      
+      // 🚀 실시간 학습: 실패 케이스 저장 (치명적이거나 검증 실패 시)
+      const shouldLearn = contextualMatches.length > 0 || !validationResult.isValid;
+      if (shouldLearn) {
+        const { saveFailureCase } = await import('./failure-pattern-storage');
+        try {
+          const savedCaseId = await saveFailureCase(
+            userInput,
+            proposedSolution,
+            contextualMatches,
+            validationResult.qualityScore,
+            contextualMatches.flatMap(m => m.pattern.alternatives).slice(0, 5), // 최대 5개 대안
+            followupAnswers?.domain || 'general'
+          );
+          
+          if (savedCaseId) {
+            console.log(`📚 [실시간 학습] 실패 케이스 저장 완료: ${savedCaseId}`);
+            
+            // 🎯 학습 통계 로깅 (5의 배수 케이스마다)
+            if (Math.random() < 0.2) { // 20% 확률로 통계 출력
+              const { getLearningStats } = await import('./failure-pattern-storage');
+              const stats = await getLearningStats();
+              console.log(`📊 [학습 통계] 총 ${stats.totalCases}건, 동적 패턴 ${stats.patternsLearned}개, 평균 신뢰도 ${Math.round(stats.averageConfidence * 100)}%`);
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ [실시간 학습] 학습 저장 실패:', error);
+        }
+      }
+    }
+    
+    if (!validationResult.isValid) {
+      console.warn(`⚠️ [품질 검증] 검증 실패: ${validationResult.issues.join(', ')}`);
+      // 검증 실패 시 개선된 결과 생성 시도
+      if (validationResult.canRetry) {
+        console.log('🔄 [품질 검증] 결과 개선 시도...');
+        // TODO: 개선 로직 추가
+      }
+    }
+    console.log(`✅ [품질 검증] 검증 완료 - 점수: ${validationResult.qualityScore}/100`);
+
     // 메트릭 완성
     metrics.totalLatencyMs = Date.now() - overallStartTime;
     metrics.success = true;
@@ -1562,17 +2416,10 @@ export async function generate3StepAutomation(
       metrics.costBreakdown.stepB.cost +
       metrics.costBreakdown.stepC.cost;
 
-    // 🎯 최종 결과 조합: Step C에서 생성된 cards 사용
+    // 🎯 최종 결과 조합: Step C에서 생성된 cards만 사용 (Flow는 내부 처리용)
     const finalCards = stepCResult.cards || [
-      // Fallback: Flow 카드 (Frontend에서 Flow UI 생성용)
-      {
-        type: 'flow',
-        title: stepBResult.verifiedFlow.title,
-        subtitle: stepBResult.verifiedFlow.subtitle,
-        steps: stepBResult.verifiedFlow.steps,
-        status: 'verified',
-        id: `flow_${Date.now()}`
-      },
+      // ❌ Flow 카드는 프론트엔드로 전달하지 않음 (내부 검증용만)
+      // Flow는 Step A→Step B→Step C 내부 처리에서만 사용
       // Fallback: Guide 카드 (Frontend에서 상세 가이드 표시용)
       {
         type: 'guide',
@@ -1716,9 +2563,10 @@ async function execute2PassStepC(
 }> {
   console.log('📋 [Step C-1] Pass 1: Skeleton 카드 구조 생성...');
   
-  // 🎯 도메인 감지 및 최적 도구 선택
-  const detectedDomain = detectDomain(userInput, followupAnswers);
-  const optimalTools = getOptimalToolsForDomain(detectedDomain, 'automation', true);
+  // 🎯 도메인 감지 및 최적 AI 도구 선택 (2025년 버전)
+  const detectedDomain = detectDomainEnhanced(userInput, followupAnswers);
+  const domainTools = getOptimalAITools(detectedDomain, 'automation', true);
+  const optimalTools = [...domainTools.primary, ...domainTools.secondary].map(tool => tool.name);
   
   // 1️⃣ Pass 1: Skeleton JSON만 생성 (JSON 안정성 우선)
   const skeletonPrompt = `사용자 요청에 대한 카드 구조만 생성하세요.
@@ -1873,7 +2721,7 @@ async function execute2PassStepC(
 카드 제목: ${skeletonCard.title}
 사용자 요청: ${userInput}
 후속답변: ${JSON.stringify(followupAnswers || {})}
-최적 도구들: ${optimalTools.map(t => t.name).join(', ')}
+최적 도구들: ${optimalTools.join(', ')}
 
 🚨🚨🚨 절대 원칙 재확인:
 - 방법론 비교 절대 금지 (예: "Zapier 방법 vs Google Apps Script 방법")
@@ -1915,7 +2763,7 @@ ${skeletonCard.type === 'guide' ? `
 ⚠️ 필수: 실제 도구명과 구체적 작업명 포함
 ⚠️ 현재 요청 "${userInput}"에 맞는 실제 실행 가능한 단계들만 작성
 ` : `
-🎯 **${optimalTools[0]?.name || 'Google Apps Script'}를 사용한 완전한 단일 솔루션** 생성:
+🎯 **${optimalTools[0] || 'Google Apps Script'}를 사용한 완전한 단일 솔루션** 생성:
 - 1단계: 계정 생성/준비
 - 2단계: API/연결 설정  
 - 3단계: 코드 작성/배포
@@ -1953,7 +2801,7 @@ ${skeletonCard.type === 'guide' ? `
           : `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
         { role: 'user', content: detailPrompt },
       ],
-      max_tokens: skeletonCard.type === 'guide' ? 4000 : 2500, // 🎯 Guide 카드는 더 많은 토큰 필요 (복잡한 작업시)
+              max_tokens: skeletonCard.type === 'guide' ? 8000 : 4000, // 🔥 토큰 대폭 증가: Guide 8K, 기타 4K
       temperature: 0.4,
       ...(skeletonCard.type === 'guide' ? { response_format: { type: 'json_object' } } : {}),
     });
@@ -2852,7 +3700,7 @@ Step B 검증 결과:
         { role: 'user', content: dynamicPrompt },
       ],
       max_tokens: 800,
-      temperature: 0.3,
+      temperature: 0.1, // 🔥 JSON 안정성 강화
     });
 
     const content = response.choices[0]?.message?.content;
@@ -2914,12 +3762,11 @@ async function analyzeDomainAndGenerateAlternatives(
 - 개인계정에서 지원 안되는 API 직접 연동
 - 초보자가 실행 불가능한 복잡한 방법
 
-🚫 **절대 금지 (알려진 불가능한 조합들)**:
-- Google Alert + YouTube 댓글 모니터링
-- Instagram/Facebook 개인계정 직접 API
-- 카카오톡 개인 메시지 자동화
-- 증권사 계좌 직접 연동
-- 의료 개인정보 직접 처리
+🧠 **동적 위험성 감지 원칙**:
+- 개인정보/금융 데이터 접근시 → 법적 제약 검토
+- 소셜미디어 + 자동화 → API 정책 변경 확인  
+- 의료/증권 + 자동연동 → 규제 준수 여부 검증
+- 웹사이트 + 크롤링 → 이용약관 위반 가능성 체크
 
 ✅ **권장 접근법**:
 - 공식 API 활용
@@ -3133,6 +3980,170 @@ ${domainAnalysis.domainRules.join('\n')}
   }
 
   return getDefaultSteps(userInput);
+}
+
+/**
+ * 🔍 AI 기반 결과 검증 시스템
+ */
+async function validateAutomationResult(
+  cards: any[], 
+  userInput: string, 
+  followupAnswers: any
+): Promise<{
+  isValid: boolean;
+  qualityScore: number;
+  issues: string[];
+  canRetry: boolean;
+  suggestions: string[];
+}> {
+  if (!cards || cards.length === 0) {
+    return {
+      isValid: false,
+      qualityScore: 0,
+      issues: ['카드가 생성되지 않음'],
+      canRetry: true,
+      suggestions: ['Step C 재실행 필요']
+    };
+  }
+
+  const issues: string[] = [];
+  const suggestions: string[] = [];
+  let qualityScore = 100;
+
+  // 🚨 1. 명백한 실패 패턴 검사 (휴리스틱)
+  const guideCard = cards.find(card => card.type === 'guide');
+  if (guideCard?.detailedSteps) {
+    const allStepContent = JSON.stringify(guideCard.detailedSteps);
+    
+    // 치명적 패턴들 (2025년 한국 현실 반영)
+    const criticalPatterns = [
+      { pattern: /Math\.random|여기에.*추가|TODO|FIXME/i, issue: '미완성 코드 또는 플레이스홀더 발견', severity: 30 },
+      { pattern: /크롤링|crawling|스크래핑|scraping/i, issue: '크롤링 기반 솔루션 (법적 위험)', severity: 25 },
+      
+      // 🚨 한국 플랫폼 특화 패턴들
+      { pattern: /네이버.*카페.*API|카페.*API.*네이버/i, issue: '네이버 카페 API 없음 (공식 지원 안함)', severity: 30 },
+      { pattern: /카카오톡.*개인|개인.*카톡|카톡.*자동화/i, issue: '카카오톡 개인 API 사용 (2022년부터 불가)', severity: 25 },
+      { pattern: /네이버.*메일.*API|네이버메일.*연동/i, issue: '네이버메일 API 제한적 (Gmail 대안 필요)', severity: 20 },
+      { pattern: /네이버.*블로그.*자동.*등록|자동.*포스팅.*네이버/i, issue: '네이버 블로그 자동 포스팅 (스팸 정책 위반)', severity: 25 },
+      { pattern: /다음.*카페|다음카페.*API/i, issue: '다음 카페 API 없음 (서비스 축소)', severity: 20 },
+      
+      // 🚨 글로벌 플랫폼 2024-2025 변경사항
+      { pattern: /Facebook.*API.*개인|개인.*Facebook.*API/i, issue: 'Facebook 개인 API 직접 접근 (권한 문제)', severity: 20 },
+      { pattern: /LinkedIn.*API.*개인|개인.*LinkedIn.*API/i, issue: 'LinkedIn 개인 API 직접 접근 (불가능)', severity: 20 },
+      { pattern: /인스타그램.*자동.*댓글|Instagram.*auto.*comment/i, issue: '인스타그램 자동 댓글 (계정 차단 위험)', severity: 25 },
+      { pattern: /트위터.*API.*무료|Twitter.*API.*free/i, issue: 'Twitter API 무료 플랜 대폭 축소 (2023년부터)', severity: 20 },
+      
+      // 🚨 한국 특화 법적/정책 이슈
+      { pattern: /부동산.*크롤링|부동산.*수집|직방.*API/i, issue: '부동산 사이트 크롤링 (대부분 이용약관 위반)', severity: 25 },
+      { pattern: /개인정보.*자동.*수집|자동.*개인정보/i, issue: '개인정보 자동 수집 (개인정보보호법 위반 위험)', severity: 30 }
+    ];
+
+    criticalPatterns.forEach(({ pattern, issue, severity }) => {
+      if (pattern.test(allStepContent)) {
+        issues.push(issue);
+        qualityScore -= severity;
+      }
+    });
+
+    // 품질 지표 검사
+    const qualityChecks = [
+      { 
+        test: () => guideCard.detailedSteps.length < 3, 
+        issue: '단계가 너무 적음 (3단계 미만)', 
+        suggestion: '더 세부적인 단계로 분할 필요',
+        severity: 15 
+      },
+      { 
+        test: () => guideCard.detailedSteps.some((step: any) => !step.title || step.title.length < 10), 
+        issue: '단계 제목이 너무 간략함', 
+        suggestion: '각 단계별 구체적인 작업 명시 필요',
+        severity: 10 
+      },
+      { 
+        test: () => !allStepContent.match(/(Google|Excel|API|Apps Script|Zapier|IFTTT)/i), 
+        issue: '구체적인 도구명이 없음', 
+        suggestion: '실제 사용 가능한 도구명 포함 필요',
+        severity: 20 
+      }
+    ];
+
+    qualityChecks.forEach(({ test, issue, suggestion, severity }) => {
+      if (test()) {
+        issues.push(issue);
+        suggestions.push(suggestion);
+        qualityScore -= severity;
+      }
+    });
+  }
+
+  // 🧠 2. AI 기반 맥락 검증 (복잡한 패턴)
+  if (issues.length > 0) {
+    try {
+      const contextValidationPrompt = `
+다음 자동화 솔루션을 검토하고 현실성을 평가해주세요:
+
+**사용자 요청**: "${userInput}"
+**발견된 이슈들**: ${issues.join(', ')}
+**솔루션 내용**: ${JSON.stringify(guideCard?.detailedSteps?.slice(0, 3), null, 2)}
+
+**평가 기준**:
+1. 2025년 현재 실제로 구현 가능한가?
+2. 개인 개발자가 접근 가능한 API/도구인가?
+3. 법적/윤리적 문제가 없는가?
+4. 초보자도 따라할 수 있을 정도로 구체적인가?
+
+**응답 형식 (JSON)**:
+{
+  "isRealistic": true/false,
+  "confidence": 0-100,
+  "mainProblems": ["문제1", "문제2"],
+  "quickFixes": ["수정방안1", "수정방안2"],
+  "overallAssessment": "한줄 평가"
+}`;
+
+      const aiValidation = await openai.chat.completions.create({
+        model: 'gpt-4o-mini', // 검증용이므로 mini로 충분
+        messages: [
+          { 
+            role: 'system', 
+            content: '당신은 자동화 솔루션의 현실성을 검증하는 전문가입니다. 특히 불가능한 API 접근, 법적 문제, 실행 불가능한 단계들을 정확히 식별합니다.' 
+          },
+          { role: 'user', content: contextValidationPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      const aiResult = JSON.parse(aiValidation.choices[0]?.message?.content || '{}');
+      
+      if (!aiResult.isRealistic) {
+        qualityScore -= 30;
+        issues.push(...(aiResult.mainProblems || []));
+        suggestions.push(...(aiResult.quickFixes || []));
+      }
+
+      console.log(`🧠 [AI 검증] 현실성: ${aiResult.isRealistic}, 신뢰도: ${aiResult.confidence}%`);
+      if (aiResult.overallAssessment) {
+        console.log(`💬 [AI 평가] ${aiResult.overallAssessment}`);
+      }
+
+    } catch (error) {
+      console.warn('⚠️ [AI 검증] AI 기반 검증 실패:', error);
+      qualityScore -= 5; // AI 검증 실패는 약간의 점수 차감
+    }
+  }
+
+  const isValid = qualityScore >= 60 && issues.length <= 2;
+  const canRetry = qualityScore < 60 && issues.length <= 5; // 너무 많은 문제가 있으면 재시도 불가
+
+  return {
+    isValid,
+    qualityScore: Math.max(0, qualityScore),
+    issues,
+    canRetry,
+    suggestions
+  };
 }
 
 /**

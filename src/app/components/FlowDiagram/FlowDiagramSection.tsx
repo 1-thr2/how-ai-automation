@@ -218,7 +218,21 @@ const renderTextWithCodeBlocks = (text: string) => {
               <span>💻 실행 코드</span>
               <button
                 className={styles['inline-copy-btn']}
-                onClick={() => navigator.clipboard.writeText(code)}
+                                  onClick={async (event) => {
+                    try {
+                      await navigator.clipboard.writeText(code);
+                      const btn = event.currentTarget;
+                      const originalText = btn.textContent;
+                      btn.textContent = '✅ 복사완료';
+                      btn.style.backgroundColor = '#10b981';
+                      setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.backgroundColor = '';
+                      }, 2000);
+                    } catch (err) {
+                      alert('복사에 실패했습니다.');
+                    }
+                  }}
               >
                 복사
               </button>
@@ -315,44 +329,27 @@ interface FlowDiagramSectionProps {
 // 각 스텝의 세부 단계 수를 계산하는 함수
 const getStepSubStepsCount = (stepIndex: number, cards: any[]): number => {
   try {
-    const guideCard = cards.find((card: any) => card.type === 'guide');
+    // 🎯 올바른 방법: stepId로 해당 단계의 guide 카드 찾기
+    const stepId = (stepIndex + 1).toString(); // 1, 2, 3 등
+    const guideCard = cards.find((card: any) => 
+      card.type === 'guide' && card.stepId === stepId
+    );
+    
     if (!guideCard) {
-      console.log(`🔍 [세부단계] stepIndex ${stepIndex}: guide 카드 없음, 기본값 3 사용`);
-      return 3;
+      console.log(`🔍 [세부단계] stepIndex ${stepIndex} (stepId: ${stepId}): 해당 guide 카드 없음, 기본값 2 사용`);
+      return 2; // 각 단계별로 평균 2개 정도의 세부 단계
     }
     
     // detailedSteps 또는 content.detailedSteps에서 찾기
     const detailedSteps = guideCard.detailedSteps || guideCard.content?.detailedSteps;
     if (!detailedSteps || !Array.isArray(detailedSteps)) {
-      console.log(`🔍 [세부단계] stepIndex ${stepIndex}: detailedSteps 없음, 기본값 3 사용`);
-      return 3;
+      console.log(`🔍 [세부단계] stepIndex ${stepIndex} (stepId: ${stepId}): detailedSteps 없음, 기본값 2 사용`);
+      return 2;
     }
     
-    // 전체 단계 수를 flow steps 수로 나누어 평균 계산
-    const totalSteps = detailedSteps.length;
-    const flowStepsCount = cards.filter((card: any) => card.type === 'flow')?.[0]?.steps?.length || 1;
-    const avgStepsPerFlow = Math.ceil(totalSteps / flowStepsCount);
-    
-    // 특정 stepIndex의 단계들을 찾기 (1-based number)
-    const stepNumber = stepIndex + 1;
-    const stepsForThisFlow = detailedSteps.filter((step: any) => {
-      // step.number가 현재 플로우 단계와 매칭되는지 확인
-      if (step.number === stepNumber) return true;
-      
-      // 또는 title에서 단계 번호 찾기
-      if (step.title && typeof step.title === 'string') {
-        const titleMatch = step.title.match(/^(\d+)/);
-        if (titleMatch && parseInt(titleMatch[1]) === stepNumber) return true;
-      }
-      
-      return false;
-    });
-    
-    const result = stepsForThisFlow.length > 0 ? stepsForThisFlow.length : avgStepsPerFlow;
-    console.log(`🔍 [세부단계] stepIndex ${stepIndex}: 총 ${totalSteps}개 중 ${result}개 계산됨`);
-    
-    // 해당 단계의 세부 단계가 있으면 그 수를, 없으면 평균값 사용
-    return result;
+    const actualCount = detailedSteps.length;
+    console.log(`✅ [세부단계] stepIndex ${stepIndex} (stepId: ${stepId}): ${actualCount}개 세부 단계 발견`);
+    return actualCount;
   } catch (error) {
     console.warn('세부 단계 수 계산 중 오류:', error);
     return 3; // 오류 시 기본값
@@ -384,6 +381,46 @@ const formatDuration = (duration?: string): string => {
   return duration;
 };
 
+// 🎯 플로우 단계 제목을 짧고 간결하게 만드는 함수
+const formatStepTitle = (title: string): string => {
+  if (!title) return '단계';
+  
+  // "1단계: " 같은 접두사 제거
+  let cleanTitle = title.replace(/^\d+단계:\s*/, '');
+  
+  // 너무 긴 제목은 줄이기 (40자 이상)
+  if (cleanTitle.length > 40) {
+    // 주요 키워드 추출 시도
+    const keywords = [];
+    
+    // 도구 이름 추출
+    const tools = ['Google Alert', 'Google Sheets', 'Looker Studio', 'Claude', 'ChatGPT', 'Zapier', 'IFTTT'];
+    for (const tool of tools) {
+      if (cleanTitle.includes(tool)) {
+        keywords.push(tool);
+      }
+    }
+    
+    // 액션 키워드 추출
+    const actions = ['설정', '등록', '연결', '분석', '모니터링', '검토', '업데이트', '확인', '생성', '수집'];
+    for (const action of actions) {
+      if (cleanTitle.includes(action)) {
+        keywords.push(action);
+        break; // 하나만 추출
+      }
+    }
+    
+    if (keywords.length > 0) {
+      return keywords.join(' ') + ' 하기';
+    } else {
+      // 키워드 추출 실패 시 첫 부분만 사용
+      return cleanTitle.substring(0, 25) + '...';
+    }
+  }
+  
+  return cleanTitle;
+};
+
 const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({ 
   steps, 
   onStepClick, 
@@ -413,10 +450,22 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
         
         flowCard.steps.forEach((step: any, index: number) => {
           output += `\n   ${index + 1}단계:\n`;
-          output += `     🏷️  제목: ${step.title || 'N/A'}\n`;
-          output += `     📝 설명: ${step.description || step.subtitle || 'N/A'}\n`;
-          output += `     🛠️  도구: ${step.tool || step.techTags?.join(', ') || 'N/A'}\n`;
-          output += `     ⏰ 소요시간: ${step.duration || formatDuration(step.duration)}\n`;
+          
+          // step이 문자열인 경우 처리
+          if (typeof step === 'string') {
+            const stepTitle = step.replace(/^\d+단계:\s*/, '').replace(/\.\.\.$/, '');
+            output += `     🏷️  제목: ${stepTitle}\n`;
+            output += `     📝 설명: 상세 가이드에서 단계별 설명을 확인하세요\n`;
+            output += `     🛠️  도구: 가이드에서 확인\n`;
+            output += `     ⏰ 소요시간: 5-15분\n`;
+          } 
+          // step이 객체인 경우 처리
+          else {
+            output += `     🏷️  제목: ${step.title || 'N/A'}\n`;
+            output += `     📝 설명: ${step.description || step.subtitle || 'N/A'}\n`;
+            output += `     🛠️  도구: ${step.tool || step.techTags?.join(', ') || 'N/A'}\n`;
+            output += `     ⏰ 소요시간: ${step.duration || formatDuration(step.duration)}\n`;
+          }
         });
       }
       
@@ -666,113 +715,49 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
   const getCurrentStepData = () => {
     if (!selectedStep) return null;
     
-    // 🚨 우선 stepId 조건 없이 guide 카드 찾기 (모든 단계에서 공통 가이드 표시)
-    const guideCard = cards.find((card: any) => card.type === 'guide');
+    // selectedStep.id가 "step-0", "step-1" 형식이라고 가정하고 인덱스 추출
+    const stepIndex = parseInt(selectedStep.id?.replace('step-', '') || '0', 10);
+    const targetStepId = (stepIndex + 1).toString(); // 1, 2, 3, 4, 5
     
-    console.log('🔍 [getCurrentStepData] guide 카드 찾음:', !!guideCard);
-    if (guideCard) {
-      console.log('🔍 [getCurrentStepData] content 길이:', guideCard.content?.length || 0);
+    // 🎯 핵심 수정: stepId로 해당 단계의 정확한 guide 카드 찾기
+    const guideCard = cards.find((card: any) => 
+      card.type === 'guide' && card.stepId === targetStepId
+    );
+    
+    if (!guideCard) {
+      console.log(`❌ [getCurrentStepData] stepId ${targetStepId}에 해당하는 guide 카드 없음`);
+      return null;
     }
     
-    if (guideCard) {
-      console.log('🛡️ [getCurrentStepData] 3단계 방어막 시작');
-      
-      // 🛡️ 1순위: 백엔드에서 구조화된 detailedSteps 사용 (가장 안정적)
-      if (guideCard.detailedSteps && Array.isArray(guideCard.detailedSteps) && guideCard.detailedSteps.length > 0) {
-        console.log('✅ [방어막 1] 구조화된 detailedSteps 사용 -', guideCard.detailedSteps.length, '개 단계');
-        console.log('🔍 [방어막 1] 실제 받은 단계들:');
-        guideCard.detailedSteps.forEach((step: any, index: number) => {
-          console.log(`  단계 ${index + 1}:`, {
-            title: step.title,
-            descriptionLength: step.description?.length || 0,
-            descriptionPreview: step.description?.substring(0, 100) + '...' || 'NO_DESCRIPTION'
-          });
-        });
-        console.log('🔍 [getCurrentStepData] codeBlocks 확인:', guideCard.codeBlocks?.length || 0, '개');
-        return {
-          guide: {
-            title: guideCard.title || '📋 상세 가이드',
-            subtitle: '단계별 실행 가이드',
-            basicConcept: '아래 단계를 순서대로 따라하시면 자동화를 완성할 수 있습니다.',
-            steps: guideCard.detailedSteps,
-            tips: extractTipsFromContent(guideCard.content || ''),
-            executableCode: guideCard.codeBlocks?.[0]?.code || null,
-            codeBlocks: guideCard.codeBlocks || []
-          }
-        };
-      }
-      
-      // 🛡️ 2순위: 마크다운 content 파싱 시도
-      if (guideCard.content && typeof guideCard.content === 'string') {
-        console.log('⚡ [방어막 2] 마크다운 파싱 시도');
-        const steps = parseMarkdownSteps(guideCard.content);
-        
-        if (steps.length > 0) {
-          console.log('✅ [방어막 2] 마크다운 파싱 성공 -', steps.length, '개 단계');
-          return {
-            guide: {
-              title: guideCard.title || '📋 상세 가이드',
-              subtitle: '단계별 실행 가이드',
-              basicConcept: '아래 단계를 순서대로 따라하시면 자동화를 완성할 수 있습니다.',
-              steps: steps,
-              tips: extractTipsFromContent(guideCard.content),
-              executableCode: guideCard.codeBlocks?.[0]?.code || null,
-              codeBlocks: guideCard.codeBlocks || []
-            }
-          };
-        }
-      }
-      
-      // 🛡️ 3순위: 기존 구조 지원 (호환성)
-      if (guideCard.content?.detailedSteps) {
-        console.log('✅ [방어막 3] 기존 구조 사용');
-      return {
-        guide: {
+    if (!guideCard.detailedSteps) {
+      console.log(`❌ [getCurrentStepData] guide 카드에 detailedSteps 없음`);
+      return null;
+    }
+    
+    console.log(`✅ [getCurrentStepData] stepId ${targetStepId}의 guide 카드 찾음`);
+    console.log(`📋 [getCurrentStepData] detailedSteps 개수: ${guideCard.detailedSteps.length}개`);
+    
+    // 이제 올바른 guide 카드에서 데이터 반환
+    console.log('🔍 [getCurrentStepData] guide 카드 상세 정보:', {
+      stepId: guideCard.stepId,
           title: guideCard.title,
-          subtitle: guideCard.subtitle,
-          basicConcept: guideCard.basicConcept,
-          steps: guideCard.content.detailedSteps,
-          tips: guideCard.content.practicalTips || [],
-          executableCode: guideCard.content.executableCode || null
-          }
-        };
-      }
-      
-      // 🛡️ 최종 안전망: 모든 방법이 실패해도 기본 가이드 제공
-      console.log('🚨 [최종 안전망] 모든 파싱 실패 - 기본 가이드 생성');
+      basicConcept: guideCard.basicConcept?.substring(0, 50) + '...',
+      detailedStepsCount: guideCard.detailedSteps.length
+    });
+    
+    // 해당 stepId의 완전한 guide 카드 데이터 반환
       return {
         guide: {
-          title: guideCard.title || '📋 자동화 가이드',
-          subtitle: '단계별 실행 가이드',
-          basicConcept: '아래 단계를 순서대로 따라하시면 자동화를 완성할 수 있습니다.',
-          steps: [
-            {
-              number: 1,
-              title: '1단계: 계정 생성 및 로그인',
-              description: '자동화에 필요한 도구들의 계정을 생성하고 로그인합니다.',
-              expectedScreen: '계정 생성이 완료되고 대시보드가 표시된 화면',
-              checkpoint: '계정에 정상적으로 로그인되는지 확인'
-            },
-            {
-              number: 2,
-              title: '2단계: 자동화 플로우 설정',
-              description: '단계별 가이드에 따라 트리거와 액션을 설정하여 자동화를 구성합니다.',
-              expectedScreen: '자동화 설정이 완료되고 활성화된 화면',
-              checkpoint: '설정이 저장되고 자동화가 활성화되었는지 확인'
-            },
-            {
-              number: 3,
-              title: '3단계: 테스트 및 검증',
-              description: '설정한 자동화가 제대로 작동하는지 테스트하고 완료합니다.',
-              expectedScreen: '테스트 알림이 정상적으로 전송된 화면',
-              checkpoint: '자동화가 예상대로 작동하는지 확인'
+              title: guideCard.title || '📋 상세 가이드',
+        subtitle: guideCard.subtitle || '단계별 실행 가이드',
+        basicConcept: guideCard.basicConcept || '',
+        steps: guideCard.detailedSteps || [], // 해당 가이드의 모든 detailedSteps
+                tips: guideCard.practicalTips || [],
+        mistakes: guideCard.commonMistakes || [],
+        executableCode: guideCard.codeBlock || guideCard.codeBlocks?.[0]?.code || null,
+        codeBlocks: guideCard.codeBlocks || [],
+        hasCodeBlocks: Boolean(guideCard.codeBlocks?.length > 0 || guideCard.codeBlock)
             }
-          ],
-          tips: ['💡 각 단계를 차근차근 따라하시면 성공할 수 있어요!'],
-          executableCode: null,
-          codeBlocks: []
-        }
-      };
     }
     
     return null;
@@ -1092,7 +1077,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
 
       {/* 기존 디자인 복원 (두 번째 사진 스타일) */}
       <div className={styles['restored-flow-container']}>
-        {steps.map((step, index) => (
+          {steps.map((step, index) => (
           <React.Fragment key={step.id || index}>
             {/* 카드 */}
             <div
@@ -1112,13 +1097,13 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                 <div className={styles['restored-icon-box']} data-step-index={index}>
                   <div className={styles['restored-icon']}>
                     {step.icon || (index === 0 ? '🚀' : index === 1 ? '⚡' : '📊')}
-                  </div>
+              </div>
                 </div>
                 
                 {/* 오른쪽: 콘텐츠 영역 */}
                 <div className={styles['restored-content-area']}>
                   <h3 className={styles['restored-title']}>
-                    {step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+                    {formatStepTitle(step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || '')}
                   </h3>
                   
                   <div className={styles['restored-meta-info']}>
@@ -1132,9 +1117,9 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                   
                   <button className={styles['restored-guide-btn']}>
                     클릭해서 상세 가이드 보기
-                  </button>
-                </div>
-              </div>
+              </button>
+            </div>
+        </div>
             </div>
             
             {/* 카드 외부 연결선 (화살표 없음) */}
@@ -1160,7 +1145,7 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                 ✕
               </button>
               <h2 className={styles['modal-title']}>
-                {selectedStep.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}
+                {formatStepTitle(selectedStep.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || '')}
               </h2>
               <p className={styles['modal-subtitle']}>
                 단계별 실행 가이드
@@ -1178,43 +1163,32 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                     </div>
                   )}
 
-                  {/* 단계별 가이드 - selectedStep에 맞는 단계만 표시 */}
+                  {/* 단계별 가이드 - stepId별로 완전한 가이드 표시 */}
                   {(() => {
-                    // 🎯 순서 기반 매칭 (확장성 있는 방식)
+                    // ✅ stepId 매칭된 guide 카드의 전체 detailedSteps 표시
                     const getRelevantSteps = () => {
                       if (!stepData.guide.steps || !selectedStep) return [];
                       
-                      const selectedStepId = parseInt(selectedStep.id);
-                      console.log('🔍 [Modal Filter] selectedStep.id:', selectedStepId);
-                      console.log('🔍 [Modal Filter] 전체 guide steps:', stepData.guide.steps.length, '개');
+                      console.log('🔍 [Modal Filter] selectedStep.id:', selectedStep.id);
+                      console.log('🔍 [Modal Filter] stepData.guide.steps:', stepData.guide.steps.length, '개');
                       
-                      // 직접 매칭: Flow step id = Guide step number
-                      const directMatch = stepData.guide.steps.find((step: any) => step.number === selectedStepId);
-                      
-                      if (directMatch) {
-                        console.log('✅ [Modal Filter] 직접 매칭 성공:', directMatch.title);
-                        return [directMatch];
-                      }
-                      
-                      // Fallback: 해당 인덱스의 단계 (0-based)
-                      const fallbackStep = stepData.guide.steps[selectedStepId - 1];
-                      if (fallbackStep) {
-                        console.log('🔄 [Modal Filter] 인덱스 기반 매칭:', fallbackStep.title);
-                        return [fallbackStep];
-                      }
-                      
-                      // 최종 Fallback: 첫 번째 단계
-                      console.log('🚨 [Modal Filter] 매칭 실패 - 첫 번째 단계 사용');
-                      return stepData.guide.steps.slice(0, 1);
+                      // stepId가 매칭된 guide 카드의 모든 detailedSteps 반환
+                      console.log('✅ [Modal Filter] 해당 단계의 전체 세부 단계 표시');
+                      return stepData.guide.steps;
                     };
                     
                     const relevantSteps = getRelevantSteps();
                     
-                    return relevantSteps.map((step: any, i: number) => (
+                    return relevantSteps.map((step: any, i: number) => {
+                      // 🎯 세부 번호 매기기: stepId-step.number 형태 (예: 1-1, 1-2)
+                      const stepId = selectedStep ? (parseInt(selectedStep.id?.replace('step-', '') || '0') + 1) : '1';
+                      const detailedNumber = `${stepId}-${step.number}`;
+                      
+                      return (
                       <div key={i} className={styles['guide-step']}>
-                        <div className={styles['guide-number']}>{step.number}</div>
+                        <div className={styles['guide-number']}>{detailedNumber}</div>
                         <div className={styles['guide-content']}>
-                          <h3>{step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || ''}</h3>
+                          <h3>{formatStepTitle(step.title?.replace(/\*\*([^*]+)\*\*/g, '$1') || '')}</h3>
                           <div className={styles['step-description']}>
                             {renderStructuredDescription(step.description)}
                           </div>
@@ -1230,10 +1204,51 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                           </div>
                         )}
 
+                        {/* 🆕 세부 단계별 코드블록 지원 */}
+                        {step.codeBlock && (
+                          <div className={styles['step-code-block']}>
+                                    <div className={styles['code-header']}>
+                                      <span className={styles['code-title']}>
+                                💻 {step.codeBlock.title || '실행 코드'}
+                                      </span>
+                                      <button
+                                        className={styles['code-copy-btn']}
+                                onClick={async (event) => {
+                                  try {
+                                    await navigator.clipboard.writeText(step.codeBlock.code);
+                                    const btn = event.currentTarget;
+                                    const originalText = btn.textContent;
+                                    btn.textContent = '✅ 복사 완료!';
+                                    btn.style.backgroundColor = '#10b981';
+                                    setTimeout(() => {
+                                      btn.textContent = originalText;
+                                      btn.style.backgroundColor = '';
+                                    }, 2000);
+                                  } catch (err) {
+                                    alert('복사에 실패했습니다.');
+                                  }
+                                }}
+                                      >
+                                        📋 복사
+                                      </button>
+                                    </div>
+                                    <pre className={styles['code-content']}>
+                              <code className={`language-${step.codeBlock.language || 'javascript'}`}>
+                                {step.codeBlock.code}
+                              </code>
+                                    </pre>
+                            {step.codeBlock.copyInstructions && (
+                                      <div className={styles['code-instructions']}>
+                                💡 {step.codeBlock.copyInstructions}
+                                      </div>
+                                    )}
+                                  </div>
+                        )}
+
 {/* 코드 중복 렌더링 방지: 단계별 가이드에서는 코드 제외, 하단 통합 코드 섹션에서만 표시 */}
-                        </div>
+                                </div>
                       </div>
-                    ));
+                    )});
                   })()}
                   
                   {/* 팁 */}
@@ -1259,55 +1274,73 @@ const FlowDiagramSection: React.FC<FlowDiagramSectionProps> = ({
                     if (stepData.guide.codeBlocks && stepData.guide.codeBlocks.length > 0) {
                       const codeBlock = stepData.guide.codeBlocks[0]; // 첫 번째 코드 블록 사용
                       if (codeBlock && codeBlock.code) {
-                        return (
-                          <div className={styles['code-section']}>
-                            <h4>💻 실행 코드</h4>
-                            <div className={styles['code-block']}>
-                              <div className={styles['code-header']}>
-                                <span className={styles['code-title']}>
+                              return (
+                                <div className={styles['code-section']}>
+                                  <h4>💻 실행 코드</h4>
+                                  <div className={styles['code-block']}>
+                                    <div className={styles['code-header']}>
+                                      <span className={styles['code-title']}>
                                   {codeBlock.title || '실행 코드'}
-                                </span>
-                                <button
-                                  className={styles['code-copy-btn']}
-                                  onClick={() => navigator.clipboard.writeText(codeBlock.code)}
-                                >
-                                  📋 복사
-                                </button>
-                              </div>
-                              <pre className={styles['code-content']}>
+                                      </span>
+                                      <button
+                                        className={styles['code-copy-btn']}
+                                  onClick={async (event) => {
+                                    try {
+                                      await navigator.clipboard.writeText(codeBlock.code);
+                                      // 버튼 텍스트 임시 변경으로 피드백 제공
+                                      const btn = event.currentTarget as HTMLButtonElement;
+                                      if (btn) {
+                                        const originalText = btn.textContent;
+                                        btn.textContent = '✅ 복사 완료!';
+                                        btn.style.backgroundColor = '#10b981';
+                                        setTimeout(() => {
+                                          btn.textContent = originalText;
+                                          btn.style.backgroundColor = '';
+                                        }, 2000);
+                                      }
+                                    } catch (err) {
+                                      console.error('복사 실패:', err);
+                                      alert('복사에 실패했습니다. 다시 시도해주세요.');
+                                    }
+                                  }}
+                                      >
+                                        📋 복사
+                                      </button>
+                                    </div>
+                                    <pre className={styles['code-content']}>
                                 <code>{codeBlock.code}</code>
-                              </pre>
+                                    </pre>
                               {codeBlock.copyInstructions && (
                                 <div className={styles['code-instructions']}>
                                   💡 {codeBlock.copyInstructions}
                                 </div>
                               )}
-                            </div>
-                          </div>
-                        );
-                      }
-                    }
-
+                                  </div>
+                                </div>
+                              );
+                            }
+                          }
+                          
                     // 2순위: executableCode (호환성)
                     if (stepData.guide.executableCode) {
                       return (
-                        <div className={styles['code-section']}>
-                          <h4>💻 실행 코드</h4>
-                          <div className={styles['code-block']}>
-                            <div className={styles['code-header']}>
-                              <span className={styles['code-title']}>실행 코드</span>
-                              <button
+                    <div className={styles['code-section']}>
+                      <h4>💻 실행 코드</h4>
+                      <div className={styles['code-block']}>
+                        <div className={styles['code-header']}>
+                          <span className={styles['code-title']}>실행 코드</span>
+                          <button
                                 className={styles['code-copy-btn']}
-                                onClick={() => navigator.clipboard.writeText(stepData.guide.executableCode || '')}
-                              >
-                                📋 복사
-                              </button>
-                            </div>
-                            <pre className={styles['code-content']}>
-                              <code>{stepData.guide.executableCode}</code>
-                            </pre>
-                          </div>
+                            onClick={() => navigator.clipboard.writeText(stepData.guide.executableCode || '')}
+                          >
+                            📋 복사
+                          </button>
                         </div>
+                        <pre className={styles['code-content']}>
+                          <code>{stepData.guide.executableCode}</code>
+                        </pre>
+                  </div>
+                </div>
                       );
                     }
 

@@ -1,0 +1,257 @@
+{
+  "meta": {
+    "lastUpdated": "2025-02-01",
+    "version": "1.0",
+    "description": "2024-2025년 최신 AI 도구 및 노코드 솔루션 레지스트리"
+  },
+  "categories": {
+    "data_etl": {
+      "name": "데이터 ETL & 통합",
+      "tools": [
+        {
+          "toolSlug": "supermetrics",
+          "name": "Supermetrics",
+          "description": "50+ 광고 플랫폼 데이터를 Google Sheets/Studio로 자동 연동",
+          "capabilityTags": ["facebook_ads", "google_ads", "tiktok_ads", "instagram", "google_sheets", "looker_studio"],
+          "pricingHint": "월 $99~ (14일 무료 체험)",
+          "docsUrl": "https://supermetrics.com/docs",
+          "koreanSupport": "결제 지원, UI 일부 한글",
+          "difficultyLevel": "초급",
+          "setupTime": "15-30분"
+        },
+        {
+          "toolSlug": "zapier",
+          "name": "Zapier",
+          "description": "6000+ 앱 연동 자동화 플랫폼",
+          "capabilityTags": ["automation", "webhooks", "api_integration", "no_code"],
+          "pricingHint": "월 $19.99~ (무료 플랜: 5개 Zap)",
+          "docsUrl": "https://zapier.com/help",
+          "koreanSupport": "UI 한글 지원",
+          "difficultyLevel": "초급",
+          "setupTime": "10-20분"
+        },
+        {
+          "toolSlug": "make",
+          "name": "Make (구 Integromat)",
+          "description": "비주얼 자동화 워크플로우 빌더",
+          "capabilityTags": ["visual_automation", "api_calls", "data_transformation", "webhooks"],
+          "pricingHint": "월 $9~ (무료: 1000 ops/월)",
+          "docsUrl": "https://www.make.com/en/help",
+          "koreanSupport": "UI 일부 한글",
+          "difficultyLevel": "초급-중급",
+          "setupTime": "20-40분"
+        }
+      ]
+    },
+    "data_visualization": {
+      "name": "데이터 시각화 & 대시보드",
+      "tools": [
+        {
+          "toolSlug": "looker_studio",
+          "name": "Looker Studio (구 Data Studio)",
+          "description": "Google 무료 데이터 시각화 도구",
+          "capabilityTags": ["dashboards", "google_integration", "real_time", "sharing"],
+          "pricingHint": "완전 무료",
+          "docsUrl": "https://support.google.com/looker-studio",
+          "koreanSupport": "완전 한글 지원",
+          "difficultyLevel": "초급",
+          "setupTime": "10-30분"
+        },
+        {
+          "toolSlug": "tableau_public",
+          "name": "Tableau Public",
+          "description": "무료 데이터 시각화 소프트웨어",
+          "capabilityTags": ["advanced_charts", "interactive", "public_sharing"],
+          "pricingHint": "무료 (Public 게시 필수)",
+          "docsUrl": "https://help.tableau.com/current/pro/desktop/en-us",
+          "koreanSupport": "UI 한글 지원",
+          "difficultyLevel": "중급",
+          "setupTime": "30-60분"
+        }
+      ]
+    },
+    "ai_assistants": {
+      "name": "AI 어시스턴트 & 언어모델",
+      "tools": [
+        {
+          "toolSlug": "claude_3_haiku",
+          "name": "Claude 3 Haiku",
+          "description": "200K 컨텍스트, 한글 우수 AI 어시스턴트",
+          "capabilityTags": ["text_analysis", "code_generation", "korean_language", "large_context"],
+          "pricingHint": "무료 (Beta), API: $0.25/1M 토큰",
+          "docsUrl": "https://docs.anthropic.com/claude/docs",
+          "koreanSupport": "뛰어난 한글 이해력",
+          "difficultyLevel": "초급",
+          "setupTime": "5분"
+        },
+        {
+          "toolSlug": "openai_gpt4o",
+          "name": "GPT-4o",
+          "description": "멀티모달 AI: 텍스트, 이미지, 음성 처리",
+          "capabilityTags": ["multimodal", "vision", "audio", "reasoning"],
+          "pricingHint": "API: $5/1M 입력토큰, $15/1M 출력토큰",
+          "docsUrl": "https://platform.openai.com/docs",
+          "koreanSupport": "한글 지원",
+          "difficultyLevel": "초급-중급",
+          "setupTime": "10분"
+        },
+        {
+          "toolSlug": "upstage_solar",
+          "name": "Upstage Solar LLM",
+          "description": "국산 LLM, 한국어 문서 QA 특화",
+          "capabilityTags": ["korean_optimized", "document_qa", "local_llm"],
+          "pricingHint": "무료 티어 제공",
+          "docsUrl": "https://developers.upstage.ai/",
+          "koreanSupport": "완벽한 한국어 지원",
+          "difficultyLevel": "중급",
+          "setupTime": "15분"
+        }
+      ]
+    },
+    "document_ai": {
+      "name": "문서 AI & 지식 관리",
+      "tools": [
+        {
+          "toolSlug": "notebooklm",
+          "name": "NotebookLM",
+          "description": "Google Gemini 기반 문서 요약 및 QA",
+          "capabilityTags": ["document_analysis", "source_grounding", "audio_overview"],
+          "pricingHint": "무료 (Google 계정 필요)",
+          "docsUrl": "https://notebooklm.google.com/help",
+          "koreanSupport": "한국 계정 사용 가능",
+          "difficultyLevel": "초급",
+          "setupTime": "5분"
+        },
+        {
+          "toolSlug": "perplexity_api",
+          "name": "Perplexity API",
+          "description": "실시간 웹 검색 기반 AI 답변",
+          "capabilityTags": ["real_time_search", "source_citation", "api_access"],
+          "pricingHint": "API: $5/1000 requests",
+          "docsUrl": "https://docs.perplexity.ai/",
+          "koreanSupport": "한글 쿼리 지원",
+          "difficultyLevel": "중급",
+          "setupTime": "10분"
+        }
+      ]
+    },
+    "voice_audio": {
+      "name": "음성 인식 & 처리",
+      "tools": [
+        {
+          "toolSlug": "assemblyai",
+          "name": "AssemblyAI",
+          "description": "고정밀 음성 인식 및 실시간 STT",
+          "capabilityTags": ["stt", "real_time", "webhook", "speaker_detection"],
+          "pricingHint": "$0.37/시간 (첫 5시간 무료)",
+          "docsUrl": "https://www.assemblyai.com/docs",
+          "koreanSupport": "한국어 지원",
+          "difficultyLevel": "중급",
+          "setupTime": "20분"
+        },
+        {
+          "toolSlug": "openai_whisper",
+          "name": "OpenAI Whisper API",
+          "description": "오픈소스 기반 음성 인식",
+          "capabilityTags": ["stt", "multilingual", "local_deployment"],
+          "pricingHint": "API: $0.006/분",
+          "docsUrl": "https://platform.openai.com/docs/guides/speech-to-text",
+          "koreanSupport": "한국어 지원",
+          "difficultyLevel": "초급-중급",
+          "setupTime": "10분"
+        }
+      ]
+    },
+    "image_generation": {
+      "name": "이미지 생성 & 편집",
+      "tools": [
+        {
+          "toolSlug": "dalle3",
+          "name": "DALL-E 3",
+          "description": "고품질 AI 이미지 생성",
+          "capabilityTags": ["image_generation", "high_quality", "prompt_following"],
+          "pricingHint": "$0.04/1024x1024 이미지",
+          "docsUrl": "https://platform.openai.com/docs/guides/images",
+          "koreanSupport": "한국 카드 결제 가능",
+          "difficultyLevel": "초급",
+          "setupTime": "5분"
+        },
+        {
+          "toolSlug": "midjourney_api",
+          "name": "Midjourney (비공식 API)",
+          "description": "아트스타일 이미지 생성 전문",
+          "capabilityTags": ["artistic_style", "high_quality", "community"],
+          "pricingHint": "월 $10~ (Discord 기반)",
+          "docsUrl": "https://docs.midjourney.com/",
+          "koreanSupport": "프롬프트 한글 번역 필요",
+          "difficultyLevel": "초급-중급",
+          "setupTime": "15분"
+        }
+      ]
+    },
+    "no_code_platforms": {
+      "name": "노코드 플랫폼",
+      "tools": [
+        {
+          "toolSlug": "airtable",
+          "name": "Airtable",
+          "description": "데이터베이스 + 스프레드시트 하이브리드",
+          "capabilityTags": ["database", "api", "automation", "collaboration"],
+          "pricingHint": "무료~월 $20/사용자",
+          "docsUrl": "https://support.airtable.com/",
+          "koreanSupport": "UI 일부 한글",
+          "difficultyLevel": "초급",
+          "setupTime": "20분"
+        },
+        {
+          "toolSlug": "notion_api",
+          "name": "Notion API",
+          "description": "문서+데이터베이스 통합 워크스페이스",
+          "capabilityTags": ["documentation", "database", "api", "collaboration"],
+          "pricingHint": "무료~월 $8/사용자",
+          "docsUrl": "https://developers.notion.com/",
+          "koreanSupport": "완전 한글 지원",
+          "difficultyLevel": "초급-중급",
+          "setupTime": "10-30분"
+        }
+      ]
+    },
+    "workflow_automation": {
+      "name": "워크플로우 자동화",
+      "tools": [
+        {
+          "toolSlug": "n8n",
+          "name": "n8n",
+          "description": "오픈소스 워크플로우 자동화",
+          "capabilityTags": ["open_source", "self_hosted", "visual_editor", "api_integration"],
+          "pricingHint": "오픈소스 무료, 클라우드 월 $20~",
+          "docsUrl": "https://docs.n8n.io/",
+          "koreanSupport": "커뮤니티 한글 지원",
+          "difficultyLevel": "중급",
+          "setupTime": "30-60분"
+        },
+        {
+          "toolSlug": "pipedream",
+          "name": "Pipedream",
+          "description": "개발자 친화적 자동화 플랫폼",
+          "capabilityTags": ["code_based", "api_integration", "real_time", "serverless"],
+          "pricingHint": "무료~월 $29",
+          "docsUrl": "https://pipedream.com/docs",
+          "koreanSupport": "영문 기준",
+          "difficultyLevel": "중급-고급",
+          "setupTime": "20-40분"
+        }
+      ]
+    }
+  },
+  "domainMappings": {
+    "sns_analytics": ["supermetrics", "looker_studio", "claude_3_haiku", "make"],
+    "customer_service": ["claude_3_haiku", "upstage_solar", "notion_api", "assemblyai"],
+    "content_creation": ["dalle3", "claude_3_haiku", "notebooklm", "openai_gpt4o"],
+    "data_analysis": ["looker_studio", "tableau_public", "claude_3_haiku", "airtable"],
+    "document_processing": ["notebooklm", "upstage_solar", "claude_3_haiku", "notion_api"],
+    "voice_automation": ["assemblyai", "openai_whisper", "make", "zapier"],
+    "image_workflow": ["dalle3", "midjourney_api", "airtable", "zapier"],
+    "general_automation": ["make", "zapier", "n8n", "airtable"]
+  }
+}

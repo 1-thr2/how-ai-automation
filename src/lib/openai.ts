@@ -2,6 +2,9 @@ import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+// OpenAI 인스턴스 export
+export { openai };
+
 interface OpenAIConfig {
   messages: Array<{
     role: 'system' | 'user' | 'assistant';

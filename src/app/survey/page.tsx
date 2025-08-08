@@ -12,7 +12,28 @@ function SurveyContent() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const isHandlingRef = useRef(false); // 🔥 중복 실행 방지
 
+  // 🔍 컴포넌트 언마운트 감지
+  useEffect(() => {
+    console.log('🏗️ [SurveyContent] 컴포넌트 마운트됨');
+    return () => {
+      console.log('🏗️ [SurveyContent] 컴포넌트 언마운트됨!');
+    };
+  }, []);
+
+  // 🔍 isSubmitted 상태 변화 추적
+  useEffect(() => {
+    console.log('🔍 [SurveyContent] isSubmitted 변화:', isSubmitted);
+    if (isSubmitted) {
+      console.trace('🚨 [SurveyContent] isSubmitted가 true로 변경됨');
+    }
+  }, [isSubmitted]);
+
   const handleSubmit = (answers: DynamicAnswers) => {
+    console.log('🚨 [Survey] handleSubmit 호출됨! 스택 추적:');
+    console.trace(); // 🔍 누가 이 함수를 호출했는지 스택 추적
+    console.log('받은 answers:', answers);
+    console.log('answers의 키 개수:', Object.keys(answers || {}).length);
+    
     // 🚫 중복 실행 방지
     if (isHandlingRef.current || isSubmitted) {
       console.log('🚫 [Survey] 중복 실행 차단');
@@ -20,8 +41,7 @@ function SurveyContent() {
     }
     
     isHandlingRef.current = true;
-    console.log('🎯 [Survey] handleSubmit 호출됨');
-    console.log('받은 answers:', answers);
+    console.log('🎯 [Survey] handleSubmit 진행');
     console.log('목표 goal:', goal);
     
     if (!answers || Object.keys(answers).length === 0) {
@@ -45,6 +65,14 @@ function SurveyContent() {
     
     // 🔥 즉시 submitted 상태로 변경하여 리렌더링 방지
     setIsSubmitted(true);
+    
+    // 🧹 제출 완료 시 localStorage 클리어
+    try {
+      localStorage.removeItem('dynamicQuestionnaire_inputValues');
+      console.log('🧹 [Survey] localStorage 클리어됨');
+    } catch (e) {
+      console.warn('localStorage 클리어 실패:', e);
+    }
     
     // 🚫 강제 페이지 이동: Base64로 안전하게 전달
     const url = `/loading?goal=${encodeURIComponent(goal)}&answers=${answersBase64}`;

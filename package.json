@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write .",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "review:weekly": "npx tsx src/scripts/weekly-pattern-review.ts",
+    "review:patterns": "npm run review:weekly"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.18",
@@ -26,6 +28,7 @@
     "axios": "^1.6.7",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "dotenv": "^17.2.1",
     "framer-motion": "^11.18.2",
     "jsonrepair": "^3.12.0",
     "lucide-react": "^0.323.0",
@@ -63,5 +66,10 @@
     "postcss": "^8",
     "prettier": "^3.2.5",
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.9",
+    "encoding": "^0.1.13",
+    "utf-8-validate": "^6.0.5"
   }
 }

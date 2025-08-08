@@ -27,6 +27,36 @@ export default function WowAutomationResult({
   cards,
   isSharedView = false,
 }: WowAutomationResultProps) {
+  // content에서 단계 추출하는 함수 (호이스팅 문제 해결을 위해 상단으로 이동)
+  const extractStepsFromContent = (content: string): string[] => {
+    const steps: string[] = [];
+    
+    // "Step 1:", "## Step 1", "1단계" 등의 패턴 찾기
+    const stepPatterns = [
+      /## \*\*Step \d+: ([^*]+)\*\*/g,
+      /## Step \d+: ([^#\n]+)/g,
+      /### Step \d+: ([^#\n]+)/g,
+      /\d+단계[:\s]+([^#\n]+)/g,
+      /Step \d+[:\s]+([^#\n]+)/g
+    ];
+    
+    for (const pattern of stepPatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const title = match[1].trim();
+        if (title && title.length > 3) {
+          steps.push(title);
+        }
+      }
+      if (steps.length > 0) {
+        break; // 첫 번째 성공한 패턴 사용
+      }
+    }
+    
+    console.log('🔍 [Content 파싱 결과]:', steps);
+    return steps.slice(0, 5); // 최대 5개까지만
+  };
+
   // 카드 데이터는 직접 전달받은 것 우선, 없으면 result에서 사용
   const cardData = cards || result.cards;
   
@@ -96,13 +126,49 @@ export default function WowAutomationResult({
   };
 
   // 🚨 강제 UI 복구: flow 카드가 있으면 무조건 플로우 다이어그램 생성
-  let processedFlowSteps = [];
+  let processedFlowSteps: any[] = [];
   
   if (flowCard) {
     console.log('🔍 [Flow 카드 분석] flowCard.steps:', flowCard.steps);
-    console.log('🔍 [Flow 카드 분석] flowCard.content:', flowCard.content?.substring(0, 200));
+    console.log('🔍 [Flow 카드 분석] flowCard 전체:', flowCard);
     
-    // 🎯 신규: Guide 카드의 detailedSteps를 Flow steps로 활용
+    // 1. Flow 카드의 steps 배열 직접 사용 (우선순위 1)
+    if (flowCard.steps && Array.isArray(flowCard.steps) && flowCard.steps.length > 0) {
+      console.log('✅ [Flow 생성] Flow 카드의 steps 배열 사용:', flowCard.steps.length, '개');
+      processedFlowSteps = flowCard.steps.map((step: any, index: number) => {
+        // step이 문자열인 경우 처리
+        if (typeof step === 'string') {
+          const stepTitle = step.replace(/^\d+단계:\s*/, '').replace(/\.\.\.$/, '');
+          console.log(`🔧 [Step ${index + 1}] 원본: "${step}" → 제목: "${stepTitle}"`);
+          return {
+            id: String(index + 1),
+            icon: getStepIcon(index, stepTitle),
+            title: stepTitle,
+            subtitle: '상세 가이드에서 단계별 설명을 확인하세요',
+            duration: '5-15분',
+            preview: '',
+            techTags: [],
+          };
+        }
+        // step이 객체인 경우 처리
+        else {
+          const stepTitle = step.title?.replace(/^\d+단계:\s*/, '') || `단계 ${index + 1}`;
+          return {
+            id: String(step.number || index + 1),
+            icon: getStepIcon(index, stepTitle),
+            title: stepTitle,
+            subtitle: step.description?.substring(0, 50) + '...' || '상세 가이드에서 단계별 설명을 확인하세요',
+            duration: '5-15분',
+            preview: '',
+            techTags: [],
+          };
+        }
+      });
+      console.log('🎯 [Flow 생성 완료] processedFlowSteps 길이:', processedFlowSteps.length);
+      console.log('🎯 [Flow 생성 완료] 첫 번째 단계:', processedFlowSteps[0]);
+    }
+        // 2. Guide 카드의 detailedSteps를 Flow steps로 활용 (fallback)
+    else {
     const guideCard = cardData.find((c: any) => c.type === 'guide');
     if (guideCard?.detailedSteps && Array.isArray(guideCard.detailedSteps) && guideCard.detailedSteps.length > 0) {
       console.log('✅ [Flow 생성] Guide의 detailedSteps를 Flow로 변환:', guideCard.detailedSteps.length, '개');
@@ -118,34 +184,12 @@ export default function WowAutomationResult({
           techTags: [],
         };
       });
-    } else if (flowCard.steps && Array.isArray(flowCard.steps)) {
-      // 정상적인 steps 배열이 있는 경우
-      processedFlowSteps = flowCard.steps.map((step: any, index: number) => {
-      console.log(`🔍 [Step ${index + 1}] 원본 데이터:`, step);
-
-      if (typeof step === 'string') {
-        return {
-          id: String(index + 1),
-          icon: getStepIcon(index, step),
-            title: step.replace(/^\d+\.\s*/, ''),
-          subtitle: '',
-          duration: '5분',
-          preview: '',
-          techTags: [],
-        };
-      } else {
-        return {
-          id: String(step.id || index + 1),
-          icon: step.icon || getStepIcon(index, step.title || ''),
-          title: step.title ? step.title.replace(/^\d+\.\s*/, '') : `단계 ${index + 1}`,
-          subtitle: step.subtitle || '',
-          duration: step.duration || step.timing || '5분',
-          preview: step.preview || step.userValue || '',
-          techTags: step.tech || step.techTags || [],
-        };
       }
-      });
-    } else if (flowCard.content) {
+    }  // ← else 블록을 닫아주는 중괄호
+    // 3. content에서 단계 추출 시도 (최종 fallback)
+    console.log('🔍 [Content 체크] processedFlowSteps.length:', processedFlowSteps.length);
+    console.log('🔍 [Content 체크] flowCard.content 존재?', !!flowCard.content);
+    if (!processedFlowSteps.length && flowCard.content) {
       // content에서 단계 추출 시도
       console.log('🚨 [Content 파싱] content에서 단계 추출 시도');
       const contentSteps = extractStepsFromContent(flowCard.content);
@@ -192,9 +236,12 @@ export default function WowAutomationResult({
           }
         ];
       }
-    } else {
-      // 아무것도 없으면 기본 3단계 생성
-      console.log('🚨 [긴급복구] flow 카드 정보 없음 - 기본 단계 생성');
+  }
+  }  // ← if (flowCard) 블록을 닫아주는 중괄호
+  
+  // 마지막 fallback: flowCard가 없으면 기본 3단계 생성
+  if (!processedFlowSteps.length) {
+    console.log('🚨 [긴급복구] 모든 방법 실패 - 기본 단계 생성');
       processedFlowSteps = [
         {
           id: '1',
@@ -224,38 +271,9 @@ export default function WowAutomationResult({
           techTags: [],
         }
       ];
-    }
   }
 
-  // content에서 단계 추출하는 함수
-  function extractStepsFromContent(content: string): string[] {
-    const steps: string[] = [];
-    
-    // "Step 1:", "## Step 1", "1단계" 등의 패턴 찾기
-    const stepPatterns = [
-      /## \*\*Step \d+: ([^*]+)\*\*/g,
-      /## Step \d+: ([^#\n]+)/g,
-      /### Step \d+: ([^#\n]+)/g,
-      /\d+단계[:\s]+([^#\n]+)/g,
-      /Step \d+[:\s]+([^#\n]+)/g
-    ];
-    
-    for (const pattern of stepPatterns) {
-      let match;
-      while ((match = pattern.exec(content)) !== null) {
-        const title = match[1].trim();
-        if (title && title.length > 3) {
-          steps.push(title);
-        }
-      }
-      if (steps.length > 0) {
-        break; // 첫 번째 성공한 패턴 사용
-      }
-    }
-    
-    console.log('🔍 [Content 파싱 결과]:', steps);
-    return steps.slice(0, 5); // 최대 5개까지만
-  }
+
 
   // 🔍 디버깅: 데이터 구조 확인
   console.log('🔍 [UI Debug] cardData:', cardData);
@@ -338,7 +356,7 @@ export default function WowAutomationResult({
 
     // 2순위: flow 카드의 제목 활용 (GPT가 생성한 정교한 제목)
     if (flowCard?.title && 
-        flowCard.title !== '자동화 플로우' && 
+      flowCard.title !== '자동화 플로우' &&
         flowCard.title !== '🚀 자동화 플로우' &&
         !flowCard.title.includes('기본') &&
         !flowCard.title.includes('샘플')) {
@@ -357,7 +375,7 @@ export default function WowAutomationResult({
     }
 
     // 5순위: 기본 제목
-    return '🚀 맞춤형 자동화';
+      return '🚀 맞춤형 자동화';
   };
 
   // 지능적 제목 생성 함수
@@ -451,6 +469,7 @@ export default function WowAutomationResult({
   };
 
   return (
+    <>
     <div>
       <style jsx>{`
         .container {
@@ -957,7 +976,7 @@ export default function WowAutomationResult({
           />
         )}
 
-        {/* 상세 가이드 카드들 - guide 제외 (FlowDiagramSection에서 처리) */}
+        {/* 상세 가이드 카드들 - guide 제외 (FlowDiagramSection에서 모달로 처리) */}
         <div className="guide-cards-section">
           {cardData
             .filter((card: any) =>
@@ -1195,53 +1214,22 @@ export default function WowAutomationResult({
                   });
                 }
                 
-                console.log('⚠️ [FAQ] 구조화된 FAQ 없음 - fallback 사용');
+                console.log('⚠️ [FAQ] 구조화된 FAQ 없음 - 빈 상태 표시');
                 return (
-                <>
                   <div className="faq-item">
                     <div className="faq-question">
-                      <span className="faq-q-icon">Q</span>
-                      <span className="faq-q-text">설정이 어려워 보이는데 정말 쉬운가요?</span>
+                      <span className="faq-q-icon">💡</span>
+                      <span className="faq-q-text">FAQ 데이터를 생성 중입니다...</span>
                     </div>
                     <div className="faq-answer">
-                      <span className="faq-a-icon">A</span>
+                      <span className="faq-a-icon">ℹ️</span>
                       <div className="faq-a-content">
                         <span className="faq-a-text">
-                          네! 단계별 가이드를 따라하시면 누구나 쉽게 완성할 수 있습니다.
+                          더 자세한 질문이 있으시면 각 단계별 가이드를 참고해 주세요.
                         </span>
                       </div>
                     </div>
                   </div>
-                  <div className="faq-item">
-                    <div className="faq-question">
-                      <span className="faq-q-icon">Q</span>
-                      <span className="faq-q-text">오류가 발생하면 어떻게 해야 하나요?</span>
-                    </div>
-                    <div className="faq-answer">
-                      <span className="faq-a-icon">A</span>
-                      <div className="faq-a-content">
-                        <span className="faq-a-text">
-                          각 단계의 문제 해결 탭에서 상세한 해결 방법을 확인하실 수 있습니다.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="faq-item">
-                    <div className="faq-question">
-                      <span className="faq-q-icon">Q</span>
-                      <span className="faq-q-text">추가 비용이 발생하나요?</span>
-                    </div>
-                    <div className="faq-answer">
-                      <span className="faq-a-icon">A</span>
-                      <div className="faq-a-content">
-                        <span className="faq-a-text">
-                          대부분의 자동화는 무료 도구로 구현 가능하며, 유료 도구 사용 시 미리
-                          안내해드립니다.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </>
                 );
               })()}
             </div>
@@ -1249,5 +1237,6 @@ export default function WowAutomationResult({
         </div>
       )}
     </div>
+    </>
   );
 }

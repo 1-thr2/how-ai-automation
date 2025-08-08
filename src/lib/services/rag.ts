@@ -1,5 +1,5 @@
 import { tavily } from '@tavily/core';
-import { detectDomain, getOptimalToolsForDomain } from '../domain-tools-registry';
+import { detectDomainEnhanced, getOptimalAITools } from './ai-tools-registry';
 
 /**
  * Tavily RAG 서비스
@@ -22,6 +22,8 @@ export interface RAGResult {
   publishedDate?: string;
   relevanceScore?: number; // 추가: 관련성 점수
   qualityScore?: number;   // 추가: 품질 점수
+  isReliable?: boolean;    // 추가: 신뢰성 점수
+  contentType?: 'official' | 'tutorial' | 'forum' | 'news' | 'other'; // 추가: 컨텐츠 유형
 }
 
 /**
@@ -34,7 +36,13 @@ export interface RAGSearchOptions {
   searchDepth?: 'basic' | 'advanced';
   excludeDomains?: string[];
   includeDomains?: string[];
+  useCache?: boolean; // 🔧 캐싱 활성화 옵션
 }
+
+// 🔧 검색 결과 캐시 (메모리 기반)
+const searchCache = new Map<string, RAGResult[]>();
+const CACHE_TTL = 5 * 60 * 1000; // 5분
+const cacheTimestamps = new Map<string, number>();
 
 /**
  * 도구 연동 상태 인터페이스
@@ -62,13 +70,30 @@ export async function searchWithRAG(
   options: RAGSearchOptions = {}
 ): Promise<RAGResult[]> {
   try {
+    // 🔧 캐시 확인 (동일한 쿼리의 중복 검색 방지)
+    const cacheKey = `${query}_${JSON.stringify(options)}`;
+    const now = Date.now();
+    
+    if (options.useCache !== false && searchCache.has(cacheKey)) {
+      const timestamp = cacheTimestamps.get(cacheKey) || 0;
+      if (now - timestamp < CACHE_TTL) {
+        console.log(`📦 [RAG] 캐시 사용: "${query}"`);
+        return searchCache.get(cacheKey)!;
+      } else {
+        // TTL 만료된 캐시 삭제
+        searchCache.delete(cacheKey);
+        cacheTimestamps.delete(cacheKey);
+      }
+    }
+    
     console.log(`🔍 [RAG] 검색 시작: "${query}"`);
 
     const defaultOptions = {
-      maxResults: 3,
+      maxResults: 2, // 🔧 3 → 2로 추가 최적화 (API 호출 대폭 절약)
       includeImages: false,
       includeAnswers: true,
-      searchDepth: 'basic' as const,
+      searchDepth: 'basic' as const, // 🔧 advanced → basic으로 최적화 (속도 향상)
+      useCache: true, // 기본적으로 캐싱 활성화
       ...options,
     };
 
@@ -82,23 +107,30 @@ export async function searchWithRAG(
       include_domains: defaultOptions.includeDomains,
     });
 
-    // 결과 변환
-    const results: RAGResult[] =
-      response.results?.map((result: any) => ({
-        url: result.url || '',
-        title: result.title || '',
-        content: result.content || '',
-        score: result.score || 0,
-        publishedDate: result.published_date,
-      })) || [];
+    // 🧠 스마트 결과 처리 및 필터링
+    const rawResults = response.results || [];
+    console.log(`📥 [RAG] 원본 결과: ${rawResults.length}개`);
 
-    console.log(`✅ [RAG] 검색 완료: ${results.length}개 결과`);
-    console.log(
-      `📊 [RAG] 결과 점수:`,
-      results.map(r => r.score)
-    );
+    // 품질 향상 및 필터링 적용
+    const enhancedResults = enhanceSearchResults(rawResults, query, query);
+    
+    console.log(`✅ [RAG] 검색 완료: ${enhancedResults.length}개 고품질 결과 (원본: ${rawResults.length}개)`);
+    console.log(`📊 [RAG] 향상된 점수:`, enhancedResults.map(r => ({
+      title: r.title.substring(0, 30) + '...',
+      relevance: Math.round((r.relevanceScore || 0) * 100),
+      quality: Math.round((r.qualityScore || 0) * 100),
+      reliable: r.isReliable,
+      type: r.contentType
+    })));
 
-    return results;
+    // 🔧 결과를 캐시에 저장 (중복 검색 방지)
+    if (defaultOptions.useCache) {
+      searchCache.set(cacheKey, enhancedResults);
+      cacheTimestamps.set(cacheKey, now);
+      console.log(`💾 [RAG] 캐시 저장: "${query.substring(0, 50)}..."`);
+    }
+
+    return enhancedResults;
   } catch (error) {
     console.error('❌ [RAG] 검색 실패:', error);
 
@@ -323,37 +355,284 @@ export async function validateURL(url: string): Promise<boolean> {
 const ragSessionCache = new Map<string, any>();
 
 /**
- * 🎯 도메인별 맞춤형 검색 쿼리 생성
+ * 🧠 스마트 결과 필터링 및 품질 향상
+ */
+function enhanceSearchResults(results: any[], userInput: string, query: string): RAGResult[] {
+  const enhanced = results.map(result => {
+    const enhancedResult: RAGResult = {
+      url: result.url,
+      title: result.title,
+      content: result.content,
+      score: result.score,
+      publishedDate: result.published_date,
+      relevanceScore: calculateRelevanceScore(result, userInput, query),
+      qualityScore: calculateQualityScore(result),
+      isReliable: assessReliability(result),
+      contentType: classifyContentType(result)
+    };
+
+    return enhancedResult;
+  });
+
+  // 🎯 스마트 정렬: 품질 + 관련성 + 신뢰성 종합
+  return enhanced
+    .filter(result => result.qualityScore! >= 0.4) // 품질 임계값
+    .sort((a, b) => {
+      const scoreA = (a.relevanceScore! * 0.4) + (a.qualityScore! * 0.3) + (a.isReliable ? 0.3 : 0);
+      const scoreB = (b.relevanceScore! * 0.4) + (b.qualityScore! * 0.3) + (b.isReliable ? 0.3 : 0);
+      return scoreB - scoreA;
+    })
+    .slice(0, 3); // 상위 3개만 선택 (품질 최적화)
+}
+
+/**
+ * 🎯 관련성 점수 계산
+ */
+function calculateRelevanceScore(result: any, userInput: string, query: string): number {
+  let score = 0;
+  const title = result.title?.toLowerCase() || '';
+  const content = result.content?.toLowerCase() || '';
+  const userLower = userInput.toLowerCase();
+  const queryLower = query.toLowerCase();
+
+  // 1. 제목에서 키워드 매칭 (높은 가중치)
+  const titleKeywords = extractKeywords(userLower);
+  const titleMatches = titleKeywords.filter(keyword => title.includes(keyword)).length;
+  score += (titleMatches / titleKeywords.length) * 0.4;
+
+  // 2. 내용에서 키워드 매칭
+  const contentMatches = titleKeywords.filter(keyword => content.includes(keyword)).length;
+  score += (contentMatches / titleKeywords.length) * 0.3;
+
+  // 3. 특정 도구/플랫폼 정확도
+  const tools = ['google sheets', 'apps script', 'zapier', 'make.com', 'api', 'webhook'];
+  const userTools = tools.filter(tool => userLower.includes(tool));
+  const resultTools = tools.filter(tool => (title + content).includes(tool));
+  const toolOverlap = userTools.filter(tool => resultTools.includes(tool)).length;
+  if (userTools.length > 0) {
+    score += (toolOverlap / userTools.length) * 0.3;
+  }
+
+  return Math.min(1, score);
+}
+
+/**
+ * 🏆 품질 점수 계산
+ */
+function calculateQualityScoreOld(result: any): number {
+  let score = 0.5; // 기본 점수
+  const title = result.title?.toLowerCase() || '';
+  const content = result.content?.toLowerCase() || '';
+  const url = result.url?.toLowerCase() || '';
+
+  // 1. 공식/신뢰할 만한 소스 보너스
+  const officialDomains = ['github.com', 'developers.google.com', 'zapier.com', 'microsoft.com', 'stackoverflow.com'];
+  if (officialDomains.some(domain => url.includes(domain))) {
+    score += 0.3;
+  }
+
+  // 2. 컨텐츠 길이 및 구체성
+  if (content.length > 200) score += 0.1;
+  if (content.length > 500) score += 0.1;
+
+  // 3. 코드/예시 포함 여부
+  if (content.includes('script') || content.includes('function') || content.includes('api')) {
+    score += 0.2;
+  }
+
+  // 4. 부정적 신호 감지
+  const negativeSignals = ['error', 'deprecated', 'discontinued', '404', 'not found'];
+  if (negativeSignals.some(signal => (title + content).includes(signal))) {
+    score -= 0.3;
+  }
+
+  // 5. 최신성 보너스 (2024-2025)
+  if (content.includes('2024') || content.includes('2025')) {
+    score += 0.1;
+  }
+
+  return Math.max(0, Math.min(1, score));
+}
+
+/**
+ * 🛡️ 신뢰성 평가
+ */
+function assessReliability(result: any): boolean {
+  const url = result.url?.toLowerCase() || '';
+  const title = result.title?.toLowerCase() || '';
+  const content = result.content?.toLowerCase() || '';
+
+  // 신뢰할 만한 도메인
+  const trustedDomains = [
+    'github.com', 'developers.google.com', 'zapier.com', 'microsoft.com',
+    'stackoverflow.com', 'docs.microsoft.com', 'support.google.com',
+    'help.zapier.com', 'make.com', 'integromat.com'
+  ];
+
+  // 의심스러운 신호
+  const suspiciousSignals = [
+    'hack', 'crack', 'illegal', 'bypass', 'scrape', 'bot',
+    'spam', 'fake', 'phishing', 'scam'
+  ];
+
+  const isTrustedDomain = trustedDomains.some(domain => url.includes(domain));
+  const hasSuspiciousContent = suspiciousSignals.some(signal => 
+    (title + content).includes(signal)
+  );
+
+  return isTrustedDomain && !hasSuspiciousContent;
+}
+
+/**
+ * 📋 컨텐츠 유형 분류
+ */
+function classifyContentType(result: any): 'official' | 'tutorial' | 'forum' | 'news' | 'other' {
+  const url = result.url?.toLowerCase() || '';
+  const title = result.title?.toLowerCase() || '';
+
+  if (url.includes('developers.') || url.includes('docs.') || url.includes('api.')) {
+    return 'official';
+  }
+  if (title.includes('tutorial') || title.includes('guide') || title.includes('how to')) {
+    return 'tutorial';
+  }
+  if (url.includes('stackoverflow.') || url.includes('reddit.') || url.includes('forum')) {
+    return 'forum';
+  }
+  if (url.includes('news') || url.includes('blog') || title.includes('announcement')) {
+    return 'news';
+  }
+  return 'other';
+}
+
+/**
+ * 🔍 키워드 추출 헬퍼
+ */
+function extractKeywordsOld(text: string): string[] {
+  // 간단한 키워드 추출 (불용어 제거)
+  const stopWords = ['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', '을', '를', '이', '가', '은', '는', '에', '에서', '로', '으로', '와', '과'];
+  return text
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !stopWords.includes(word.toLowerCase()))
+    .slice(0, 10); // 상위 10개 키워드만
+}
+
+/**
+ * 🎯 AI 수준의 다층 검색 쿼리 생성 (현실성 판단 최적화)
  */
 function generateDomainSpecificQuery(userInput: string, domain: string, tools: string[]): string {
-  // 🎯 핵심 키워드 추출 (더 정확한 검색을 위해)
   const keywords = extractCoreKeywords(userInput);
-  const coreKeywords = keywords.slice(0, 4).join(' '); // 최대 4개 핵심 키워드만
+  const coreKeywords = keywords.slice(0, 3).join(' ');
   
-  // 🔍 구글시트/스프레드시트 특별 처리
+  // 🎯 동적 연도 계산 (AI처럼 현재 시점 인식)
+  const currentYear = new Date().getFullYear(); // 2025년 자동 적용
+  const yearContext = `${currentYear} ${currentYear-1}`; // 2025 2024 (최신 + 직전)
+  
+  // 🎯 플랫폼별 특별 처리 (한/영 혼합 검색)
+  const platformChecks = [
+    { platforms: ['인스타그램', 'instagram'], 
+      queries: [
+        `Instagram API comment collection limitations personal account ${yearContext} third party access restrictions`,
+        `인스타그램 댓글 수집 API 제한 개인계정 ${currentYear} 써드파티 접근`
+      ]},
+    { platforms: ['링크드인', 'linkedin'], 
+      queries: [
+        `LinkedIn API personal account restrictions comment data access ${yearContext} policy changes`,
+        `링크드인 API 개인계정 제한사항 댓글 데이터 ${currentYear} 정책변화`
+      ]},
+    { platforms: ['페이스북', 'facebook'], 
+      queries: [
+        `Facebook API personal account data collection limitations ${yearContext} Graph API restrictions`,
+        `페이스북 API 개인계정 데이터수집 제한 ${currentYear} 그래프API`
+      ]},
+    { platforms: ['카카오톡', 'kakaotalk'], 
+      queries: [
+        `KakaoTalk API personal chat analysis restrictions ${yearContext} third party limitations`,
+        `카카오톡 API 개인 채팅분석 제한사항 ${currentYear} 외부앱`
+      ]},
+    { platforms: ['유튜브', 'youtube'], 
+      queries: [
+        `YouTube API comment collection limitations ${yearContext} Data API restrictions quota`,
+        `유튜브 API 댓글수집 제한 ${currentYear} 데이터API 할당량`
+      ]},
+    { platforms: ['트위터', 'twitter', 'x.com'], 
+      queries: [
+        `Twitter X API comment collection personal account limitations ${yearContext} pricing`,
+        `트위터 X API 댓글수집 개인계정 제한 ${currentYear} 요금`
+      ]}
+  ];
+
+  // 플랫폼 매칭 확인
+  const matchedPlatform = platformChecks.find(check => 
+    check.platforms.some(platform => 
+      userInput.toLowerCase().includes(platform.toLowerCase())
+    )
+  );
+
+  if (matchedPlatform) {
+    // 🌍 다중 언어 검색 (한국어 + 영어)
+    const selectedQuery = Math.random() > 0.5 ? matchedPlatform.queries[0] : matchedPlatform.queries[1];
+    console.log(`🎯 [쿼리] 플랫폼별 특화 검색 (한/영): ${selectedQuery}`);
+    return selectedQuery;
+  }
+
+  // 🔍 구글시트/스프레드시트 특별 처리 (동적 연도 + 한/영 혼합)
   if (userInput.includes('구글시트') || userInput.includes('google sheets') || userInput.includes('스프레드시트')) {
-    return `Google Sheets ${coreKeywords} automation tutorial 2024`;
+    const queries = [
+      `Google Sheets ${coreKeywords} Apps Script automation tutorial ${currentYear} free methods`,
+      `구글시트 ${coreKeywords} 앱스스크립트 자동화 가이드 ${currentYear} 무료 방법`
+    ];
+    return Math.random() > 0.5 ? queries[0] : queries[1];
   }
-  
-  switch (domain) {
-    case 'customer_support':
-      return `${coreKeywords} customer support automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
-      
-    case 'advertising':
-      return `${coreKeywords} marketing automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
-      
-    case 'hr':
-      return `${coreKeywords} HR automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
-      
-    case 'finance':
-      return `${coreKeywords} financial automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
-      
-    case 'ecommerce':
-      return `${coreKeywords} ecommerce automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
-      
-    default:
-      return `${coreKeywords} automation tutorial ${tools.slice(0,2).join(' ')} 2024`;
+
+  // 🔍 AI 감정분석 특별 처리 (동적 연도 + 한/영 혼합)
+  if (userInput.includes('감정분석') || userInput.includes('sentiment')) {
+    const queries = [
+      `${coreKeywords} sentiment analysis API free tools ${currentYear} text analysis automation`,
+      `${coreKeywords} 감정분석 API 무료 도구 ${currentYear} 텍스트 분석 자동화`
+    ];
+    return Math.random() > 0.5 ? queries[0] : queries[1];
   }
+
+  // 🔍 도메인별 현실적 검색 (동적 연도 + 한/영 혼합)
+  const domainQueries = {
+    'sns': [
+      `${coreKeywords} social media automation API limitations ${currentYear} alternative methods`,
+      `${coreKeywords} 소셜미디어 자동화 API 제한사항 ${currentYear} 대안 방법`
+    ],
+    'customer_support': [
+      `${coreKeywords} customer support automation tools comparison ${currentYear} free options`,
+      `${coreKeywords} 고객지원 자동화 도구 비교 ${currentYear} 무료 옵션`
+    ],
+    'advertising': [
+      `${coreKeywords} marketing automation free tools ${currentYear} API integration guide`,
+      `${coreKeywords} 마케팅 자동화 무료 도구 ${currentYear} API 연동 가이드`
+    ],
+    'hr': [
+      `${coreKeywords} HR automation tools free alternatives ${currentYear} workflow setup`,
+      `${coreKeywords} HR 자동화 도구 무료 대안 ${currentYear} 워크플로우 설정`
+    ],
+    'finance': [
+      `${coreKeywords} financial data automation free tools ${currentYear} Excel Google Sheets`,
+      `${coreKeywords} 금융 데이터 자동화 무료 도구 ${currentYear} 엑셀 구글시트`
+    ],
+    'ecommerce': [
+      `${coreKeywords} ecommerce automation free tools ${currentYear} Zapier alternatives`,
+      `${coreKeywords} 이커머스 자동화 무료 도구 ${currentYear} 자피어 대안`
+    ]
+  };
+
+  if (domainQueries[domain as keyof typeof domainQueries]) {
+    const queries = domainQueries[domain as keyof typeof domainQueries];
+    return Math.random() > 0.5 ? queries[0] : queries[1];
+  }
+
+  // 기본 쿼리 (동적 연도 + 한/영 혼합)
+  const defaultQueries = [
+    `${coreKeywords} automation implementation guide ${currentYear} free tools step by step`,
+    `${coreKeywords} 자동화 구현 가이드 ${currentYear} 무료 도구 단계별`
+  ];
+  return Math.random() > 0.5 ? defaultQueries[0] : defaultQueries[1];
 }
 
 /**
@@ -390,14 +669,26 @@ function validateAndFilterResults(results: RAGResult[], userInput: string, domai
   const validatedResults = results
     .map(result => ({
       ...result,
-      relevanceScore: calculateRelevanceScore(result, userKeywords, domainKeywords),
-      qualityScore: calculateQualityScore(result)
+      relevanceScore: calculateRelevanceScoreOld(result, userKeywords, domainKeywords),
+      qualityScore: calculateQualityScoreOld(result)
     }))
     .filter(result => {
-      // 🎯 필터링 기준 완화 (실용성 개선)
-      const isRelevant = result.relevanceScore >= 0.15; // 0.3 → 0.15 완화
-      const isQuality = result.qualityScore >= 0.25;    // 0.4 → 0.25 완화  
-      const hasContent = result.content && result.content.length > 30; // 50 → 30 완화
+      // 🎯 AI 수준의 지능적 필터링 (컨텍스트 기반)
+      const isRelevant = result.relevanceScore >= 0.12; // 더 관대한 기준 (다양성 확보)
+      const isQuality = result.qualityScore >= 0.20;    // 최소 품질 기준
+      const hasContent = result.content && result.content.length > 25; // 최소 내용 기준
+      
+      // 🚀 플랫폼별 특화 필터링 (API 제한사항 정보 우선순위)
+      const isApiInfo = result.content.toLowerCase().includes('api') && 
+                       (result.content.toLowerCase().includes('restriction') || 
+                        result.content.toLowerCase().includes('limitation') ||
+                        result.content.toLowerCase().includes('policy'));
+      
+      // API 정보는 점수가 낮아도 우선 보존
+      if (isApiInfo && hasContent) {
+        console.log(`🔑 [RAG] API 정보 우선 보존: ${result.title}`);
+        return true;
+      }
       
       if (!isRelevant) {
         console.log(`❌ [RAG] 관련성 부족 제외: ${result.title} (점수: ${result.relevanceScore.toFixed(2)})`);
@@ -465,7 +756,7 @@ function getDomainKeywords(domain: string): string[] {
 /**
  * 📈 관련성 점수 계산 (개선된 한국어 지원)
  */
-function calculateRelevanceScore(result: RAGResult, userKeywords: string[], domainKeywords: string[]): number {
+function calculateRelevanceScoreOld(result: RAGResult, userKeywords: string[], domainKeywords: string[]): number {
   const text = `${result.title} ${result.content}`.toLowerCase();
   
   // 🎯 더 유연한 키워드 매칭 (부분 매칭 포함)
@@ -656,7 +947,7 @@ export async function generateRAGContext(
     console.log(`🛠️ [RAG] 언급된 도구들: ${mentionedTools.join(', ')}`);
 
     // 🎯 도메인 자동 감지
-    const detectedDomain = detectDomain(userInput, followupAnswers);
+    const detectedDomain = detectDomainEnhanced(userInput, followupAnswers);
     console.log(`🎯 [RAG] 감지된 도메인: ${detectedDomain}`);
 
     // ⚡ 캐시 키 생성 (세션 내 중복 방지)
@@ -669,15 +960,15 @@ export async function generateRAGContext(
 
     // 🛠️ 도메인별 최적 도구 추천
     const optimalTools = [
-      ...getOptimalToolsForDomain(detectedDomain, 'dataCollection', true),
-      ...getOptimalToolsForDomain(detectedDomain, 'automation', true),
-      ...getOptimalToolsForDomain(detectedDomain, 'reporting', true)
+          ...getOptimalAITools(detectedDomain, 'dataCollection', true).primary.map(t => t.name),
+    ...getOptimalAITools(detectedDomain, 'automation', true).primary.map(t => t.name),
+    ...getOptimalAITools(detectedDomain, 'reporting', true).primary.map(t => t.name)
     ].slice(0, 3); // 최대 3개로 축소
 
-    console.log(`💡 [RAG] 도메인 최적 도구들:`, optimalTools.map(t => t.name));
+    console.log(`💡 [RAG] 도메인 최적 도구들:`, optimalTools);
 
     // ⚡ 도메인 기반 스마트 쿼리 생성 (품질 개선)
-    const allTools = [...mentionedTools, ...optimalTools.map(t => t.name)];
+    const allTools = [...mentionedTools, ...optimalTools];
     const uniqueTools = Array.from(new Set(allTools)); // 중복 제거
     
     // 🎯 도메인별 맞춤형 검색 쿼리 생성
@@ -686,7 +977,41 @@ export async function generateRAGContext(
     console.log(`🎯 [RAG] 원본 입력: "${userInput}"`);
     console.log(`🏷️ [RAG] 감지된 도메인: ${detectedDomain}`);
     
-    const searchResults = await searchWithRAG(smartQuery, { maxResults: 4 });
+    // 키워드 추출 (다중 검색용)
+    const coreKeywords = extractCoreKeywords(userInput).slice(0, 3).join(' ');
+    
+    // 🚀 AI 수준의 다중 검색 전략 (한/영 혼합 + 동적 연도)
+    const currentYear = new Date().getFullYear();
+    const baseKeywords = coreKeywords.split(' ').slice(0,2).join(' ');
+    
+    const searchPromises: Promise<RAGResult[]>[] = [
+      // 1차: 메인 쿼리 (현실성 중심)
+      searchWithRAG(smartQuery, { maxResults: 3 }),
+      
+      // 2차: 대안 방법 검색 (한/영 랜덤)
+      searchWithRAG(
+        Math.random() > 0.5 
+          ? `${baseKeywords} alternative manual methods free tools ${currentYear}`
+          : `${baseKeywords} 대안 수동 방법 무료 도구 ${currentYear}`, 
+        { maxResults: 2 }
+      )
+    ];
+
+    // 특정 플랫폼의 경우 API 제한사항 추가 검색 (한/영 + 동적 연도)
+    if (userInput.toLowerCase().includes('인스타') || userInput.toLowerCase().includes('링크드') || userInput.toLowerCase().includes('페이스북')) {
+      const apiQueries = [
+        `social media API restrictions third party access ${currentYear} workarounds`,
+        `소셜미디어 API 제한사항 써드파티 접근 ${currentYear} 우회방법`
+      ];
+      searchPromises.push(
+        searchWithRAG(Math.random() > 0.5 ? apiQueries[0] : apiQueries[1], { maxResults: 2 })
+      );
+    }
+
+    // 병렬 검색 실행
+    console.log(`🚀 [RAG] ${searchPromises.length}개 검색 쿼리 병렬 실행`);
+    const allSearchResults = await Promise.all(searchPromises);
+    const searchResults = allSearchResults.flat();
     
     // 🔍 원시 검색 결과 로깅
     if (searchResults && searchResults.length > 0) {
@@ -700,12 +1025,47 @@ export async function generateRAGContext(
     const validatedResults = validateAndFilterResults(searchResults, userInput, detectedDomain);
     console.log(`✅ [RAG] 검증 완료: ${searchResults.length}개 → ${validatedResults.length}개 (필터링 완료)`);
     
-    // 🔍 최종 결과 로깅
+    // 🔍 최종 결과 로깅 및 AI 수준 품질 평가
     if (validatedResults.length > 0) {
       console.log(`📋 [RAG] 최종 채택된 결과:`);
       validatedResults.forEach((result, i) => {
         console.log(`  ${i+1}. "${result.title}" (관련성: ${result.relevanceScore?.toFixed(2)}, 품질: ${result.qualityScore?.toFixed(2)})`);
       });
+      
+      // 🧠 AI 수준의 검색 결과 종합 평가 (한/영 혼합 지원)
+      const hasApiInfo = validatedResults.some(r => {
+        const content = r.content.toLowerCase();
+        return content.includes('api') || content.includes('에이피아이');
+      });
+      
+      const hasRestrictions = validatedResults.some(r => {
+        const content = r.content.toLowerCase();
+        return content.includes('restriction') || content.includes('limitation') || 
+               content.includes('제한') || content.includes('제한사항') || content.includes('불가능');
+      });
+      
+      const hasAlternatives = validatedResults.some(r => {
+        const content = r.content.toLowerCase();
+        return content.includes('alternative') || content.includes('workaround') ||
+               content.includes('대안') || content.includes('우회') || content.includes('다른방법');
+      });
+      
+      const hasKoreanContent = validatedResults.some(r => /[ㄱ-ㅎ가-힣]/.test(r.content));
+      
+      console.log(`🧠 [RAG 평가] API 정보: ${hasApiInfo ? '✅' : '❌'}, 제한사항: ${hasRestrictions ? '✅' : '❌'}, 대안: ${hasAlternatives ? '✅' : '❌'}, 한국어: ${hasKoreanContent ? '✅' : '❌'}`);
+      
+      // 🎯 AI처럼 맥락 기반 품질 판정
+      if (hasApiInfo && hasRestrictions && hasAlternatives) {
+        console.log(`🏆 [RAG 품질] 최고 - 현실성 판단 + 대안까지 완벽 정보 확보`);
+      } else if (hasApiInfo && hasRestrictions) {
+        console.log(`🎯 [RAG 품질] 우수 - 현실성 판단에 충분한 정보 확보`);
+      } else if (hasAlternatives) {
+        console.log(`💡 [RAG 품질] 양호 - 대안 솔루션 정보 확보`);
+      } else if (hasKoreanContent) {
+        console.log(`🇰🇷 [RAG 품질] 보통 - 한국어 맥락 정보 확보`);
+      } else {
+        console.log(`⚠️ [RAG 품질] 제한적 - 추가 검증 필요`);
+      }
     } else {
       console.log(`⚠️ [RAG] 모든 결과가 필터링됨 - 기본 지식 사용`);
     }
@@ -718,7 +1078,7 @@ export async function generateRAGContext(
     // 🎯 도메인 정보 추가 (간소화)
     if (detectedDomain !== 'general') {
       context += `## 🎯 도메인: ${detectedDomain}\n`;
-      context += `## 💡 추천 도구: ${optimalTools.map(t => t.name).join(', ')}\n\n`;
+      context += `## 💡 추천 도구: ${optimalTools.join(', ')}\n\n`;
     }
 
     // 📊 통합된 최신 정보 (기존 2개 섹션 → 1개로 통합)

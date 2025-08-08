@@ -1,0 +1,41 @@
+[
+  {
+    "id": "failure_1754541266635_pqq9vs38w",
+    "timestamp": "2025-08-07T04:34:26.635Z",
+    "userInput": "카카오톡 채널 메시지 들어오면 자동으로 분류해서 슬랙으로 보내줘",
+    "proposedSolution": "[{\"number\":1,\"title\":\"Google Apps Script 프로젝트 생성\",\"description\":\"1. 크롬 브라우저를 열고 https://script.google.com 에 접속합니다.\\n2. '새 프로젝트' 버튼을 클릭하여 새 프로젝트를 만듭니다.\\n3. 프로젝트 이름을 '카카오톡 메시지 자동화'로 설정합니다.\",\"expectedScreen\":\"Google Apps Script 편집기 화면\",\"checkpoint\":\"프로젝트 이름이 상단에 표시되면 성공입니다.\"},{\"number\":2,\"title\":\"카카오톡 메시지 데이터를 처리하는 코드 작성\",\"description\":\"1. 아래 코드를 복사하여 Google Apps Script 편집기에 붙여넣습니다.\\n\\n```javascript\\nfunction getKakaoMessages() {\\n  // 카카오톡 메시지 데이터를 가져오는 코드\\n  Logger.log('카카오톡 메시지 감지 중...');\\n}\\n```\\n\\n2. 상단의 디스크 아이콘을 클릭하여 저장합니다.\",\"expectedScreen\":\"코드 편집기 화면에 코드가 저장된 상태\",\"checkpoint\":\"코드 저장 후 에러가 없으면 성공입니다.\"},{\"number\":3,\"title\":\"Google Apps Script 실행 트리거 설정\",\"description\":\"1. 상단 메뉴에서 '확장 프로그램 > 현재 프로젝트의 트리거'를 클릭합니다.\\n2. '트리거 추가' 버튼을 클릭하고, 함수 이름을 'getKakaoMessages'로 선택합니다.\\n3. 이벤트 소스를 '시간 기반'으로 설정하고, 원하는 주기를 선택합니다 (예: 매 5분).\",\"expectedScreen\":\"트리거 설정 화면\",\"checkpoint\":\"트리거가 저장되고 실행 로그에 메시지가 기록되면 성공입니다.\"}]",
+    "detectedPatterns": [
+      "kakao-personal-api"
+    ],
+    "validationScore": 100,
+    "matchConfidence": 0.3958333333333333,
+    "alternatives": [
+      "텔레그램 봇 API (개인 사용 가능)",
+      "이메일 자동 전송 (Gmail API)",
+      "Slack 웹훅 (팀 커뮤니케이션)",
+      "Discord 봇 (커뮤니티용)"
+    ],
+    "domain": "general",
+    "frequency": 1
+  },
+  {
+    "id": "failure_1754564357605_crvvy4blu",
+    "timestamp": "2025-08-07T10:59:17.605Z",
+    "userInput": "부동산 매물 정보 크롤링해서 조건 맞는거 나오면 카톡으로 알림받고 싶어",
+    "proposedSolution": "[{\"number\":1,\"title\":\"네이버 부동산 오픈 API 확인 및 활용 가능성 점검\",\"description\":\"네이버 부동산 공식 API 또는 오픈 API가 제공되는지 확인합니다. 공식 API가 없을 경우, 데이터 제공 플랫폼(예: 공공데이터포털)에서 유사한 부동산 매물 데이터를 활용할 수 있습니다.\",\"expectedScreen\":\"네이버 부동산 개발자센터 또는 공공데이터포털 홈페이지\",\"checkpoint\":\"'API 신청' 또는 '데이터 다운로드' 버튼이 보이면 성공\"},{\"number\":2,\"title\":\"Google Apps Script 프로젝트 생성 및 환경 설정\",\"description\":\"'script.google.com'에 접속하여 새 프로젝트를 만듭니다. 프로젝트 이름을 '부동산매물알림' 등으로 지정하고, Gmail API 사용을 위해 '서비스 활성화'를 진행합니다.\",\"expectedScreen\":\"Google Apps Script 편집기(코드 입력 화면)\",\"checkpoint\":\"'프로젝트 생성됨' 메시지와 코드 입력창이 보이면 성공\"},{\"number\":3,\"title\":\"매물 정보 주기적 조회 및 조건 필터링 로직 구현\",\"description\":\"API에서 받은 매물 데이터를 사용자의 조건(예: 지역, 가격, 면적 등)에 맞게 필터링하는 코드를 작성합니다. LLM(Claude 등) 활용이 필요한 경우, Apps Script에서 HTTP 요청으로 AI 분석을 연동할 수 있습니다.\",\"expectedScreen\":\"Apps Script 코드 입력창에 필터링 로직이 추가됨\",\"checkpoint\":\"'실행' 버튼 클릭 후 로그에 필터링된 매물 정보가 출력되면 성공\"},{\"number\":4,\"title\":\"조건에 맞는 매물 발견 시 이메일 자동 발송 설정\",\"description\":\"'도구 > 트리거' 메뉴에서 main() 함수가 하루 1회 자동 실행되도록 트리거를 추가합니다. Gmail API를 통해 조건에 맞는 매물이 있을 때 사용자 이메일로 알림을 보냅니다.\",\"expectedScreen\":\"'트리거 추가됨' 메시지와 트리거 목록 화면\",\"checkpoint\":\"'트리거 실행 기록'에서 정상적으로 이메일이 발송된 내역 확인\"},{\"number\":5,\"title\":\"정상 작동 테스트 및 오류 발생 시 해결 방법 안내\",\"description\":\"'실행' 버튼을 눌러 전체 워크플로우를 테스트합니다. 오류 발생 시 로그를 확인하고, 인증 권한 요청이 뜨면 '권한 허용'을 클릭하세요.\",\"expectedScreen\":\"'실행 완료' 메시지와 Gmail에서 알림 메일 수신함 확인\",\"checkpoint\":\"'받은편지함'에 알림 메일 도착 여부로 최종 성공 확인\"}]",
+    "detectedPatterns": [
+      "real-estate-scraping"
+    ],
+    "validationScore": 50,
+    "matchConfidence": 0.33000000000000007,
+    "alternatives": [
+      "공공데이터포털 부동산 API (공식 데이터)",
+      "국토교통부 실거래가 API (무료)",
+      "한국부동산원 통계 API",
+      "부동산 RSS 피드 (공개 정보만)",
+      "수동 조사 + 스프레드시트 분석"
+    ],
+    "domain": "general",
+    "frequency": 1
+  }
+]
