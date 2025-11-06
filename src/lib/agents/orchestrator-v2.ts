@@ -806,7 +806,7 @@ async function performClaudeStyleValidation(
 - 일반적인 개발 제약사항과 보안 원칙  
 - 법적/윤리적 프레임워크
 
-🔍 **Tavily 최신 정보 (2024-2025 - 정책 변경 감지):**
+🔍 **GPT-4o 최신 정보 (2024-2025 - 정책 변경 감지):**
 - API 정책 변경사항 (특히 2023년 이후)
 - 새로운 제약사항이나 요구사항
 - 서비스 중단/변경 공지사항
@@ -1073,7 +1073,7 @@ async function generateSmartAlternatives(
     
     console.log(`🔍 [피어 서치] ${peerTools.length}개 도구 발견: ${peerTools.slice(0, 3).join(', ')}`);
     
-    // 🔎 2단계: Tavily RAG 폴백 검색 (피어 서치가 부족한 경우)
+    // 🔎 2단계: GPT-4o RAG 폴백 검색 (피어 서치가 부족한 경우)
     const { searchWithRAG } = await import('../services/rag');
     const ragResults = await searchWithRAG(`"${method.tool}" alternative tools 2025 realistic legal free options korean`, { maxResults: 3 });
     const ragContent = ragResults.map(r => `${r.title}: ${r.content.substring(0, 200)}`).join('\n');

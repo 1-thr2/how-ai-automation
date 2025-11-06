@@ -34,9 +34,9 @@ export async function POST(req: Request) {
     try {
       const ragHealth = await checkRAGHealth();
       console.log('🏥 [RAG] 헬스체크:', ragHealth);
-      
-      if (!ragHealth.tavilyAvailable) {
-        console.log('⚠️ [RAG] Tavily 사용 불가, 기본 모드로 진행');
+
+      if (!ragHealth.gptAvailable) {
+        console.log('⚠️ [RAG] GPT-4o 사용 불가, 기본 모드로 진행');
       }
     } catch (ragError) {
       console.log('⚠️ [RAG] 헬스체크 실패, 기본 모드로 진행:', ragError);

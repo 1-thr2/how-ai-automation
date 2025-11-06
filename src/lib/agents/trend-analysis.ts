@@ -94,7 +94,7 @@ export async function analyzeTrends(
   userGoal: string
 ): Promise<TrendAnalysisResult> {
   try {
-    // 1. Tavily로 최신 정보 검색
+    // 1. GPT-4o로 최신 정보 검색
     const searchQuery = `${requirements.dataStructure || ''} ${userGoal} ${new Date().getFullYear()} 최신 자동화 방법`;
     const tavilyResult = await tavilySearch(searchQuery);
 

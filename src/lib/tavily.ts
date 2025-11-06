@@ -1,58 +1,75 @@
-import fetch from 'node-fetch';
+import OpenAI from 'openai';
 
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-const TAVILY_API_URL = 'https://api.tavily.com/search';
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 export async function tavilySearch(userInput: string): Promise<{ answer: string; sources: any[] }> {
   try {
-    if (!TAVILY_API_KEY) {
-      throw new Error('TAVILY_API_KEY가 설정되지 않았습니다.');
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
     }
 
-    const prompt = `
-"${userInput}" 자동화에 대해
+    const prompt = `"${userInput}" 자동화에 대해
 - 실제 적용 사례
 - 성공/실패 경험
 - 구체적 결과/성과(수치 포함)
 - 최신 블로그/뉴스/유튜브 자료
 를 찾아주세요.
-각 자료는 title, url, content(요약)로 반환.
-최신 자료, 실무 중심, 구체적 결과 위주로!`;
 
-    console.log('Tavily API 호출!', prompt, 'API_KEY:', !!TAVILY_API_KEY);
+각 자료는 title, url, content(요약)로 반환해주세요.
+최신 자료, 실무 중심, 구체적 결과 위주로 제공해주세요.
 
-    const res = await fetch(TAVILY_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${TAVILY_API_KEY}`,
-      },
-      body: JSON.stringify({
-        query: prompt,
-        search_depth: 'advanced',
-        include_answer: true,
-        include_sources: true,
-        include_raw_content: false,
-      }),
+응답은 다음 JSON 형식으로 제공해주세요:
+{
+  "answer": "전체 요약 답변",
+  "sources": [
+    {
+      "title": "자료 제목",
+      "url": "실제 URL",
+      "content": "내용 요약"
+    }
+  ]
+}`;
+
+    console.log('GPT-4o API 호출!', 'API_KEY:', !!process.env.OPENAI_API_KEY);
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: '당신은 자동화 관련 최신 정보와 사례를 제공하는 전문가입니다. 실제 사용 가능한 URL과 구체적인 사례를 제공하세요.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 2000,
     });
 
-    if (!res.ok) {
-      const errorBody = await res.text();
-      console.error('Tavily API 오류:', errorBody);
-      throw new Error(`Tavily API 오류: ${res.status} ${res.statusText}`);
+    const responseContent = completion.choices[0]?.message?.content || '';
+    console.log('GPT-4o API 응답:', responseContent);
+
+    // JSON 파싱
+    let data: any;
+    try {
+      data = JSON.parse(responseContent);
+    } catch (parseError) {
+      console.error('JSON 파싱 실패, 기본 응답 생성:', parseError);
+      // 파싱 실패 시 기본 응답
+      data = {
+        answer: responseContent,
+        sources: []
+      };
     }
 
-    const data = await res.json();
-    console.log('Tavily API 응답:', data);
+    const sources = Array.isArray(data.sources) ? data.sources : [];
 
-    // sources가 없고 results가 있으면 results를 sources로 사용
-    const sources = Array.isArray(data.sources)
-      ? data.sources
-      : Array.isArray(data.results)
-        ? data.results
-        : [];
-    if (!data.answer || !Array.isArray(sources)) {
-      throw new Error('Tavily API 응답이 올바르지 않습니다.');
+    if (!data.answer) {
+      throw new Error('GPT-4o API 응답이 올바르지 않습니다.');
     }
 
     return {
@@ -64,7 +81,7 @@ export async function tavilySearch(userInput: string): Promise<{ answer: string;
       })),
     };
   } catch (error) {
-    console.error('Tavily 검색 오류:', error);
+    console.error('GPT-4o 검색 오류:', error);
     throw new Error('최신 정보 검색 중 오류가 발생했습니다.');
   }
 }
