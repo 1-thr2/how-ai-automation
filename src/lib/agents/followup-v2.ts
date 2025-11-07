@@ -68,57 +68,62 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
    - 즉시 설정 필요?
    - 회사 정책 제약?
 
-# 출력 형식
-반드시 다음 JSON 배열로만 응답하세요 (마크다운 블록 없이):
-[
-  {
-    "key": "purpose",
-    "question": "이 자동화를 통해 달성하고 싶은 진짜 목표가 무엇인가요?",
-    "type": "single",
-    "options": [
-      "시간 절약 (반복 작업 제거)",
-      "정보 놓치지 않기 (실시간 모니터링)",
-      "데이터 기반 의사결정 (분석/인사이트)",
-      "팀 협업 개선 (정보 공유 자동화)",
-      "기타 (직접 입력)"
-    ],
-    "category": "purpose",
-    "importance": "critical",
-    "description": "표면적 요청이 아닌 본질적 목적 파악"
-  },
-  {
-    "key": "current_pain",
-    "question": "현재 가장 불편하거나 해결하고 싶은 문제는 무엇인가요?",
-    "type": "single",
-    "options": [
-      "매번 수동으로 확인/처리하는 시간 낭비",
-      "중요한 정보나 기회를 자주 놓침",
-      "데이터 정리/분석에 시간 소모",
-      "팀원들에게 일일이 공유하는 수고",
-      "기타 (직접 입력)"
-    ],
-    "category": "pain",
-    "importance": "high",
-    "description": "현재 페인포인트 명확화"
-  },
-  {
-    "key": "constraints",
-    "question": "고려해야 할 제약사항이 있나요? (여러 개 선택 가능)",
-    "type": "multiple",
-    "options": [
-      "무료 도구만 사용 가능",
-      "1시간 내 빠른 설정 필요",
-      "회사 보안 정책/승인 필요",
-      "특정 도구 사용 불가 (있다면 직접 입력)",
-      "제약 없음"
-    ],
-    "category": "constraints",
-    "importance": "high",
-    "description": "현실적 제약사항 사전 파악"
-  }
-]`;
+# 질문 생성 가이드라인 (동적 구성)
 
-    console.log('📊 [Purpose-First] gpt-4o 호출 시작...');
+🎯 **필수 카테고리 (반드시 포함):**
+1. purpose (목적): 왜 필요한가?
+2. pain (문제): 현재 뭐가 불편한가?
+3. constraints (제약): 예산/시간/정책 제약?
+
+📋 **추가 질문 (상황에 따라 1-2개 동적 생성):**
+- 사용자 요청의 구체성에 따라 추가 정보가 필요하면 context 질문 추가
+- 총 질문 개수: 3-5개 (필수 3개 + 선택 1-2개)
+
+# Few-Shot 예시 (참고용, 그대로 복사하지 말 것)
+
+## 예시 1: SNS 브랜드 모니터링 요청
+사용자: "인스타그램에서 우리 브랜드 언급을 모니터링하고 싶어요"
+→ 4개 질문 생성 (필수 3개 + platform/keywords 1개)
+[
+  {"key": "purpose", "question": "이 모니터링을 통해 달성하고 싶은 진짜 목표가 무엇인가요?", ...},
+  {"key": "current_pain", "question": "현재 가장 불편한 점은 무엇인가요?", ...},
+  {"key": "constraints", "question": "고려해야 할 제약사항이 있나요?", ...},
+  {"key": "monitoring_scope", "question": "모니터링 범위와 알림 방식은 어떻게 하고 싶으신가요?", "type": "single", "options": ["특정 키워드만 추적", "브랜드명 전체 추적", "경쟁사 포함 추적", "기타"], "category": "context"}
+]
+
+## 예시 2: 이력서 데이터 파싱
+사용자: "이메일로 받은 이력서를 자동으로 스프레드시트에 정리하고 싶어요"
+→ 5개 질문 생성 (필수 3개 + data_fields + destination 2개)
+[
+  {"key": "purpose", "question": "이 자동화를 통해 달성하고 싶은 진짜 목표가 무엇인가요?", ...},
+  {"key": "current_pain", "question": "현재 가장 불편한 점은 무엇인가요?", ...},
+  {"key": "data_scope", "question": "어떤 정보를 추출하고 싶으신가요?", "type": "multiple", "options": ["이름/연락처", "경력 정보", "학력 정보", "기술 스택", "희망 연봉", "전체"], "category": "context"},
+  {"key": "file_format", "question": "이력서 파일 형식은 주로 무엇인가요?", "type": "single", "options": ["PDF", "Word (.docx)", "한글 (.hwp)", "혼합", "잘 모름"], "category": "context"},
+  {"key": "constraints", "question": "고려해야 할 제약사항이 있나요?", ...}
+]
+
+## 예시 3: 단순 알림 자동화
+사용자: "매일 아침 날씨를 카카오톡으로 받고 싶어요"
+→ 3개 질문만 생성 (필수 3개만, 추가 정보 불필요)
+[
+  {"key": "purpose", "question": "이 자동화를 통해 달성하고 싶은 진짜 목표가 무엇인가요?", ...},
+  {"key": "current_pain", "question": "현재 가장 불편한 점은 무엇인가요?", ...},
+  {"key": "constraints", "question": "고려해야 할 제약사항이 있나요?", ...}
+]
+
+# 출력 형식
+JSON 배열로 응답하세요 (마크다운 블록 없이). 질문 개수는 3-5개로 사용자 요청에 맞게 조정하세요.
+
+필수 필드:
+- key: 질문 식별자
+- question: 질문 내용
+- type: "single" | "multiple"
+- options: 선택지 배열 (2-6개, 마지막은 "기타" 권장)
+- category: "purpose" | "pain" | "constraints" | "context"
+- importance: "critical" | "high" | "medium"
+- description: (선택) 질문 의도 설명`;
+
+    console.log('📊 [Purpose-First] gpt-4o 호출 시작 (동적 질문 생성)...');
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o', // 더 나은 추론 능력
@@ -126,7 +131,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 800,
+      max_tokens: 1200, // 3-5개 질문을 위한 충분한 토큰
       temperature: 0.4, // 창의성 + 정확성 균형
     });
 
@@ -143,7 +148,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     // JSON 파싱
     const questions = parseQuestionsJSON(content);
     const latency = Date.now() - startTime;
-    const actualTokens = response.usage?.total_tokens || 800;
+    const actualTokens = response.usage?.total_tokens || 1200;
 
     console.log(`✅ [Purpose-First] 완료 - ${questions.length}개 질문, ${actualTokens} 토큰, ${latency}ms`);
 
