@@ -32,26 +32,24 @@ export async function tavilySearch(userInput: string): Promise<{ answer: string;
   ]
 }`;
 
-    console.log('GPT-4o API 호출!', 'API_KEY:', !!process.env.OPENAI_API_KEY);
+    console.log('🧠 o1-preview API 호출 (깊은 리서치 모드)', 'API_KEY:', !!process.env.OPENAI_API_KEY);
 
+    // 🔥 o1-preview: 깊은 추론으로 더 나은 한국어 리서치 결과 제공
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'o1-preview',
       messages: [
         {
-          role: 'system',
-          content: '당신은 자동화 관련 최신 정보와 사례를 제공하는 전문가입니다. 실제 사용 가능한 URL과 구체적인 사례를 제공하세요.'
-        },
-        {
           role: 'user',
-          content: prompt
+          content: `당신은 자동화 관련 최신 정보와 사례를 제공하는 전문가입니다. 실제 사용 가능한 URL과 구체적인 사례를 제공하세요.
+
+${prompt}`
         }
       ],
-      temperature: 0.3,
-      max_tokens: 2000,
+      // o1-preview는 temperature, max_tokens 파라미터 미지원
     });
 
     const responseContent = completion.choices[0]?.message?.content || '';
-    console.log('GPT-4o API 응답:', responseContent);
+    console.log('✅ o1-preview API 응답:', responseContent);
 
     // JSON 파싱
     let data: any;
@@ -69,7 +67,7 @@ export async function tavilySearch(userInput: string): Promise<{ answer: string;
     const sources = Array.isArray(data.sources) ? data.sources : [];
 
     if (!data.answer) {
-      throw new Error('GPT-4o API 응답이 올바르지 않습니다.');
+      throw new Error('o1-preview API 응답이 올바르지 않습니다.');
     }
 
     return {
@@ -81,7 +79,7 @@ export async function tavilySearch(userInput: string): Promise<{ answer: string;
       })),
     };
   } catch (error) {
-    console.error('GPT-4o 검색 오류:', error);
+    console.error('❌ o1-preview 검색 오류:', error);
     throw new Error('최신 정보 검색 중 오류가 발생했습니다.');
   }
 }

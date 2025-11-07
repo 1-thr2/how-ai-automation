@@ -657,6 +657,7 @@ export default function LoadingScreen({ stage = 'first' }: LoadingScreenProps) {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [resultReady, setResultReady] = useState(false); // 🔥 결과 준비 여부
 
   // 자동 랭킹 표시 제거 - 사용자가 직접 클릭할 때만 표시
   // useEffect(() => {
@@ -684,6 +685,27 @@ export default function LoadingScreen({ stage = 'first' }: LoadingScreenProps) {
     };
   }, []);
 
+  // 🔥 결과 준비 여부 체크 (2번째 로딩 시에만)
+  useEffect(() => {
+    if (stage !== 'second') return;
+
+    const checkInterval = setInterval(() => {
+      const ready = sessionStorage.getItem('resultReady');
+      if (ready === 'true' && !resultReady) {
+        console.log('🎉 [LoadingScreen] 결과 준비 감지!');
+        setResultReady(true);
+
+        // 게임 중이 아니면 즉시 이동
+        if (!showGame) {
+          const goal = sessionStorage.getItem('currentGoal') || '';
+          window.location.href = `/automation-result?goal=${encodeURIComponent(goal)}`;
+        }
+      }
+    }, 500); // 0.5초마다 체크
+
+    return () => clearInterval(checkInterval);
+  }, [stage, resultReady, showGame]);
+
   const handlePlayGame = () => {
     setShowRanking(false);
     setShowGame(true);
@@ -694,6 +716,14 @@ export default function LoadingScreen({ stage = 'first' }: LoadingScreenProps) {
   const handleGameEnd = (score: number) => {
     setFinalScore(score);
     setShowScoreModal(true);
+
+    // 🔥 게임 종료 시 결과가 준비되어 있으면 자동 이동
+    if (resultReady) {
+      setTimeout(() => {
+        const goal = sessionStorage.getItem('currentGoal') || '';
+        window.location.href = `/automation-result?goal=${encodeURIComponent(goal)}`;
+      }, 3000); // 3초 후 자동 이동 (점수 확인 시간 제공)
+    }
   };
 
   // 점수 등록 처리 (로컬스토리지)
@@ -725,6 +755,34 @@ export default function LoadingScreen({ stage = 'first' }: LoadingScreenProps) {
 
   return (
     <div className="loading-container text-center max-w-4xl mx-auto py-16">
+      {/* 🔥 결과 준비 알림 (게임 중일 때만 표시) */}
+      {resultReady && showGame && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl p-4 shadow-xl border-2 border-green-300"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl animate-bounce">🎉</span>
+              <div className="text-left">
+                <div className="font-bold text-lg">자동화 레시피가 완성되었어요!</div>
+                <div className="text-sm text-green-100">게임을 마치고 확인해보세요</div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const goal = sessionStorage.getItem('currentGoal') || '';
+                window.location.href = `/automation-result?goal=${encodeURIComponent(goal)}`;
+              }}
+              className="bg-white text-green-600 font-bold px-6 py-2 rounded-full hover:bg-green-50 transition-all shadow-md hover:shadow-lg"
+            >
+              바로 보기 →
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* 기존 로딩 단계 표시... */}
       <div className="loading-stages mb-8">
         {/* 모든 로딩 단계: 가로 레이아웃으로 통일 */}

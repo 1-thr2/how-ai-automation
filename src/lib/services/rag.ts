@@ -97,12 +97,12 @@ export async function searchWithRAG(
       ...options,
     };
 
-    // GPT-4o API 호출 (웹 검색 대체)
+    // 🔥 o1-preview API 호출 (깊은 추론으로 더 나은 한국어 리서치)
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'o1-preview',
       messages: [
         {
-          role: 'system',
+          role: 'user',
           content: `당신은 웹 검색 결과를 제공하는 전문가입니다. 사용자의 검색 쿼리에 대해 최신 정보를 포함한 관련 결과를 JSON 배열 형식으로 제공하세요.
 
 각 결과는 다음 형식이어야 합니다:
@@ -114,15 +114,14 @@ export async function searchWithRAG(
   "publishedDate": "YYYY-MM-DD 형식 (알 수 있는 경우)"
 }
 
-한국어 쿼리에 대해서는 한국어 콘텐츠를 우선적으로 제공하고, 공식 문서, 튜토리얼, 가이드 등 신뢰할 수 있는 출처를 우선하세요.`
-        },
-        {
-          role: 'user',
-          content: `검색 쿼리: "${query}"\n\n최대 ${defaultOptions.maxResults}개의 관련 결과를 JSON 배열로 제공해주세요.`
+한국어 쿼리에 대해서는 한국어 콘텐츠를 우선적으로 제공하고, 공식 문서, 튜토리얼, 가이드 등 신뢰할 수 있는 출처를 우선하세요.
+
+검색 쿼리: "${query}"
+
+최대 ${defaultOptions.maxResults}개의 관련 결과를 JSON 배열로 제공해주세요.`
         }
       ],
-      temperature: 0.3,
-      max_tokens: 2000,
+      // o1-preview는 temperature, max_tokens 파라미터 미지원
     });
 
     let rawResults: any[] = [];
