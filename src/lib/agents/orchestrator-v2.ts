@@ -428,19 +428,32 @@ async function generateVerifiedSteps(
  * 🛡️ Fallback 현실성 분석 (시스템적 체크 실패 시)
  */
 async function fallbackFeasibilityAnalysis(userInput: string, followupAnswers: any) {
-  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, 간단한 키워드 체크 사용');
-  
+  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, analyzePurposeFromInput 사용');
+
+  // 🎯 상세 목적 분석 사용 (카카오톡, 인스타그램, 네이버 카페 등 지원)
+  const purposeAnalysis = analyzePurposeFromInput(userInput, followupAnswers);
+
+  // 🔍 quick check도 병행 (추가 정보)
   const quickCheck = quickFeasibilityCheck(userInput);
-  
-  // 기본 구조로 변환
+
+  // 기본 구조로 변환 (analyzePurposeFromInput 결과 우선 사용)
   return {
-    isRealistic: quickCheck.isRealistic ?? true,
-    feasibilityScore: quickCheck.feasibilityScore ?? 7,
-    impossibleElements: quickCheck.impossibleElements ?? [],
-    viableAlternatives: quickCheck.viableAlternatives ?? ['Google Apps Script', 'IFTTT'],
+    isRealistic: purposeAnalysis.viableAlternatives.length > 0,
+    feasibilityScore: purposeAnalysis.viableAlternatives.length > 0
+      ? (purposeAnalysis.impossibleElements.length > 0 ? 6 : 8)
+      : 3,
+    impossibleElements: purposeAnalysis.impossibleElements,
+    viableAlternatives: purposeAnalysis.viableAlternatives.length > 0
+      ? purposeAnalysis.viableAlternatives
+      : quickCheck.viableAlternatives ?? ['Google Apps Script', 'IFTTT'],
     costWarnings: [],
-    difficultyWarnings: [],
-    recommendedApproach: quickCheck.isRealistic ? '추천 도구로 직접 구현' : '단순한 대안으로 목적 달성'
+    difficultyWarnings: purposeAnalysis.impossibleElements.length > 0
+      ? [`원래 요청의 일부 기능은 불가능합니다: ${purposeAnalysis.impossibleElements.join(', ')}`]
+      : [],
+    recommendedApproach: purposeAnalysis.impossibleElements.length > 0
+      ? `${purposeAnalysis.mainGoal}를 위한 현실적 대안 활용`
+      : '추천 도구로 직접 구현',
+    mainGoal: purposeAnalysis.mainGoal  // 추가 정보
   };
 }
 
@@ -1582,22 +1595,6 @@ async function generateTargetedRAGContext(
 }
 
 /**
- * 📊 2025년 기준 도구별 현재 상태 (알려진 정보)
- */
-function getCurrentToolStatus(tool: string): string {
-  const statusMap: Record<string, string> = {
-    'Google Apps Script': '2025년 정상 작동 중 - 새로운 V8 런타임 적용',
-    'Zapier': '2025년 정상 작동 중 - AI 기능 대폭 강화',
-    'Make.com': '2025년 정상 작동 중 - Integromat에서 완전 전환',
-    'Slack': '2025년 정상 작동 중 - 새로운 Workflow Builder 적용',
-    'Microsoft Power Automate': '2025년 정상 작동 중 - Copilot 통합',
-    'Gmail': '2025년 정상 작동 중 - Gmail API v1 유지'
-  };
-  
-  return statusMap[tool] || '2025년 상태 확인 필요';
-}
-
-/**
  * 📋 검증 결과 요약 생성
  */
 function generateValidationSummary(
@@ -1993,6 +1990,71 @@ function createFallbackCards(verifiedFlow: any): any[] {
 }
 
 /**
+ * 🧮 솔루션 복잡도 계산 (Step C 전략 선택용)
+ * 복잡도 점수 0.0 ~ 1.0 반환
+ */
+function calculateSolutionComplexity(
+  verifiedFlow: {steps: string[], title: string, subtitle: string},
+  ragMetadata: any,
+  feasibilityAnalysis: any,
+  userInput: string,
+  followupAnswers: any
+): number {
+  let complexityScore = 0;
+  let factors = 0;
+
+  // 1️⃣ 단계 수 복잡도 (0.0 ~ 0.3)
+  const stepCount = verifiedFlow.steps.length;
+  if (stepCount <= 3) {
+    complexityScore += 0.0;  // 간단
+  } else if (stepCount <= 5) {
+    complexityScore += 0.15;  // 보통
+  } else {
+    complexityScore += 0.3;   // 복잡
+  }
+  factors++;
+
+  // 2️⃣ 불가능한 요소 복잡도 (0.0 ~ 0.25)
+  const impossibleCount = feasibilityAnalysis.impossibleElements?.length || 0;
+  if (impossibleCount > 0) {
+    complexityScore += Math.min(impossibleCount * 0.1, 0.25);  // 대안 찾기 어려움
+  }
+  factors++;
+
+  // 3️⃣ RAG 검증 복잡도 (0.0 ~ 0.2)
+  const ragIssues = ragMetadata.methodValidation?.problematicMethods || 0;
+  if (ragIssues > 0) {
+    complexityScore += Math.min(ragIssues * 0.1, 0.2);  // 검증 실패 많음 = 복잡
+  }
+  factors++;
+
+  // 4️⃣ 사용자 요청 길이 복잡도 (0.0 ~ 0.15)
+  const requestLength = userInput.length + JSON.stringify(followupAnswers || {}).length;
+  if (requestLength > 500) {
+    complexityScore += 0.15;  // 상세한 요구사항
+  } else if (requestLength > 200) {
+    complexityScore += 0.075;  // 보통
+  }
+  factors++;
+
+  // 5️⃣ RAG 참조 자료 복잡도 (0.0 ~ 0.1)
+  const ragContextLength = ragMetadata.ragContext?.length || 0;
+  if (ragContextLength > 3000) {
+    complexityScore += 0.1;  // 많은 참조 자료 = 상세 가이드 필요
+  } else if (ragContextLength > 1000) {
+    complexityScore += 0.05;
+  }
+  factors++;
+
+  // 정규화 (최대 1.0)
+  const normalizedScore = Math.min(complexityScore, 1.0);
+
+  console.log(`🧮 [복잡도 계산] 점수: ${(normalizedScore * 100).toFixed(1)}% (단계:${stepCount}, 불가능:${impossibleCount}, RAG이슈:${ragIssues})`);
+
+  return normalizedScore;
+}
+
+/**
  * Step C: 검증된 플로우 기반 상세 가이드 생성 (논리적 구조)
  * - Step B에서 검증된 플로우를 받아서
  * - 각 단계별로 상세한 실행 가이드 생성
@@ -2329,15 +2391,40 @@ export async function generate3StepAutomation(
     };
     console.log(`✅ [Step B] 플로우 검증 완료: ${stepBResult.verifiedFlow.steps.length}개 검증된 단계`);
 
-    // 🎨 Step C: 검증된 플로우 기반 가이드 생성 (논리적 구조)
-    console.log('🎨 [Step C] 상세 가이드 생성 시작...');
-    const stepCResult = await executeStepC(
+    // 🧮 Step C 전략 선택: 복잡도 계산
+    const complexity = calculateSolutionComplexity(
       stepBResult.verifiedFlow,
-      userInput,
-      followupAnswers,
       stepBResult.ragMetadata,
-      stepAResult.feasibilityAnalysis
+      stepAResult.feasibilityAnalysis,
+      userInput,
+      followupAnswers
     );
+
+    // 🎨 Step C: 복잡도 기반 전략 선택
+    console.log('🎨 [Step C] 상세 가이드 생성 시작...');
+    const useAdvancedStrategy = complexity >= 0.5;  // 복잡도 50% 이상이면 2-Pass 전략
+    console.log(`🎯 [Step C 전략] ${useAdvancedStrategy ? '2-Pass (고품질)' : 'Single-Pass (고속)'} 선택 (복잡도: ${(complexity * 100).toFixed(1)}%)`);
+
+    const stepCResult = useAdvancedStrategy
+      ? await execute2PassStepC(
+          [{
+            type: 'flow',
+            title: stepBResult.verifiedFlow.title,
+            subtitle: stepBResult.verifiedFlow.subtitle,
+            steps: stepBResult.verifiedFlow.steps
+          }],
+          userInput,
+          followupAnswers,
+          stepBResult.ragMetadata,
+          overallStartTime  // startTime 전달
+        )
+      : await executeStepC(
+          stepBResult.verifiedFlow,
+          userInput,
+          followupAnswers,
+          stepBResult.ragMetadata,
+          stepAResult.feasibilityAnalysis
+        );
     metrics.stagesCompleted.push('C-guide');
     metrics.modelsUsed.push(stepCResult.model);
     metrics.totalTokens += stepCResult.tokens;
@@ -3533,38 +3620,6 @@ function findLastCompleteJson(content: string): number {
   return lastCompleteIndex;
 }
 
-function extractToolsFromCards(cards: any[]): string[] {
-  const tools = new Set<string>();
-
-  cards.forEach(card => {
-    if (card.type === 'flow' && card.steps) {
-      card.steps.forEach((step: any) => {
-        if (step.tool) tools.add(step.tool);
-        if (step.toolRecommendation?.primary) tools.add(step.toolRecommendation.primary);
-      });
-    }
-  });
-
-  return Array.from(tools);
-}
-
-function extractURLsFromCards(cards: any[]): string[] {
-  const urls = new Set<string>();
-  const urlRegex = /https?:\/\/[^\s\)]+/g;
-
-  const searchInObject = (obj: any) => {
-    if (typeof obj === 'string') {
-      const matches = obj.match(urlRegex);
-      if (matches) matches.forEach(url => urls.add(url));
-    } else if (typeof obj === 'object' && obj !== null) {
-      Object.values(obj).forEach(searchInObject);
-    }
-  };
-
-  cards.forEach(searchInObject);
-  return Array.from(urls);
-}
-
 function calculateCost(tokens: number, model: string): number {
   // OpenAI 실제 가격 ($/1M tokens)를 토큰당 가격으로 변환
   const costs = {
@@ -3576,51 +3631,6 @@ function calculateCost(tokens: number, model: string): number {
 
   return tokens * (costs[model as keyof typeof costs] || 2.50 / 1000000);
 }
-
-function countPersonalizationElements(cards: any[], followupAnswers: any): number {
-  // 후속답변 기반 개인화 요소 개수 계산
-  let count = 0;
-  const answersStr = JSON.stringify(followupAnswers).toLowerCase();
-  const cardsStr = JSON.stringify(cards).toLowerCase();
-
-  Object.keys(followupAnswers || {}).forEach(key => {
-    if (cardsStr.includes(followupAnswers[key]?.toLowerCase?.())) {
-      count++;
-    }
-  });
-
-  return count;
-}
-
-function countActionableSteps(cards: any[]): number {
-  // 실행 가능한 단계 개수 계산
-  let count = 0;
-
-  cards.forEach(card => {
-    if (card.type === 'flow' && card.steps) {
-      count += card.steps.length;
-    }
-    if (card.type === 'guide' && card.content?.detailedSteps) {
-      count += card.content.detailedSteps.length;
-    }
-  });
-
-  return count;
-}
-
-function calculateCreativityScore(cards: any[]): number {
-  // 창의성 점수 계산 (기본 구현)
-  let score = 0;
-
-  cards.forEach(card => {
-    if (card.type === 'expansion') score += 2;
-    if (card.title?.includes('🚀') || card.title?.includes('💡')) score += 1;
-    if (card.content && typeof card.content === 'object') score += 1;
-  });
-
-  return Math.min((score / cards.length) * 10, 10); // 0-10 점수
-}
-
 function getFallbackCards(userInput: string): any[] {
   return [
     {
