@@ -2761,26 +2761,46 @@ async function execute2PassStepC(
 - Drive API, Webhook, 트리거 등 구체적 기능명
 - 현재 요청에서 언급된 구글 드라이브, 계약서, 요약, 슬랙 키워드 활용
 
+🚨🚨🚨 **CRITICAL: Flow-Guide 완전 매핑 규칙 (절대 필수!)**
+IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1", "2", ..., "N"
+
+예시: Flow에 4단계 → 반드시 4개 guide 카드 (stepId: "1", "2", "3", "4")
+예시: Flow에 5단계 → 반드시 5개 guide 카드 (stepId: "1", "2", "3", "4", "5")
+
 🚨 **Skeleton JSON 필수 형식**:
 
 {
   "cards": [
     {
-      "type": "flow", 
+      "type": "flow",
       "title": "🚀 자동화 플로우",
       "steps": [
-        "여기에 실제 요청에 맞는 구체적 단계 배열을 반드시 작성"
+        "1단계: [실제 도구명] [구체적 작업]",
+        "2단계: [실제 도구명] [구체적 작업]",
+        "3단계: [실제 도구명] [구체적 작업]"
       ],
       "contentId": "flow_1",
       "status": "skeleton"
     },
     {
-      "type": "guide", 
-      "title": "📋 상세 실행 가이드",
-      "steps": [
-        "Flow와 동일한 단계 배열 작성"
-      ],
-      "contentId": "guide_1", 
+      "type": "guide",
+      "stepId": "1",
+      "title": "1단계 상세 가이드",
+      "contentId": "guide_1",
+      "status": "skeleton"
+    },
+    {
+      "type": "guide",
+      "stepId": "2",
+      "title": "2단계 상세 가이드",
+      "contentId": "guide_2",
+      "status": "skeleton"
+    },
+    {
+      "type": "guide",
+      "stepId": "3",
+      "title": "3단계 상세 가이드",
+      "contentId": "guide_3",
       "status": "skeleton"
     },
     {
@@ -2792,11 +2812,13 @@ async function execute2PassStepC(
     {
       "type": "faq",
       "title": "❓ 자주 묻는 질문",
-      "contentId": "faq_1", 
+      "contentId": "faq_1",
       "status": "skeleton"
     }
   ]
-}`;
+}
+
+⚠️ **중요**: 위 예시는 3단계 Flow입니다. 실제로 생성하는 Flow 단계 수에 맞춰 정확히 그 개수만큼 guide 카드를 생성하세요!`;
 
   const skeletonResponse = await openai.chat.completions.create({
     model: 'gpt-4o', // 🚨 Skeleton도 4o로! mini가 지시를 제대로 안 따름
@@ -2891,28 +2913,49 @@ ${skeletonCard.steps ? skeletonCard.steps.map((step: any, i: number) => `${i+1}.
 ${skeletonCard.type === 'guide' ? `
 🎯 **GUIDE 카드 JSON 응답 형식 (필수 준수!):**
 
-현재 작업: "${userInput}"
+${skeletonCard.stepId ? `
+⚠️ 이 가이드는 stepId="${skeletonCard.stepId}"인 단일 단계 가이드입니다.
+전체 플로우가 아닌, 이 단계에 대한 상세 설명만 작성하세요.
 
 다음 JSON 형식으로만 응답하세요:
+{
+  "basicConcept": "이 단계가 필요한 이유와 목표를 간단히 설명",
+  "automationLevel": "자동/반자동/수동",
+  "detailedSteps": [
+    {
+      "number": 1,
+      "title": "${skeletonCard.title} 시작하기",
+      "description": "이 단계를 수행하기 위한 구체적인 첫 번째 작업 (정확한 사이트 주소, 버튼명, 입력값 포함)",
+      "expectedScreen": "이 작업 후 화면에 나타날 구체적 요소들",
+      "checkpoint": "이 단계가 성공했는지 확인하는 방법"
+    },
+    {
+      "number": 2,
+      "title": "${skeletonCard.title} 완료하기",
+      "description": "앞 작업에서 이어지는 다음 구체적 실행 방법",
+      "expectedScreen": "다음에 나타날 화면 요소들",
+      "checkpoint": "이 단계 완료 확인 방법"
+    }
+  ],
+  "commonMistakes": ["이 단계에서 흔히 발생하는 실수들"],
+  "practicalTips": ["이 단계 실행 시 유용한 팁들"]
+}
+` : `
+⚠️ 이 가이드는 전체 플로우 가이드입니다 (stepId 없음).
 
+다음 JSON 형식으로만 응답하세요:
 {
   "detailedSteps": [
     {
       "number": 1,
       "title": "1단계: [구체적 도구명] [구체적 작업명]",
-      "description": "이 단계에서 수행할 구체적인 작업 내용을 상세히 설명합니다. 초보자도 따라할 수 있도록 단계별로 설명하세요.",
+      "description": "이 단계에서 수행할 구체적인 작업 내용을 상세히 설명합니다.",
       "expectedScreen": "이 단계 완료 후 사용자가 확인할 수 있는 구체적인 화면이나 결과물",
       "checkpoint": "이 단계가 정상적으로 완료되었는지 확인하는 방법"
-    },
-    {
-      "number": 2,
-      "title": "2단계: [구체적 도구명] [구체적 작업명]",
-      "description": "구체적인 설명...",
-      "expectedScreen": "구체적인 결과 화면...",
-      "checkpoint": "구체적인 확인 방법..."
     }
   ]
 }
+`}
 
 ⚠️ 절대 금지: "도구 설정", "자동화 설정" 같은 추상적 제목
 ⚠️ 필수: 실제 도구명과 구체적 작업명 포함
@@ -2990,6 +3033,16 @@ ${skeletonCard.type === 'guide' ? `
             const jsonContent = JSON.parse(jsonMatch[0]);
             if (jsonContent.detailedSteps && Array.isArray(jsonContent.detailedSteps)) {
               enrichedCard.detailedSteps = jsonContent.detailedSteps;
+
+              // stepId가 있는 가이드의 경우 추가 필드도 추출
+              if (skeletonCard.stepId) {
+                if (jsonContent.basicConcept) enrichedCard.basicConcept = jsonContent.basicConcept;
+                if (jsonContent.automationLevel) enrichedCard.automationLevel = jsonContent.automationLevel;
+                if (jsonContent.commonMistakes) enrichedCard.commonMistakes = jsonContent.commonMistakes;
+                if (jsonContent.practicalTips) enrichedCard.practicalTips = jsonContent.practicalTips;
+                console.log(`✅ [JSON 파싱] stepId="${skeletonCard.stepId}" 가이드에서 추가 필드 추출 완료`);
+              }
+
               console.log(`✅ [JSON 파싱] JSON에서 ${enrichedCard.detailedSteps.length}개 단계 추출 성공`);
             } else {
               throw new Error('detailedSteps 배열이 없음');
@@ -3069,8 +3122,8 @@ ${skeletonCard.type === 'guide' ? `
 
   // 🧹 카드 타입별로 불필요한 content 필드 제거 (인터페이스 정합성 유지)
   enrichedCards = enrichedCards.map(card => {
-    // flow, faq, expansion, dashboard 등은 content 필드가 인터페이스에 없음
-    const noContentTypes = ['flow', 'faq', 'expansion', 'dashboard', 'impact-bar', 'code', 'share'];
+    // flow, faq, expansion, dashboard, guide 등은 content 필드가 인터페이스에 없음
+    const noContentTypes = ['flow', 'faq', 'expansion', 'dashboard', 'impact-bar', 'code', 'share', 'guide'];
 
     if (noContentTypes.includes(card.type)) {
       const { content, ...cleanCard } = card;

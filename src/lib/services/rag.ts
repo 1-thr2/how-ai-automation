@@ -121,7 +121,7 @@ export async function searchWithRAG(
 최대 ${defaultOptions.maxResults}개의 관련 결과를 JSON 배열로 제공해주세요.`
         }
       ],
-      temperature: 0.3,
+      // 🔧 search-preview 모델은 temperature 파라미터를 지원하지 않음
       max_tokens: 2000,
     });
 
