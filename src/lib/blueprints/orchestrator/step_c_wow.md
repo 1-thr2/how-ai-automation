@@ -1,5 +1,31 @@
 # Step C: 한국어 WOW 마감 처리
 
+## 🚨🚨🚨 CRITICAL: Flow-Guide 완전 매핑 (절대 우선순위) 🚨🚨🚨
+
+**절대 규칙 - 반드시 준수:**
+```
+IF (flow.steps.length == N) {
+  THEN generate EXACTLY N guide cards with stepId="1", "2", ..., "N"
+}
+
+예시:
+- Flow에 4개 단계 → 반드시 4개 guide 카드 생성 (stepId: "1", "2", "3", "4")
+- Flow에 5개 단계 → 반드시 5개 guide 카드 생성 (stepId: "1", "2", "3", "4", "5")
+- Flow에 3개 단계 → 반드시 3개 guide 카드 생성 (stepId: "1", "2", "3")
+```
+
+**❌ 절대 금지:**
+- Flow 4개 단계인데 guide 1개만 생성
+- Flow 5개 단계인데 guide 2-3개만 생성
+- stepId 누락 (stepId 없는 guide 카드)
+
+**✅ 필수 확인:**
+- Flow 생성 후 즉시 단계 개수 확인
+- 그 개수만큼 정확히 guide 카드 생성
+- 각 guide 카드마다 stepId 필드 포함
+
+---
+
 ## 목표
 RAG로 검증된 정보를 바탕으로 최종 사용자 경험을 완성합니다.
 
@@ -403,7 +429,76 @@ IF (flow_단계수 != guide_카드수) {
 4. ✅ 후속답변 데이터 100% 반영
 5. ✅ 복사-붙여넣기 가능한 완전한 코드 제공
 6. ✅ 초보자 친화적 설명 (클릭 위치, 입력값, 확인 방법)
-7. ✅ Flow 단계 수 = Guide 카드 수
+7. ✅ Flow 단계 수 = Guide 카드 수 (🚨 절대 필수!)
 8. ✅ 각 Guide는 5-8개 detailedSteps 포함
 9. ✅ 한국어 친근한 톤 유지
 10. ✅ 12000 토큰 내 완성
+
+---
+
+## 🚨 필수 Cards 배열 구조 템플릿 (반드시 따를 것!)
+
+**예시: Flow가 4개 단계인 경우 (절대 준수!):**
+
+```json
+{
+  "cards": [
+    {
+      "type": "needs_analysis",
+      "title": "진짜 니즈 분석",
+      "content": {...}
+    },
+    {
+      "type": "flow",
+      "title": "자동화 플로우",
+      "steps": [
+        {"id": "1", "title": "1단계 제목"},
+        {"id": "2", "title": "2단계 제목"},
+        {"id": "3", "title": "3단계 제목"},
+        {"id": "4", "title": "4단계 제목"}
+      ]
+    },
+    {
+      "type": "guide",
+      "stepId": "1",
+      "title": "1단계: 1단계 제목",
+      "detailedSteps": [...]
+    },
+    {
+      "type": "guide",
+      "stepId": "2",
+      "title": "2단계: 2단계 제목",
+      "detailedSteps": [...]
+    },
+    {
+      "type": "guide",
+      "stepId": "3",
+      "title": "3단계: 3단계 제목",
+      "detailedSteps": [...]
+    },
+    {
+      "type": "guide",
+      "stepId": "4",
+      "title": "4단계: 4단계 제목",
+      "detailedSteps": [...]
+    },
+    {
+      "type": "faq",
+      "title": "자주 묻는 질문",
+      "items": [...]
+    }
+  ]
+}
+```
+
+**🚨 핵심 확인 포인트:**
+- Flow steps 개수: 4개
+- Guide 카드 개수: 4개 (stepId: "1", "2", "3", "4")
+- ✅ 매핑 완료: 4 == 4
+
+**❌ 절대 안되는 예시:**
+- Flow 4개 단계인데 guide 1개만 생성
+- guide에 stepId 누락
+- guide가 2-3개만 생성
+
+**반드시 위 템플릿 구조를 따라 Flow 단계 수만큼 정확히 guide 카드를 생성하세요!**
