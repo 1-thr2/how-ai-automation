@@ -426,17 +426,18 @@ async function generateVerifiedSteps(
 
 /**
  * 🛡️ Fallback 현실성 분석 (시스템적 체크 실패 시)
+ * 🎯 AI 기반 동적 분석으로 업그레이드
  */
 async function fallbackFeasibilityAnalysis(userInput: string, followupAnswers: any) {
-  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, analyzePurposeFromInput 사용');
+  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, AI 기반 목적 분석 시작');
 
-  // 🎯 상세 목적 분석 사용 (카카오톡, 인스타그램, 네이버 카페 등 지원)
-  const purposeAnalysis = analyzePurposeFromInput(userInput, followupAnswers);
+  // 🎯 AI 기반 상세 목적 분석 (어떤 플랫폼이든 동적으로 처리)
+  const purposeAnalysis = await analyzePurposeFromInput(userInput, followupAnswers);
 
   // 🔍 quick check도 병행 (추가 정보)
   const quickCheck = quickFeasibilityCheck(userInput);
 
-  // 기본 구조로 변환 (analyzePurposeFromInput 결과 우선 사용)
+  // 기본 구조로 변환 (AI 분석 결과 우선 사용)
   return {
     isRealistic: purposeAnalysis.viableAlternatives.length > 0,
     feasibilityScore: purposeAnalysis.viableAlternatives.length > 0
@@ -451,144 +452,145 @@ async function fallbackFeasibilityAnalysis(userInput: string, followupAnswers: a
       ? [`원래 요청의 일부 기능은 불가능합니다: ${purposeAnalysis.impossibleElements.join(', ')}`]
       : [],
     recommendedApproach: purposeAnalysis.impossibleElements.length > 0
-      ? `${purposeAnalysis.mainGoal}를 위한 현실적 대안 활용`
+      ? `${purposeAnalysis.mainGoal}를 위한 창의적 우회 방법 활용`
       : '추천 도구로 직접 구현',
-    mainGoal: purposeAnalysis.mainGoal  // 추가 정보
+    mainGoal: purposeAnalysis.mainGoal,  // 추가 정보
+    currentWorkflow: purposeAnalysis.currentWorkflow  // 🎯 현재 워크플로우 정보 추가
   };
 }
 
 /**
- * 🧠 사용자 입력에서 진짜 목적과 불가능한 요소들을 분석하는 함수 (폴백용)
- * 🎯 나(Claude)의 사고방식을 모방한 목적 중심 분석
+ * 🧠 AI 기반 사용자 목적 및 현실적 대안 분석 (시스템적 접근)
+ * 🎯 하드코딩 제거: 어떤 플랫폼/요청이든 동적으로 분석
+ * 🎯 창의적 접근: 사용자 워크플로우 내에서 비슷한 효과를 내는 대안 제시
  */
-function analyzePurposeFromInput(userInput: string, followupAnswers: any) {
-  const inputLower = userInput.toLowerCase();
-  const answersStr = JSON.stringify(followupAnswers || {}).toLowerCase();
-  
-  // 🎯 진짜 목적 추출 (더 정교하게)
-  let mainGoal = '';
-  
-  // 고객 지원/소통 관련
-  if (inputLower.includes('고객') || inputLower.includes('문의') || inputLower.includes('응답') || inputLower.includes('dm')) {
-    mainGoal = '고객 문의를 놓치지 않고 빠르게 응답하기';
-  }
-  // 데이터 수집/모니터링 관련
-  else if (inputLower.includes('수집') || inputLower.includes('모니터링') || inputLower.includes('감지') || inputLower.includes('새 글')) {
-    mainGoal = '중요한 정보를 놓치지 않고 실시간으로 파악하기';
-  }
-  // 업무 효율성 관련
-  else if (inputLower.includes('알림') || inputLower.includes('알려') || inputLower.includes('전송')) {
-    mainGoal = '중요한 상황을 팀에게 즉시 공유하기';
-  }
-  // 데이터 정리/분석 관련
-  else if (inputLower.includes('분류') || inputLower.includes('정리') || inputLower.includes('저장')) {
-    mainGoal = '데이터를 체계적으로 정리하고 관리하기';
-  }
-  else {
-    mainGoal = '반복적인 업무를 효율적으로 처리하기';
-  }
-  
-  // ⚠️ 불가능한 요소들 감지 (더 정교하게)
-  const impossibleElements = [];
-  const viableAlternatives = [];
-  
-  // 카카오톡 관련
-  if (inputLower.includes('카카오톡') || answersStr.includes('카카오톡')) {
-    impossibleElements.push('카카오톡 직접 API 연동');
-    if (mainGoal.includes('고객')) {
-      viableAlternatives.push('웹사이트 문의 폼 + 이메일 자동 응답');
-      viableAlternatives.push('채널톡 또는 Intercom 도입');
-    } else {
-      viableAlternatives.push('이메일 알림 + Google Forms');
-      viableAlternatives.push('Slack 또는 Discord 활용');
+async function analyzePurposeFromInput(userInput: string, followupAnswers: any) {
+  console.log('🧠 [AI 목적분석] 시스템적 분석 시작...');
+
+  const analysisPrompt = `당신은 사용자의 진짜 의도를 파악하고 현실적 대안을 제시하는 전문가입니다.
+
+🎯 **핵심 원칙**:
+1. **진짜 목적 파악**: 표면적 요청 너머의 실제 달성하고자 하는 목표
+2. **워크플로우 존중**: 사용자가 현재 사용 중인 플랫폼/도구를 바꾸라고 하지 말 것
+3. **창의적 우회**: 직접 불가능하면, 간접적으로 비슷한 효과를 내는 방법 찾기
+4. **실행 가능성**: 2025년 현재 개인이 실제로 구현 가능한 방법만 제시
+
+🚫 **금지사항**:
+- "다른 플랫폼 사용하세요" (예: 카카오톡 → Google Forms)
+- "불가능합니다" 만 말하고 끝내기
+- 단순한 도구 교체 제안
+
+✅ **올바른 접근**:
+- "카카오톡을 그대로 사용하되, X 방식으로 우회하면 비슷한 효과"
+- "인스타 DM 자동화는 불가능하지만, Y 방법으로 같은 목표 달성 가능"
+- 사용자의 현재 워크플로우를 최대한 유지하면서 자동화 추가
+
+📋 **분석 대상**:
+사용자 요청: "${userInput}"
+후속 답변: ${JSON.stringify(followupAnswers || {})}
+
+🎯 **분석 항목**:
+1. **mainGoal**: 사용자가 진짜로 달성하고 싶은 목표 (구체적으로)
+2. **currentWorkflow**: 사용자가 현재 사용 중인 플랫폼/도구 (바꾸면 안됨)
+3. **impossibleElements**: 기술적/법적으로 직접 불가능한 요소들
+4. **impossibleReasons**: 각 불가능 요소의 구체적인 이유 (2025년 기준)
+5. **creativeWorkarounds**: 현재 워크플로우 내에서 비슷한 효과를 내는 창의적 우회 방법들
+   - 형식: "구체적 방법 + 왜 비슷한 효과인지 설명"
+   - 예시: "카카오톡 알림톡 → 이메일 전환 설정 + Gmail 자동 응답 (고객은 카카오톡으로 받지만 내부는 자동화)"
+
+🎯 **창의적 우회 예시**:
+- 카카오톡 DM 자동화 (불가능) → 카카오톡 알림 → 이메일 전환 + Gmail 필터 자동화
+- 인스타 DM 감지 (불가능) → 인스타 DM → 특정 이메일 자동전송 + IFTTT 연동
+- 네이버 카페 API (불가능) → RSS 피드 + Google Apps Script 주기적 크롤링
+
+다음 JSON 형식으로 응답하세요:
+{
+  "mainGoal": "사용자의 진짜 목표 (구체적으로)",
+  "currentWorkflow": "현재 사용 중인 플랫폼/도구 (바꾸면 안됨)",
+  "impossibleElements": [
+    {
+      "element": "불가능한 요소",
+      "reason": "왜 불가능한지 (2025년 기준)"
     }
-  }
-  
-  // 인스타그램 관련
-  if (inputLower.includes('인스타그램') || inputLower.includes('instagram')) {
-    impossibleElements.push('인스타그램 DM 자동화');
-    if (mainGoal.includes('고객')) {
-      viableAlternatives.push('웹사이트 문의 폼 설정');
-      viableAlternatives.push('이메일 기반 고객 지원 시스템');
-      viableAlternatives.push('채널톡 또는 크리스프 도입');
-    } else {
-      viableAlternatives.push('이메일 수집 + 자동 처리');
-      viableAlternatives.push('Google Forms + 자동 알림');
+  ],
+  "creativeWorkarounds": [
+    {
+      "method": "구체적인 우회 방법",
+      "effect": "어떻게 비슷한 효과를 내는지",
+      "maintains_workflow": true/false,
+      "difficulty": "쉬움|보통|어려움"
     }
-  }
-  
-  // 네이버 카페 관련
-  if (inputLower.includes('네이버') && inputLower.includes('카페')) {
-    impossibleElements.push('네이버 카페 API 연동');
-    viableAlternatives.push('RSS 피드 모니터링 (공식 피드 활용)');
-    viableAlternatives.push('이메일 알림 설정');
-    viableAlternatives.push('Google Alerts 활용');
-  }
-  
-  // 소셜미디어 일반
-  if (inputLower.includes('페이스북') || inputLower.includes('facebook')) {
-    impossibleElements.push('개인 페이스북 API');
-    viableAlternatives.push('공식 비즈니스 도구 활용');
-    viableAlternatives.push('RSS 피드 기반 모니터링');
-  }
-  
-  // 유튜브 관련 (동적 확장 예시)
-  if (inputLower.includes('유튜브') || inputLower.includes('youtube')) {
-    if (inputLower.includes('댓글') || inputLower.includes('comment')) {
-      impossibleElements.push('유튜브 댓글 실시간 모니터링');
-      viableAlternatives.push('Google Alerts + 브랜드명 모니터링');
-      viableAlternatives.push('수동 댓글 확인 + 자동 알림 설정');
-      viableAlternatives.push('YouTube Data API (제한적) + 수동 검토');
-    } else {
-      impossibleElements.push('유튜브 댓글 자동 응답');
-      if (mainGoal.includes('고객')) {
-        viableAlternatives.push('웹사이트 문의 폼 + 유튜브 커뮤니티 탭 활용');
-        viableAlternatives.push('이메일 기반 고객 지원');
-      } else {
-        viableAlternatives.push('유튜브 RSS 피드 활용 (새 동영상 감지용)');
-        viableAlternatives.push('YouTube Data API (공식) 활용');
-      }
+  ],
+  "fallbackAlternatives": [
+    "최후의 수단으로 다른 도구 사용 (워크플로우 변경 필요)"
+  ]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `당신은 자동화 전문가입니다. 사용자의 진짜 의도를 파악하고,
+불가능해 보이는 요청도 창의적으로 우회하여 비슷한 효과를 낼 수 있는 방법을 찾습니다.
+중요: 사용자의 현재 워크플로우를 최대한 유지하면서 자동화를 추가하는 방식으로 접근하세요.`
+        },
+        { role: 'user', content: analysisPrompt }
+      ],
+      max_tokens: 1500,
+      temperature: 0.3, // 창의성 필요하지만 너무 발산적이면 안됨
+      response_format: { type: 'json_object' }
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('AI 목적분석 응답 없음');
     }
+
+    const analysis = JSON.parse(content);
+    console.log('✅ [AI 목적분석] 완료:', {
+      mainGoal: analysis.mainGoal,
+      impossibleCount: analysis.impossibleElements?.length || 0,
+      workaroundCount: analysis.creativeWorkarounds?.length || 0
+    });
+
+    // 🔄 기존 인터페이스와 호환되도록 변환
+    return {
+      mainGoal: analysis.mainGoal || '사용자 목적 자동화',
+      currentWorkflow: analysis.currentWorkflow || '',
+      impossibleElements: (analysis.impossibleElements || []).map((item: any) =>
+        typeof item === 'string' ? item : `${item.element} (${item.reason})`
+      ),
+      viableAlternatives: [
+        // 1순위: 창의적 우회 방법들 (워크플로우 유지)
+        ...(analysis.creativeWorkarounds || [])
+          .filter((w: any) => w.maintains_workflow)
+          .map((w: any) => `${w.method} - ${w.effect}`),
+        // 2순위: 창의적 우회 방법들 (워크플로우 일부 변경)
+        ...(analysis.creativeWorkarounds || [])
+          .filter((w: any) => !w.maintains_workflow)
+          .map((w: any) => `${w.method} - ${w.effect}`),
+        // 3순위: 최후의 수단 (다른 도구)
+        ...(analysis.fallbackAlternatives || [])
+      ].slice(0, 5) // 최대 5개
+    };
+
+  } catch (error) {
+    console.error('❌ [AI 목적분석] 실패:', error);
+
+    // 🛡️ Fallback: 매우 기본적인 분석만 수행
+    return {
+      mainGoal: '반복 업무 자동화',
+      currentWorkflow: '',
+      impossibleElements: ['일부 기능 직접 구현 불가능'],
+      viableAlternatives: [
+        'Google Apps Script + 스프레드시트 자동화',
+        'IFTTT 또는 Zapier 연동',
+        '반자동화 (일부 수동 + 일부 자동)'
+      ]
+    };
   }
-  
-  // 틱톡 관련 (새 플랫폼 추가)
-  if (inputLower.includes('틱톡') || inputLower.includes('tiktok')) {
-    impossibleElements.push('틱톡 댓글/DM 자동화');
-    viableAlternatives.push('Google Alerts + 브랜드 모니터링');
-    viableAlternatives.push('수동 모니터링 + 자동 알림 시스템');
-  }
-  
-  // 링크드인 관련 (B2B 특화)
-  if (inputLower.includes('링크드인') || inputLower.includes('linkedin')) {
-    impossibleElements.push('링크드인 개인 메시지 API');
-    if (mainGoal.includes('고객') || mainGoal.includes('영업')) {
-      viableAlternatives.push('웹사이트 B2B 문의 폼');
-      viableAlternatives.push('이메일 기반 영업 시스템');
-    } else {
-      viableAlternatives.push('링크드인 공식 Sales Navigator');
-      viableAlternatives.push('CRM 직접 연동');
-    }
-  }
-  
-  // 기본 대안이 없다면 목적에 맞는 범용 대안 추가
-  if (viableAlternatives.length === 0) {
-    if (mainGoal.includes('고객')) {
-      viableAlternatives.push('웹사이트 문의 폼 + 이메일 자동화');
-      viableAlternatives.push('Google Forms + Apps Script');
-    } else if (mainGoal.includes('모니터링')) {
-      viableAlternatives.push('RSS 피드 + IFTTT');
-      viableAlternatives.push('Google Alerts + 이메일 필터');
-    } else {
-      viableAlternatives.push('Gmail + Google Sheets 조합');
-      viableAlternatives.push('Zapier/Make.com 활용');
-    }
-  }
-  
-  return {
-    mainGoal,
-    impossibleElements,
-    viableAlternatives
-  };
 }
 
 /**
