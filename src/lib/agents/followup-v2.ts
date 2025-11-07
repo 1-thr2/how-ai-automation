@@ -39,11 +39,12 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 ❌ 나쁜 질문: "어디서 데이터를 가져오나요?" (HOW - 사용자가 말한 방법에 갇힘)
 ✅ 좋은 질문: "왜 이 자동화가 필요한가요?" (WHY - 더 나은 대안 탐색 가능)
 
-# 핵심 원칙
-1. 도구/방법이 아닌 목적/문제 중심으로 질문
-2. "어떻게"보다 "왜" 우선
-3. 제약사항 미리 파악 (예산, 시간, 정책)
-4. 사용자가 제시한 방법에서 벗어나 본질 파악
+# 토스 스타일 UX 원칙 (필수 준수!)
+1. **짧게**: 질문은 10자 이내, 설명은 20자 이내
+2. **쉽게**: 초등학생도 이해 가능한 쉬운 말
+3. **밝게**: 모든 선택지에 이모지 필수
+4. **명확하게**: 구체적이고 직관적인 표현
+5. **친절하게**: 사용자 입장에서 공감하는 말투
 
 # 질문 구조 (3가지 카테고리)
 1. purpose (목적): 진짜 달성하고 싶은 것
@@ -54,74 +55,171 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 
 # 분석 프로세스
 1단계: 이 사람의 진짜 목적이 무엇인가?
-   예시) "인스타그램 모니터링" 요청 → 진짜 목적: "브랜드 평판 관리"
-   예시) "네이버 카페 크롤링" 요청 → 진짜 목적: "커뮤니티 신규 콘텐츠 놓치지 않기"
+   예시) "인스타그램 모니터링" → 진짜 목적: "브랜드 평판 관리"
+   예시) "네이버 카페 크롤링" → 진짜 목적: "커뮤니티 신규 콘텐츠 놓치지 않기"
 
 2단계: 왜 자동화가 필요한가?
-   - 시간 절약 (반복 작업 제거)?
-   - 정보 놓침 방지 (실시간 모니터링)?
-   - 데이터 기반 의사결정 (분석/인사이트)?
-   - 팀 협업 개선 (정보 공유)?
+   - 시간 절약? 정보 놓침 방지? 데이터 분석? 팀 협업?
 
 3단계: 현실적 제약은?
-   - 무료만 가능?
-   - 즉시 설정 필요?
-   - 회사 정책 제약?
+   - 무료만? 급함? 회사 승인?
 
-# 질문 생성 가이드라인 (동적 구성)
+# 질문 생성 가이드라인
 
-🎯 **필수 카테고리 (반드시 포함):**
-1. purpose (목적): 왜 필요한가?
-2. pain (문제): 현재 뭐가 불편한가?
-3. constraints (제약): 예산/시간/정책 제약?
+🎯 **필수 3개 카테고리 (반드시 포함):**
+1. **purpose** (목적): type="single" - 핵심 목적은 하나
+2. **pain** (문제): type="single" - 가장 큰 문제 하나
+3. **constraints** (제약): type="multiple" - 여러 제약 동시 가능
 
-📋 **추가 질문 (상황에 따라 1-2개 동적 생성):**
-- 사용자 요청의 구체성에 따라 추가 정보가 필요하면 context 질문 추가
-- 총 질문 개수: 3-5개 (필수 3개 + 선택 1-2개)
+📋 **추가 질문 (필요시 1-2개):**
+- 사용자 요청이 구체적이면 → context 질문 추가
+- type="single" 또는 "multiple" (상황에 따라)
+- 총 3-5개 질문
 
-# Few-Shot 예시 (참고용, 그대로 복사하지 말 것)
+🎨 **토스 스타일 작성법:**
+- 질문: 10자 이내, 초등학생 언어 (예: "왜 필요한가요?")
+- 설명: 20자 이내, 공감 톤 (예: "상황에 맞게 추천해드릴게요")
+- 선택지: 모두 이모지 시작 + 구체적 상황 + "✏️ 직접 입력할게요" 필수 마지막
 
-## 예시 1: SNS 브랜드 모니터링 요청
-사용자: "인스타그램에서 우리 브랜드 언급을 모니터링하고 싶어요"
-→ 4개 질문 생성 (필수 3개 + platform/keywords 1개)
+# Few-Shot 예시 (토스 스타일)
+
+## 예시 1: SNS 모니터링
+사용자: "인스타그램에서 우리 브랜드 언급 모니터링하고 싶어요"
+→ 4개 질문 (필수 3개 + 범위 1개)
 [
-  {"key": "purpose", "question": "이 모니터링을 통해 달성하고 싶은 진짜 목표가 무엇인가요?", ...},
-  {"key": "current_pain", "question": "현재 가장 불편한 점은 무엇인가요?", ...},
-  {"key": "constraints", "question": "고려해야 할 제약사항이 있나요?", ...},
-  {"key": "monitoring_scope", "question": "모니터링 범위와 알림 방식은 어떻게 하고 싶으신가요?", "type": "single", "options": ["특정 키워드만 추적", "브랜드명 전체 추적", "경쟁사 포함 추적", "기타"], "category": "context"}
+  {
+    "key": "purpose",
+    "question": "왜 필요한가요?",
+    "type": "single",
+    "options": ["⏰ 시간 절약", "🔔 놓치지 않기", "📊 데이터 분석", "👥 팀 공유", "✏️ 직접 입력할게요"],
+    "category": "purpose",
+    "importance": "critical",
+    "description": "딱 맞는 방법을 찾아드릴게요"
+  },
+  {
+    "key": "current_pain",
+    "question": "뭐가 불편한가요?",
+    "type": "single",
+    "options": ["⏱️ 매번 확인 힘들어요", "😰 중요한 거 놓쳐요", "📁 정리가 안돼요", "💬 공유가 번거로워요", "✏️ 직접 입력할게요"],
+    "category": "pain",
+    "importance": "high",
+    "description": "가장 큰 고민을 알려주세요"
+  },
+  {
+    "key": "constraints",
+    "question": "특별한 상황 있나요?",
+    "type": "multiple",
+    "options": ["💸 무료만 써야 해요", "⚡ 오늘 바로 필요해요", "🏢 회사 승인 받아야 해요", "🎯 없어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "high",
+    "description": "있다면 알려주세요"
+  },
+  {
+    "key": "monitoring_scope",
+    "question": "어떻게 추적할까요?",
+    "type": "single",
+    "options": ["🎯 특정 키워드만", "🏷️ 브랜드명 전체", "🔍 경쟁사도 포함", "✏️ 직접 입력할게요"],
+    "category": "context",
+    "importance": "medium",
+    "description": "범위를 알려주세요"
+  }
 ]
 
-## 예시 2: 이력서 데이터 파싱
-사용자: "이메일로 받은 이력서를 자동으로 스프레드시트에 정리하고 싶어요"
-→ 5개 질문 생성 (필수 3개 + data_fields + destination 2개)
+## 예시 2: 이력서 파싱
+사용자: "이메일로 받은 이력서를 스프레드시트에 정리하고 싶어요"
+→ 5개 질문 (필수 3개 + 추출정보 + 파일형식)
 [
-  {"key": "purpose", "question": "이 자동화를 통해 달성하고 싶은 진짜 목표가 무엇인가요?", ...},
-  {"key": "current_pain", "question": "현재 가장 불편한 점은 무엇인가요?", ...},
-  {"key": "data_scope", "question": "어떤 정보를 추출하고 싶으신가요?", "type": "multiple", "options": ["이름/연락처", "경력 정보", "학력 정보", "기술 스택", "희망 연봉", "전체"], "category": "context"},
-  {"key": "file_format", "question": "이력서 파일 형식은 주로 무엇인가요?", "type": "single", "options": ["PDF", "Word (.docx)", "한글 (.hwp)", "혼합", "잘 모름"], "category": "context"},
-  {"key": "constraints", "question": "고려해야 할 제약사항이 있나요?", ...}
+  {
+    "key": "purpose",
+    "question": "왜 필요한가요?",
+    "type": "single",
+    "options": ["⏰ 시간 절약", "📊 데이터 분석", "👥 팀 공유", "✏️ 직접 입력할게요"],
+    "category": "purpose",
+    "importance": "critical",
+    "description": "목적에 맞게 추천해드릴게요"
+  },
+  {
+    "key": "current_pain",
+    "question": "뭐가 불편한가요?",
+    "type": "single",
+    "options": ["⏱️ 손으로 옮기기 힘들어요", "😰 실수가 많아요", "📁 관리가 안돼요", "✏️ 직접 입력할게요"],
+    "category": "pain",
+    "importance": "high",
+    "description": "가장 힘든 부분을 알려주세요"
+  },
+  {
+    "key": "data_scope",
+    "question": "뭘 추출할까요?",
+    "type": "multiple",
+    "options": ["👤 이름/연락처", "💼 경력", "🎓 학력", "🛠️ 기술", "💰 연봉", "📋 전부", "✏️ 직접 입력할게요"],
+    "category": "context",
+    "importance": "high",
+    "description": "여러 개 선택 가능해요"
+  },
+  {
+    "key": "file_format",
+    "question": "파일 형식은요?",
+    "type": "single",
+    "options": ["📄 PDF", "📝 워드", "📃 한글", "📑 다양해요", "✏️ 직접 입력할게요"],
+    "category": "context",
+    "importance": "medium",
+    "description": "주로 받는 형식을 알려주세요"
+  },
+  {
+    "key": "constraints",
+    "question": "특별한 상황 있나요?",
+    "type": "multiple",
+    "options": ["💸 무료만", "⚡ 급해요", "🏢 승인 필요", "🎯 없어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "high",
+    "description": "여러 개 OK"
+  }
 ]
 
-## 예시 3: 단순 알림 자동화
+## 예시 3: 단순 알림
 사용자: "매일 아침 날씨를 카카오톡으로 받고 싶어요"
-→ 3개 질문만 생성 (필수 3개만, 추가 정보 불필요)
+→ 3개 질문만 (필수 3개, 추가 정보 불필요)
 [
-  {"key": "purpose", "question": "이 자동화를 통해 달성하고 싶은 진짜 목표가 무엇인가요?", ...},
-  {"key": "current_pain", "question": "현재 가장 불편한 점은 무엇인가요?", ...},
-  {"key": "constraints", "question": "고려해야 할 제약사항이 있나요?", ...}
+  {
+    "key": "purpose",
+    "question": "왜 필요한가요?",
+    "type": "single",
+    "options": ["⏰ 시간 절약", "🔔 놓치지 않기", "✏️ 직접 입력할게요"],
+    "category": "purpose",
+    "importance": "critical",
+    "description": "상황에 맞게 추천해드릴게요"
+  },
+  {
+    "key": "current_pain",
+    "question": "뭐가 불편한가요?",
+    "type": "single",
+    "options": ["⏱️ 매번 확인 귀찮아요", "😰 깜빡해요", "✏️ 직접 입력할게요"],
+    "category": "pain",
+    "importance": "high",
+    "description": "편하게 알려주세요"
+  },
+  {
+    "key": "constraints",
+    "question": "특별한 상황 있나요?",
+    "type": "multiple",
+    "options": ["💸 무료만", "⚡ 급해요", "🎯 없어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "high",
+    "description": "여러 개 선택 가능"
+  }
 ]
 
 # 출력 형식
-JSON 배열로 응답하세요 (마크다운 블록 없이). 질문 개수는 3-5개로 사용자 요청에 맞게 조정하세요.
+JSON 배열로 응답 (마크다운 블록 없이). 질문 개수는 3-5개로 조정.
 
 필수 필드:
 - key: 질문 식별자
-- question: 질문 내용
+- question: 질문 (10자 이내, 쉬운 말)
 - type: "single" | "multiple"
-- options: 선택지 배열 (2-6개, 마지막은 "기타" 권장)
+- options: 선택지 배열 (이모지 필수, 마지막은 반드시 "✏️ 직접 입력할게요")
 - category: "purpose" | "pain" | "constraints" | "context"
 - importance: "critical" | "high" | "medium"
-- description: (선택) 질문 의도 설명`;
+- description: 설명 (20자 이내, 공감 톤)`;
 
     console.log('📊 [Purpose-First] gpt-4o 호출 시작 (동적 질문 생성)...');
 
@@ -280,54 +378,54 @@ function parseQuestionsJSON(content: string): any[] {
 }
 
 /**
- * 🎯 WHY 중심 폴백 질문들 (JSON 파싱 실패 시)
+ * 🎯 토스 스타일 폴백 질문들 (JSON 파싱 실패 시)
  */
 function getFallbackQuestions(): any[] {
   return [
     {
       key: 'purpose',
-      question: '이 자동화를 통해 달성하고 싶은 진짜 목표가 무엇인가요?',
+      question: '왜 필요한가요?',
       type: 'single',
       options: [
-        '시간 절약 (반복 작업 제거)',
-        '정보 놓치지 않기 (실시간 모니터링)',
-        '데이터 기반 의사결정 (분석/인사이트)',
-        '팀 협업 개선 (정보 공유 자동화)',
-        '기타 (직접 입력)',
+        '⏰ 시간 절약',
+        '🔔 놓치지 않기',
+        '📊 데이터 분석',
+        '👥 팀 공유',
+        '✏️ 직접 입력할게요',
       ],
       category: 'purpose',
       importance: 'critical',
-      description: '표면적 요청이 아닌 본질적 목적 파악',
+      description: '딱 맞는 방법을 찾아드릴게요',
     },
     {
       key: 'current_pain',
-      question: '현재 가장 불편하거나 해결하고 싶은 문제는 무엇인가요?',
+      question: '뭐가 불편한가요?',
       type: 'single',
       options: [
-        '매번 수동으로 확인/처리하는 시간 낭비',
-        '중요한 정보나 기회를 자주 놓침',
-        '데이터 정리/분석에 시간 소모',
-        '팀원들에게 일일이 공유하는 수고',
-        '기타 (직접 입력)',
+        '⏱️ 매번 확인 힘들어요',
+        '😰 중요한 거 놓쳐요',
+        '📁 정리가 안돼요',
+        '💬 공유가 번거로워요',
+        '✏️ 직접 입력할게요',
       ],
       category: 'pain',
       importance: 'high',
-      description: '현재 페인포인트 명확화',
+      description: '가장 큰 고민을 알려주세요',
     },
     {
       key: 'constraints',
-      question: '고려해야 할 제약사항이 있나요? (여러 개 선택 가능)',
+      question: '특별한 상황 있나요?',
       type: 'multiple',
       options: [
-        '무료 도구만 사용 가능',
-        '1시간 내 빠른 설정 필요',
-        '회사 보안 정책/승인 필요',
-        '특정 도구 사용 불가 (있다면 직접 입력)',
-        '제약 없음',
+        '💸 무료만 써야 해요',
+        '⚡ 오늘 바로 필요해요',
+        '🏢 회사 승인 받아야 해요',
+        '🎯 없어요',
+        '✏️ 직접 입력할게요',
       ],
       category: 'constraints',
       importance: 'high',
-      description: '현실적 제약사항 사전 파악',
+      description: '여러 개 선택 가능',
     },
   ];
 }
