@@ -42,7 +42,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 # 토스 스타일 UX 원칙 (필수 준수!)
 1. **짧게**: 질문은 10자 이내, 설명은 20자 이내
 2. **쉽게**: 초등학생도 이해 가능한 쉬운 말
-3. **밝게**: 모든 선택지에 이모지 필수
+3. **밝게**: 친근하고 긍정적인 톤 (이모지는 핵심만 선택적으로)
 4. **명확하게**: 구체적이고 직관적인 표현
 5. **친절하게**: 사용자 입장에서 공감하는 말투
 
@@ -90,7 +90,8 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 🎨 **토스 스타일 작성법:**
 - 질문: 10자 이내, 초등학생 언어 (예: "왜 필요한가요?")
 - 설명: 20자 이내, 공감 톤 (예: "상황에 맞게 추천해드릴게요")
-- 선택지: 모두 이모지 시작 + 구체적 상황 + "✏️ 직접 입력할게요" 필수 마지막
+- 선택지: 간결하고 구체적인 표현 + 마지막은 "✏️ 직접 입력할게요" 필수
+- 이모지: 핵심 옵션에만 선택적 사용 (모든 옵션에 붙이지 않음)
 
 # Few-Shot 예시 (토스 스타일)
 
@@ -110,7 +111,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     "key": "purpose",
     "question": "왜 필요한가요?",
     "type": "single",
-    "options": ["⏰ 시간 절약", "🔔 놓치지 않기", "📊 데이터 분석", "👥 팀 공유", "✏️ 직접 입력할게요"],
+    "options": ["시간 절약", "놓치지 않기", "데이터 분석", "팀 공유", "✏️ 직접 입력할게요"],
     "category": "purpose",
     "importance": "critical",
     "description": "딱 맞는 방법을 찾아드릴게요"
@@ -119,7 +120,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     "key": "current_pain",
     "question": "뭐가 불편한가요?",
     "type": "single",
-    "options": ["⏱️ 매번 확인 힘들어요", "😰 중요한 거 놓쳐요", "📁 정리가 안돼요", "💬 공유가 번거로워요", "✏️ 직접 입력할게요"],
+    "options": ["매번 확인 힘들어요", "중요한 거 놓쳐요", "정리가 안돼요", "공유가 번거로워요", "✏️ 직접 입력할게요"],
     "category": "pain",
     "importance": "high",
     "description": "가장 큰 고민을 알려주세요"
@@ -128,7 +129,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     "key": "constraints",
     "question": "특별한 상황 있나요?",
     "type": "multiple",
-    "options": ["💸 무료만 써야 해요", "⚡ 오늘 바로 필요해요", "🏢 회사 승인 받아야 해요", "🎯 없어요", "✏️ 직접 입력할게요"],
+    "options": ["무료만 써야 해요", "오늘 바로 필요해요", "회사 승인 받아야 해요", "없어요", "✏️ 직접 입력할게요"],
     "category": "constraints",
     "importance": "high",
     "description": "있다면 알려주세요"
@@ -137,7 +138,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     "key": "monitoring_scope",
     "question": "어떻게 추적할까요?",
     "type": "single",
-    "options": ["🎯 특정 키워드만", "🏷️ 브랜드명 전체", "🔍 경쟁사도 포함", "✏️ 직접 입력할게요"],
+    "options": ["특정 키워드만", "브랜드명 전체", "경쟁사도 포함", "✏️ 직접 입력할게요"],
     "category": "context",
     "importance": "medium",
     "description": "범위를 알려주세요"
@@ -158,7 +159,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     "key": "purpose",
     "question": "왜 필요한가요?",
     "type": "single",
-    "options": ["⏰ 시간 절약", "📊 데이터 분석", "👥 팀 공유", "✏️ 직접 입력할게요"],
+    "options": ["시간 절약", "데이터 분석", "팀 공유", "✏️ 직접 입력할게요"],
     "category": "purpose",
     "importance": "critical",
     "description": "목적에 맞게 추천해드릴게요"
@@ -167,7 +168,7 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
     "key": "current_pain",
     "question": "뭐가 불편한가요?",
     "type": "single",
-    "options": ["⏱️ 손으로 옮기기 힘들어요", "😰 실수가 많아요", "📁 관리가 안돼요", "✏️ 직접 입력할게요"],
+    "options": ["손으로 옮기기 힘들어요", "실수가 많아요", "관리가 안돼요", "✏️ 직접 입력할게요"],
     "category": "pain",
     "importance": "high",
     "description": "가장 힘든 부분을 알려주세요"
@@ -432,10 +433,10 @@ function getFallbackQuestions(): any[] {
       question: '왜 필요한가요?',
       type: 'single',
       options: [
-        '⏰ 시간 절약',
-        '🔔 놓치지 않기',
-        '📊 데이터 분석',
-        '👥 팀 공유',
+        '시간 절약',
+        '놓치지 않기',
+        '데이터 분석',
+        '팀 공유',
         '✏️ 직접 입력할게요',
       ],
       category: 'purpose',
@@ -447,10 +448,10 @@ function getFallbackQuestions(): any[] {
       question: '뭐가 불편한가요?',
       type: 'single',
       options: [
-        '⏱️ 매번 확인 힘들어요',
-        '😰 중요한 거 놓쳐요',
-        '📁 정리가 안돼요',
-        '💬 공유가 번거로워요',
+        '매번 확인 힘들어요',
+        '중요한 거 놓쳐요',
+        '정리가 안돼요',
+        '공유가 번거로워요',
         '✏️ 직접 입력할게요',
       ],
       category: 'pain',
@@ -462,10 +463,10 @@ function getFallbackQuestions(): any[] {
       question: '특별한 상황 있나요?',
       type: 'multiple',
       options: [
-        '💸 무료만 써야 해요',
-        '⚡ 오늘 바로 필요해요',
-        '🏢 회사 승인 받아야 해요',
-        '🎯 없어요',
+        '무료만 써야 해요',
+        '오늘 바로 필요해요',
+        '회사 승인 받아야 해요',
+        '없어요',
         '✏️ 직접 입력할게요',
       ],
       category: 'constraints',
