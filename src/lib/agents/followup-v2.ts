@@ -66,15 +66,26 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 
 # 질문 생성 가이드라인
 
-🎯 **필수 3개 카테고리 (반드시 포함):**
+🎯 **기본 3개 카테고리 (모든 케이스에 포함):**
 1. **purpose** (목적): type="single" - 핵심 목적은 하나
 2. **pain** (문제): type="single" - 가장 큰 문제 하나
 3. **constraints** (제약): type="multiple" - 여러 제약 동시 가능
 
-📋 **추가 질문 (필요시 1-2개):**
-- 사용자 요청이 구체적이면 → context 질문 추가
-- type="single" 또는 "multiple" (상황에 따라)
-- 총 3-5개 질문
+📋 **추가 질문 (케이스에 따라 1-2개 반드시 추가):**
+
+⚠️ **중요: 정보 부족 시 잘못된 추천 발생! 필요한 질문은 반드시 추가하세요!**
+
+다음 상황에서는 **반드시** context 질문 추가:
+- **SNS/웹 모니터링** → 플랫폼, 키워드, 알림 방식 (최소 1개 추가)
+- **데이터 수집/파싱** → 추출 필드, 파일 형식, 저장 위치 (최소 2개 추가)
+- **복잡한 워크플로우** → 단계별 세부 정보 (최소 1-2개 추가)
+- **단순한 요청** → 추가 질문 불필요 (3개만)
+
+📊 **질문 개수 결정 기준:**
+- 단순 (날씨 알림): 3개
+- 보통 (SNS 모니터링): 4개 (context 1개 추가)
+- 복잡 (이력서 파싱): 5개 (context 2개 추가)
+- **6개 이상은 금지** (너무 길면 이탈)
 
 🎨 **토스 스타일 작성법:**
 - 질문: 10자 이내, 초등학생 언어 (예: "왜 필요한가요?")
@@ -83,9 +94,17 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 
 # Few-Shot 예시 (토스 스타일)
 
-## 예시 1: SNS 모니터링
+⚠️ **주의: 각 예시가 왜 그 개수인지 이해하고, 비슷한 케이스에 적용하세요!**
+
+## 예시 1: SNS 모니터링 (보통 복잡도 → 4개)
 사용자: "인스타그램에서 우리 브랜드 언급 모니터링하고 싶어요"
-→ 4개 질문 (필수 3개 + 범위 1개)
+
+**왜 4개?**
+- 기본 3개 필요 (목적, 불편함, 제약)
+- SNS 모니터링은 "어떤 키워드를", "어느 플랫폼에서" 추적할지 필수!
+- 정보 없으면 잘못된 추천 → 추가 1개 필수
+
+→ 총 4개 질문 (기본 3개 + 모니터링 범위 1개)
 [
   {
     "key": "purpose",
@@ -125,9 +144,15 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
   }
 ]
 
-## 예시 2: 이력서 파싱
+## 예시 2: 이력서 파싱 (복잡 → 5개)
 사용자: "이메일로 받은 이력서를 스프레드시트에 정리하고 싶어요"
-→ 5개 질문 (필수 3개 + 추출정보 + 파일형식)
+
+**왜 5개?**
+- 기본 3개 필요 (목적, 불편함, 제약)
+- 데이터 파싱은 "어떤 정보를 추출"하고, "어떤 파일 형식"인지 필수!
+- 정보 없으면 파싱 불가능 → 추가 2개 필수
+
+→ 총 5개 질문 (기본 3개 + 추출 정보 + 파일 형식 2개)
 [
   {
     "key": "purpose",
@@ -176,9 +201,15 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
   }
 ]
 
-## 예시 3: 단순 알림
+## 예시 3: 단순 알림 (단순 → 3개만)
 사용자: "매일 아침 날씨를 카카오톡으로 받고 싶어요"
-→ 3개 질문만 (필수 3개, 추가 정보 불필요)
+
+**왜 3개만?**
+- 기본 3개로 충분 (목적, 불편함, 제약)
+- 날씨 알림은 추가 정보 불필요 (API 하나, 메시지 형식 정해짐)
+- 불필요한 질문은 사용자 이탈 유발 → 3개만
+
+→ 총 3개 질문 (기본 3개만, context 질문 추가 안 함)
 [
   {
     "key": "purpose",
@@ -210,7 +241,13 @@ async function generatePurposeFirstQuestions(userInput: string): Promise<{
 ]
 
 # 출력 형식
-JSON 배열로 응답 (마크다운 블록 없이). 질문 개수는 3-5개로 조정.
+
+⚠️ **중요한 결정:**
+1. **사용자 요청 복잡도 판단** (단순/보통/복잡)
+2. **질문 개수 결정** (3개/4개/5개)
+3. **추가 질문 필요성 판단** (어떤 정보가 추가로 필요한가?)
+
+JSON 배열로 응답 (마크다운 블록 없이).
 
 필수 필드:
 - key: 질문 식별자
@@ -219,9 +256,17 @@ JSON 배열로 응답 (마크다운 블록 없이). 질문 개수는 3-5개로 �
 - options: 선택지 배열 (이모지 필수, 마지막은 반드시 "✏️ 직접 입력할게요")
 - category: "purpose" | "pain" | "constraints" | "context"
 - importance: "critical" | "high" | "medium"
-- description: 설명 (20자 이내, 공감 톤)`;
+- description: 설명 (20자 이내, 공감 톤)
 
-    console.log('📊 [Purpose-First] gpt-4o 호출 시작 (동적 질문 생성)...');
+🎯 **체크리스트:**
+- [ ] 기본 3개 카테고리 포함? (purpose, pain, constraints)
+- [ ] 추가 정보 필요한 케이스? (SNS, 데이터, 워크플로우)
+- [ ] 모든 선택지에 이모지?
+- [ ] 마지막 선택지 "✏️ 직접 입력할게요"?
+- [ ] 질문/설명 토스 스타일? (짧고, 쉽고, 밝게)
+- [ ] 총 질문 개수 3-5개? (6개 이상 금지!)`;
+
+    console.log('📊 [Purpose-First] gpt-4o 호출 시작 (동적 3-5개 질문 생성)...');
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o', // 더 나은 추론 능력
@@ -229,7 +274,7 @@ JSON 배열로 응답 (마크다운 블록 없이). 질문 개수는 3-5개로 �
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 1200, // 3-5개 질문을 위한 충분한 토큰
+      max_tokens: 1500, // 최대 5개 질문을 위한 충분한 토큰
       temperature: 0.4, // 창의성 + 정확성 균형
     });
 
@@ -246,7 +291,7 @@ JSON 배열로 응답 (마크다운 블록 없이). 질문 개수는 3-5개로 �
     // JSON 파싱
     const questions = parseQuestionsJSON(content);
     const latency = Date.now() - startTime;
-    const actualTokens = response.usage?.total_tokens || 1200;
+    const actualTokens = response.usage?.total_tokens || 1500;
 
     console.log(`✅ [Purpose-First] 완료 - ${questions.length}개 질문, ${actualTokens} 토큰, ${latency}ms`);
 
