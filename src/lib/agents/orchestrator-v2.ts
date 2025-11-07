@@ -460,12 +460,63 @@ async function fallbackFeasibilityAnalysis(userInput: string, followupAnswers: a
 }
 
 /**
+ * 🎯 불가능한 요소 빠른 체크 (복잡도 판단용)
+ */
+function quickCheckImpossible(userInput: string, followupAnswers: any): boolean {
+  const inputLower = userInput.toLowerCase();
+  const answersStr = JSON.stringify(followupAnswers || {}).toLowerCase();
+  const combined = inputLower + ' ' + answersStr;
+
+  // 🚨 알려진 불가능/어려운 플랫폼/요청 패턴들
+  const impossiblePatterns = [
+    // 한국 플랫폼
+    '카카오톡', 'kakao', '카톡',
+    '인스타그램', 'instagram', '인스타',
+    '네이버 카페', '네이버카페',
+    '페이스북', 'facebook',
+    '틱톡', 'tiktok',
+    '잡코리아', '사람인', 'saramin',
+
+    // 어려운 작업들
+    'dm 자동', '메시지 자동', 'api 연동',
+    '크롤링', 'crawling', '스크래핑', 'scraping',
+    '실시간 모니터링', 'real-time',
+
+    // 제한적 API
+    'twitter api', 'x api',
+    'linkedin api'
+  ];
+
+  const hasImpossibleElement = impossiblePatterns.some(pattern =>
+    combined.includes(pattern)
+  );
+
+  if (hasImpossibleElement) {
+    console.log('🚨 [복잡도 판단] 불가능 요소 감지 → o3-mini 깊은 추론 모드');
+  } else {
+    console.log('✅ [복잡도 판단] 일반 요청 → gpt-4o 빠른 처리 모드');
+  }
+
+  return hasImpossibleElement;
+}
+
+/**
  * 🧠 AI 기반 사용자 목적 및 현실적 대안 분석 (시스템적 접근)
  * 🎯 하드코딩 제거: 어떤 플랫폼/요청이든 동적으로 분석
  * 🎯 창의적 접근: 사용자 워크플로우 내에서 비슷한 효과를 내는 대안 제시
+ * 🎯 복잡도 기반 모델 선택: 어려운 케이스는 o3-mini, 쉬운 케이스는 gpt-4o
  */
 async function analyzePurposeFromInput(userInput: string, followupAnswers: any) {
   console.log('🧠 [AI 목적분석] 시스템적 분석 시작...');
+
+  // 🎯 복잡도 판단: 불가능한 요소가 있는지 체크
+  const needsDeepReasoning = quickCheckImpossible(userInput, followupAnswers);
+
+  // 복잡한 케이스: o3-mini (깊은 추론 + 창의적 문제 해결)
+  // 간단한 케이스: gpt-4o (빠르고 저렴)
+  const selectedModel = needsDeepReasoning ? 'o3-mini' : 'gpt-4o-2024-11-20';
+
+  console.log(`🎯 [모델 선택] ${selectedModel} (복잡도: ${needsDeepReasoning ? '높음' : '낮음'})`);
 
   const analysisPrompt = `당신은 사용자의 진짜 의도를 파악하고 현실적 대안을 제시하는 전문가입니다.
 
@@ -528,7 +579,7 @@ async function analyzePurposeFromInput(userInput: string, followupAnswers: any) 
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-11-20', // 🔥 창의적 우회 방법 발견을 위해 강력한 모델 사용
+      model: selectedModel, // 🔥 복잡도 기반 동적 모델 선택 (o3-mini or gpt-4o)
       messages: [
         {
           role: 'system',
@@ -539,12 +590,14 @@ async function analyzePurposeFromInput(userInput: string, followupAnswers: any) 
 특히 중요:
 - 단순히 "다른 도구 사용하세요"가 아닌, 현재 도구를 유지하면서 우회하는 창의적 방법
 - 2025년 현재 실제로 작동하는 방법만 제시
-- 초보자도 30분 내 설정 가능한 난이도`
+- 초보자도 30분 내 설정 가능한 난이도
+
+${needsDeepReasoning ? '🧠 깊은 추론 모드: 불가능해 보이는 요청도 창의적으로 우회하는 방법을 단계별로 추론하세요.' : ''}`
         },
         { role: 'user', content: analysisPrompt }
       ],
-      max_tokens: 2000, // 더 상세한 분석을 위해 증가
-      temperature: 0.4, // 창의성 증가 (0.3 → 0.4)
+      max_tokens: needsDeepReasoning ? 3000 : 2000, // o3-mini는 더 많은 토큰 허용
+      temperature: needsDeepReasoning ? 0.5 : 0.4, // 복잡한 케이스는 더 창의적으로
       response_format: { type: 'json_object' }
     });
 
@@ -554,10 +607,11 @@ async function analyzePurposeFromInput(userInput: string, followupAnswers: any) 
     }
 
     const analysis = JSON.parse(content);
-    console.log('✅ [AI 목적분석] 완료:', {
+    console.log(`✅ [AI 목적분석] ${selectedModel} 완료:`, {
       mainGoal: analysis.mainGoal,
       impossibleCount: analysis.impossibleElements?.length || 0,
-      workaroundCount: analysis.creativeWorkarounds?.length || 0
+      workaroundCount: analysis.creativeWorkarounds?.length || 0,
+      usedDeepReasoning: needsDeepReasoning
     });
 
     // 🔄 기존 인터페이스와 호환되도록 변환
