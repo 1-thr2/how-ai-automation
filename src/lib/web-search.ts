@@ -4,7 +4,13 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || '',
 });
 
-export async function tavilySearch(userInput: string): Promise<{ answer: string; sources: any[] }> {
+/**
+ * 🔍 실시간 웹 검색 (gpt-4o-mini-search-preview)
+ * - 2025년 최신 정보 검색
+ * - Bing 검색 API 통합
+ * - 빠르고 저렴한 비용
+ */
+export async function searchWithWeb(userInput: string): Promise<{ answer: string; sources: any[] }> {
   try {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
@@ -32,24 +38,23 @@ export async function tavilySearch(userInput: string): Promise<{ answer: string;
   ]
 }`;
 
-    console.log('🧠 o1-preview API 호출 (깊은 리서치 모드)', 'API_KEY:', !!process.env.OPENAI_API_KEY);
+    console.log('🔍 gpt-4o-mini-search-preview API 호출 (실시간 웹 검색)', 'API_KEY:', !!process.env.OPENAI_API_KEY);
 
-    // 🔥 o1-preview: 깊은 추론으로 더 나은 한국어 리서치 결과 제공
+    // 🔥 gpt-4o-mini-search-preview: 실제 웹 검색 가능
     const completion = await openai.chat.completions.create({
-      model: 'o1-preview',
+      model: 'gpt-4o-mini-search-preview',
       messages: [
         {
           role: 'user',
-          content: `당신은 자동화 관련 최신 정보와 사례를 제공하는 전문가입니다. 실제 사용 가능한 URL과 구체적인 사례를 제공하세요.
-
-${prompt}`
+          content: prompt
         }
       ],
-      // o1-preview는 temperature, max_tokens 파라미터 미지원
+      temperature: 0.3,
+      max_tokens: 2000,
     });
 
     const responseContent = completion.choices[0]?.message?.content || '';
-    console.log('✅ o1-preview API 응답:', responseContent);
+    console.log('✅ gpt-4o-mini-search-preview API 응답:', responseContent);
 
     // JSON 파싱
     let data: any;
@@ -67,7 +72,7 @@ ${prompt}`
     const sources = Array.isArray(data.sources) ? data.sources : [];
 
     if (!data.answer) {
-      throw new Error('o1-preview API 응답이 올바르지 않습니다.');
+      throw new Error('gpt-4o-mini-search-preview API 응답이 올바르지 않습니다.');
     }
 
     return {
@@ -79,7 +84,7 @@ ${prompt}`
       })),
     };
   } catch (error) {
-    console.error('❌ o1-preview 검색 오류:', error);
+    console.error('❌ 웹 검색 오류:', error);
     throw new Error('최신 정보 검색 중 오류가 발생했습니다.');
   }
 }

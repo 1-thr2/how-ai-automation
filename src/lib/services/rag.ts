@@ -97,9 +97,9 @@ export async function searchWithRAG(
       ...options,
     };
 
-    // 🔥 o1-preview API 호출 (깊은 추론으로 더 나은 한국어 리서치)
+    // 🔍 gpt-4o-mini-search-preview API 호출 (실시간 웹 검색)
     const completion = await openai.chat.completions.create({
-      model: 'o1-preview',
+      model: 'gpt-4o-mini-search-preview',
       messages: [
         {
           role: 'user',
@@ -121,7 +121,8 @@ export async function searchWithRAG(
 최대 ${defaultOptions.maxResults}개의 관련 결과를 JSON 배열로 제공해주세요.`
         }
       ],
-      // o1-preview는 temperature, max_tokens 파라미터 미지원
+      temperature: 0.3,
+      max_tokens: 2000,
     });
 
     let rawResults: any[] = [];

@@ -1,7 +1,7 @@
 // 트렌드/도구/성공사례+실패사례+PlanB 추천
 
 import { callOpenAI } from '@/lib/openai';
-import { tavilySearch } from '@/lib/tavily';
+import { searchWithWeb } from '@/lib/web-search';
 
 export interface TrendAnalysisResult {
   trendSummary: string; // 최신 트렌드/실전 요약
@@ -94,12 +94,12 @@ export async function analyzeTrends(
   userGoal: string
 ): Promise<TrendAnalysisResult> {
   try {
-    // 1. GPT-4o로 최신 정보 검색
+    // 1. 실시간 웹 검색으로 최신 정보 수집
     const searchQuery = `${requirements.dataStructure || ''} ${userGoal} ${new Date().getFullYear()} 최신 자동화 방법`;
-    const tavilyResult = await tavilySearch(searchQuery);
+    const searchResult = await searchWithWeb(searchQuery);
 
     // 2. GPT로 트렌드/도구/사례 분석
-    const prompt = `요구사항: ${JSON.stringify(requirements)}\n\n유저 목표: ${userGoal}\n\n최신 정보: ${tavilyResult.answer}`;
+    const prompt = `요구사항: ${JSON.stringify(requirements)}\n\n유저 목표: ${userGoal}\n\n최신 정보: ${searchResult.answer}`;
     const response = await callOpenAI(prompt);
 
     const content = response.choices?.[0]?.message?.content;
