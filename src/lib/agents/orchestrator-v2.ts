@@ -3062,10 +3062,26 @@ ${skeletonCard.type === 'guide' ? `
     })
   );
 
-  const enrichedCards = enrichmentResults.map(r => r.enrichedCard);
+  let enrichedCards = enrichmentResults.map(r => r.enrichedCard);
   const totalPass2Tokens = enrichmentResults.reduce((sum, r) => sum + r.tokens, 0);
 
   console.log(`✅ [병렬 생성] 완료! ${enrichedCards.length}개 카드가 동시에 완성되었습니다`);
+
+  // 🧹 카드 타입별로 불필요한 content 필드 제거 (인터페이스 정합성 유지)
+  enrichedCards = enrichedCards.map(card => {
+    // flow, faq, expansion, dashboard 등은 content 필드가 인터페이스에 없음
+    const noContentTypes = ['flow', 'faq', 'expansion', 'dashboard', 'impact-bar', 'code', 'share'];
+
+    if (noContentTypes.includes(card.type)) {
+      const { content, ...cleanCard } = card;
+      if (content) {
+        console.log(`🧹 [정리] ${card.type} 카드에서 불필요한 content 필드 제거`);
+      }
+      return cleanCard;
+    }
+
+    return card;
+  });
 
   const totalTokens = (skeletonResponse.usage?.total_tokens || 0) + totalPass2Tokens;
   const latency = Date.now() - startTime;
