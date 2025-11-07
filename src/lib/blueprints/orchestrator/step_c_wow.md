@@ -921,10 +921,110 @@ function setupEmailAnalysisAutomation() {
 
 ## 🚨 **초보자 친화성 필수 체크리스트**
 
+### **🎯 CRITICAL: 초등학생도 따라할 수 있는 UI 클릭 시퀀스 (필수!!!)**
+
+**🚨 핵심 원칙: 마우스 커서가 어디로 가야 하는지 정확히 명시!**
+
+#### **✅ Google Apps Script 코드 붙여넣기 (완전 상세 버전)**
+```
+❌ 나쁜 예: "코드를 Apps Script에 붙여넣으세요"
+
+✅ 좋은 예:
+"📝 Google Apps Script 코드 붙여넣기:
+1. script.google.com 에 접속하세요
+2. 파란색 '+ 새 프로젝트' 버튼 클릭
+3. 화면이 바뀌면, 왼쪽에 'Code.gs' 파일이 보입니다
+4. 오른쪽 편집 창에 기본 코드가 있습니다:
+   function myFunction() {
+
+   }
+5. 이 기본 코드를 전체 삭제하세요:
+   - Ctrl+A (전체 선택)
+   - Delete 키 누르기
+6. 아래 코드박스의 코드를 복사하세요 (코드박스 우측 상단 복사 버튼 클릭)
+7. 편집 창에 붙여넣으세요 (Ctrl+V)
+8. 상단 메뉴에서 '저장' 아이콘 (💾) 클릭
+9. 프로젝트 이름을 물어보면 '자동화봇' 입력 후 확인
+10. 완료! 이제 코드가 준비됐습니다"
+```
+
+#### **✅ n8n 워크플로우 생성 (영어 UI 대응)**
+```
+❌ 나쁜 예: "n8n에서 새 워크플로우를 만드세요"
+
+✅ 좋은 예:
+"🔧 n8n 워크플로우 만들기 (화면 영어지만 따라하면 됩니다):
+1. n8n.io 접속 → 'Get Started for Free' 클릭
+2. 이메일 주소 입력 → 'Sign Up' 버튼 클릭
+3. 이메일 인증 완료 후 로그인
+4. 왼쪽 메뉴에서 'Workflows' 클릭 (노트 아이콘)
+5. 우측 상단 주황색 '+' 버튼 클릭
+6. 'Add first step' (첫 단계 추가) 클릭
+7. 검색창에 'Webhook' 입력 → 'Webhook' 선택
+8. 'Webhook URL' 옆의 복사 아이콘 클릭 (URL 자동 복사됨)
+9. 이 URL을 메모장에 붙여넣어 두세요 (나중에 사용)
+10. 우측 상단 'Save' 버튼 클릭 → 워크플로우 이름 '자동알림' 입력
+11. 완료!"
+```
+
+#### **✅ Slack Webhook 생성 (클릭 한 번 한 번 다 알려주기)**
+```
+❌ 나쁜 예: "Slack Webhook URL을 생성하세요"
+
+✅ 좋은 예:
+"🔔 Slack Webhook URL 만들기 (한 단계씩 천천히):
+1. 새 브라우저 탭에서 api.slack.com/apps 접속
+2. 우측 상단 초록색 'Create New App' 버튼 클릭
+3. 팝업이 뜨면 'From scratch' (처음부터) 선택
+4. 'App Name' 칸에 '자동알림봇' 입력
+5. 'Pick a workspace' 드롭다운 클릭 → 본인 워크스페이스 선택
+6. 'Create App' 버튼 클릭
+7. 화면이 바뀌면, 왼쪽 메뉴 (sidebar) 를 보세요
+8. 'Features' 섹션에서 'Incoming Webhooks' 클릭
+9. 우측에 'Activate Incoming Webhooks' 토글 보이죠?
+10. 이 토글을 'Off'에서 'On'으로 클릭
+11. 화면 아래로 스크롤
+12. 'Add New Webhook to Workspace' 버튼 클릭
+13. 알림받을 채널 선택 (예: #alerts) → '허용' 클릭
+14. 다시 화면이 바뀌면 'Webhook URL' 이 생성되어 있습니다
+15. URL 옆의 'Copy' 버튼 클릭 (클립보드에 복사됨)
+16. 메모장에 붙여넣어서 저장해두세요
+17. 이 URL을 아래 코드의 'SLACK_WEBHOOK_URL' 부분에 붙여넣으면 됩니다!"
+```
+
+#### **✅ Zapier 연결 설정 (영어 화면 대응)**
+```
+❌ 나쁜 예: "Zapier에서 Google Sheets와 Slack을 연결하세요"
+
+✅ 좋은 예:
+"⚡ Zapier 자동화 만들기:
+1. zapier.com 접속 → 우측 상단 'Sign Up' (무료 가입)
+2. 이메일 입력 → 인증 완료
+3. 메인 화면에서 좌측 상단 '+ Create Zap' 버튼 클릭
+4. 'Trigger' (시작 조건) 설정:
+   - 검색창에 'Google Sheets' 입력 → 선택
+   - 'Event' 드롭다운에서 'New Spreadsheet Row' 선택
+   - 'Continue' 버튼 클릭
+   - 'Choose Account' → 구글 계정 연결 → '허용' 클릭
+   - 'Spreadsheet' 드롭다운 → 본인 스프레드시트 선택
+   - 'Worksheet' → 'Sheet1' 선택
+   - 'Continue' 버튼 클릭
+5. 'Action' (실행 동작) 설정:
+   - 검색창에 'Slack' 입력 → 선택
+   - 'Event' → 'Send Channel Message' 선택
+   - 'Continue' 클릭
+   - Slack 계정 연결 → '허용' 클릭
+   - 'Channel' → '#alerts' 선택
+   - 'Message Text' 칸에 내용 입력: 새 데이터: {{Column A}}
+   - 'Continue' 클릭
+6. 우측 상단 'Publish' 버튼 클릭
+7. 완료! 이제 스프레드시트에 새 행이 추가되면 Slack에 자동 알림갑니다"
+```
+
 ### **1. 스프레드시트/문서 ID 찾는 법 (필수 상세 설명)**
 ```
 ❌ 나쁜 예: "스프레드시트 ID를 입력하세요"
-✅ 좋은 예: 
+✅ 좋은 예:
 "📊 스프레드시트 ID 찾는 법:
 1. 구글 스프레드시트를 연 상태에서 주소창을 보세요
 2. 주소에서 `/d/` 뒤와 `/edit` 사이의 긴 문자열이 ID입니다

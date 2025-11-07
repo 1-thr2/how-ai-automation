@@ -528,18 +528,23 @@ async function analyzePurposeFromInput(userInput: string, followupAnswers: any) 
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o-2024-11-20', // 🔥 창의적 우회 방법 발견을 위해 강력한 모델 사용
       messages: [
         {
           role: 'system',
           content: `당신은 자동화 전문가입니다. 사용자의 진짜 의도를 파악하고,
 불가능해 보이는 요청도 창의적으로 우회하여 비슷한 효과를 낼 수 있는 방법을 찾습니다.
-중요: 사용자의 현재 워크플로우를 최대한 유지하면서 자동화를 추가하는 방식으로 접근하세요.`
+중요: 사용자의 현재 워크플로우를 최대한 유지하면서 자동화를 추가하는 방식으로 접근하세요.
+
+특히 중요:
+- 단순히 "다른 도구 사용하세요"가 아닌, 현재 도구를 유지하면서 우회하는 창의적 방법
+- 2025년 현재 실제로 작동하는 방법만 제시
+- 초보자도 30분 내 설정 가능한 난이도`
         },
         { role: 'user', content: analysisPrompt }
       ],
-      max_tokens: 1500,
-      temperature: 0.3, // 창의성 필요하지만 너무 발산적이면 안됨
+      max_tokens: 2000, // 더 상세한 분석을 위해 증가
+      temperature: 0.4, // 창의성 증가 (0.3 → 0.4)
       response_format: { type: 'json_object' }
     });
 
