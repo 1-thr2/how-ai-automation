@@ -2364,7 +2364,10 @@ export async function generate3StepAutomation(
     }
 
     // 🚀 Step A: 빠른 플로우 생성 (논리적 구조)
-    console.log('🚀 [Step A] 빠른 플로우 생성 시작...');
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🚀 [PROGRESS] Step A 시작: 빠른 플로우 초안 생성 중...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     const stepAResult = await executeStepA(userInput, followupAnswers, intentAnalysis);
     metrics.stagesCompleted.push('A-flow');
     metrics.modelsUsed.push(stepAResult.model);
@@ -2377,7 +2380,10 @@ export async function generate3StepAutomation(
     console.log(`✅ [Step A] 플로우 생성 완료: ${stepAResult.flow.title} (${stepAResult.flow.steps.length}개 단계)`);
 
     // 🔍 Step B: 플로우 검증 및 수정 (논리적 구조)
-    console.log('🔍 [Step B] 플로우 검증 및 수정 시작...');
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 [PROGRESS] Step B 시작: 2025년 최신 정보로 검증 중...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     const stepBResult = await executeStepB(stepAResult.flow, userInput, stepAResult.feasibilityAnalysis);
     metrics.stagesCompleted.push('B-verification');
     metrics.totalTokens += stepBResult.tokens;
@@ -2401,7 +2407,10 @@ export async function generate3StepAutomation(
     );
 
     // 🎨 Step C: 복잡도 기반 전략 선택
-    console.log('🎨 [Step C] 상세 가이드 생성 시작...');
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🎨 [PROGRESS] Step C 시작: 상세 실행 가이드 작성 중...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     const useAdvancedStrategy = complexity >= 0.5;  // 복잡도 50% 이상이면 2-Pass 전략
     console.log(`🎯 [Step C 전략] ${useAdvancedStrategy ? '2-Pass (고품질)' : 'Single-Pass (고속)'} 선택 (복잡도: ${(complexity * 100).toFixed(1)}%)`);
 
@@ -2793,14 +2802,12 @@ async function execute2PassStepC(
 
   // 2️⃣ Pass 2: 각 카드별 상세 내용 생성 (품질 우선, 제한 없음)
   console.log('🎨 [Step C-2] Pass 2: 상세 내용 생성...');
-  
+
   // 🚨 Blueprint 로드 (근본 해결!)
   const blueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
-  
-  const enrichedCards = [];
-  let totalPass2Tokens = 0;
 
-  for (const skeletonCard of skeletonCards) {
+  // 🎯 병렬 카드 생성 함수
+  async function enrichCardWithDetails(skeletonCard: any) {
     const detailPrompt = `${blueprint}
 
 === 현재 작업 ===
@@ -2815,7 +2822,7 @@ async function execute2PassStepC(
 - 단 하나의 최적 솔루션만 제시
 - 선택한 도구로 처음부터 끝까지 일관된 가이드 (적절한 단계 수로)
 
-🎯 **Pass 1에서 확정된 단계들**: 
+🎯 **Pass 1에서 확정된 단계들**:
 ${skeletonCard.steps ? skeletonCard.steps.map((step: any, i: number) => `${i+1}. ${step}`).join('\n') : '단계 정보 없음'}
 
 ⚠️ **중요**: 위 단계들과 100% 일치하는 솔루션으로만 상세 내용을 생성하세요!
@@ -2852,7 +2859,7 @@ ${skeletonCard.type === 'guide' ? `
 ` : `
 🎯 **${optimalTools[0] || 'Google Apps Script'}를 사용한 완전한 단일 솔루션** 생성:
 - 1단계: 계정 생성/준비
-- 2단계: API/연결 설정  
+- 2단계: API/연결 설정
 - 3단계: 코드 작성/배포
 - 4단계: 테스트 및 검증
 - 5단계: 자동화 활성화
@@ -2863,7 +2870,7 @@ ${skeletonCard.type === 'guide' ? `
     const detailResponse = await openai.chat.completions.create({
       model: 'gpt-4o-2024-11-20', // 품질 우선
       messages: [
-        { role: 'system', content: skeletonCard.type === 'guide' 
+        { role: 'system', content: skeletonCard.type === 'guide'
           ? `당신은 실행 가이드 전문가입니다. 반드시 JSON 형식으로만 응답하세요.
 
 다음 JSON 형식을 정확히 따라 응답하세요:
@@ -2888,13 +2895,13 @@ ${skeletonCard.type === 'guide' ? `
           : `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
         { role: 'user', content: detailPrompt },
       ],
-              max_tokens: skeletonCard.type === 'guide' ? 8000 : 4000, // 🔥 토큰 대폭 증가: Guide 8K, 기타 4K
+      max_tokens: skeletonCard.type === 'guide' ? 8000 : 4000, // 🔥 토큰 대폭 증가: Guide 8K, 기타 4K
       temperature: 0.4,
       ...(skeletonCard.type === 'guide' ? { response_format: { type: 'json_object' } } : {}),
     });
 
     const detailContent = detailResponse.choices[0]?.message?.content;
-    totalPass2Tokens += detailResponse.usage?.total_tokens || 0;
+    const tokens = detailResponse.usage?.total_tokens || 0;
 
     // 카드에 상세 내용 추가
     const enrichedCard = {
@@ -2906,14 +2913,14 @@ ${skeletonCard.type === 'guide' ? `
     // 카드 타입별 특별 처리 (패턴 매칭 한계 인정 → JSON 응답 강제)
     if (skeletonCard.type === 'guide' && detailContent) {
       enrichedCard.codeBlocks = extractCodeBlocks(detailContent);
-      
+
       // 🎯 GPT가 생성한 실제 상세 내용을 우선 사용
       console.log(`🔍 [Guide Content] GPT 생성 내용 길이: ${detailContent?.length || 0}자`);
-      
+
       if (detailContent && detailContent.length > 1000) {
         // GPT가 실제로 상세 내용을 생성했으면 이를 파싱해서 사용
         console.log('🎯 [Guide 처리] GPT 생성 상세 내용 파싱 시도');
-        
+
         // 🎯 JSON 응답 우선 시도
         try {
           const jsonMatch = detailContent.match(/\{[\s\S]*"detailedSteps"[\s\S]*\}/);
@@ -2933,7 +2940,7 @@ ${skeletonCard.type === 'guide' ? `
           console.log('⚠️ [JSON 파싱] 실패 - 마크다운 파싱으로 fallback:', jsonError instanceof Error ? jsonError.message : String(jsonError));
           enrichedCard.detailedSteps = extractDetailedSteps(detailContent);
         }
-        
+
         // JSON 파싱이 실패했을 경우에만 Skeleton 사용
         if (!enrichedCard.detailedSteps || enrichedCard.detailedSteps.length === 0) {
           console.log('⚠️ [Guide 처리] JSON 파싱 실패 - Skeleton 사용');
@@ -2947,7 +2954,7 @@ ${skeletonCard.type === 'guide' ? `
         } else {
           console.log(`✅ [Guide 처리] JSON 파싱 성공 - GPT 생성 ${enrichedCard.detailedSteps.length}개 단계 사용`);
         }
-        
+
         console.log(`✅ [Guide 처리] 최종 ${enrichedCard.detailedSteps.length}개 단계 완성`);
       } else {
         // detailContent가 부족하면 Skeleton 단계 사용
@@ -2971,7 +2978,7 @@ ${skeletonCard.type === 'guide' ? `
       console.log('🔍 [FAQ 처리] detailContent 길이:', detailContent.length);
       enrichedCard.items = extractFAQItems(detailContent);
       console.log('🔍 [FAQ 처리] enrichedCard.items:', enrichedCard.items?.length || 0, '개');
-      
+
       // 🛡️ Safety Net: FAQ 추출 실패 시 skeletonCard.content에서 재시도
       if (!enrichedCard.items || enrichedCard.items.length === 0) {
         console.log('⚠️ [FAQ Safety Net] detailContent에서 추출 실패, skeletonCard.content에서 재시도');
@@ -2982,8 +2989,22 @@ ${skeletonCard.type === 'guide' ? `
       }
     }
 
-    enrichedCards.push(enrichedCard);
+    return { enrichedCard, tokens };
   }
+
+  // 🚀 병렬로 모든 카드 enrichment 실행
+  console.log(`🚀 [병렬 생성] ${skeletonCards.length}개 카드를 동시에 생성합니다...`);
+  const enrichmentResults = await Promise.all(
+    skeletonCards.map((card, index) => {
+      console.log(`📤 [병렬 ${index + 1}/${skeletonCards.length}] ${card.type} 카드 생성 시작`);
+      return enrichCardWithDetails(card);
+    })
+  );
+
+  const enrichedCards = enrichmentResults.map(r => r.enrichedCard);
+  const totalPass2Tokens = enrichmentResults.reduce((sum, r) => sum + r.tokens, 0);
+
+  console.log(`✅ [병렬 생성] 완료! ${enrichedCards.length}개 카드가 동시에 완성되었습니다`);
 
   const totalTokens = (skeletonResponse.usage?.total_tokens || 0) + totalPass2Tokens;
   const latency = Date.now() - startTime;
