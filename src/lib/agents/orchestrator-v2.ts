@@ -2889,8 +2889,37 @@ IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1",
   // 🚨 Blueprint 로드 (근본 해결!)
   const blueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
 
-  // 🎯 병렬 카드 생성 함수
-  async function enrichCardWithDetails(skeletonCard: any) {
+  // 🎯 순차 카드 생성 함수 (맥락 연결)
+  async function enrichCardWithDetails(skeletonCard: any, previousSteps: any[] = []) {
+    // 🔗 이전 단계들의 구체적 내용 추출 (맥락 연결)
+    const previousContext = previousSteps.length > 0
+      ? `\n\n📋 **이전 단계들의 구체적 결과** (반드시 참조!):\n${previousSteps.map((step, idx) => {
+          const stepNum = idx + 1;
+          const stepTitle = step.title || `${stepNum}단계`;
+          const stepDetails = step.detailedSteps
+            ? step.detailedSteps.map((d: any) => `  - ${d.title || d.description || '상세 내용'}`).join('\n')
+            : step.description || '상세 정보 없음';
+
+          // 스프레드시트/파일명 등 구체적 산출물 추출
+          const outputs = [];
+          if (step.detailedSteps) {
+            step.detailedSteps.forEach((d: any) => {
+              const desc = JSON.stringify(d);
+              // 파일명, 시트명, URL 등 추출
+              const fileMatch = desc.match(/파일명?[:\s]*["']?([^"'\n,]+)["']?/i);
+              const sheetMatch = desc.match(/시트명?[:\s]*["']?([^"'\n,]+)["']?/i);
+              const columnMatch = desc.match(/([A-Z]+열?)[:\s]*([^,\n]+)/g);
+
+              if (fileMatch) outputs.push(`📄 파일: ${fileMatch[1].trim()}`);
+              if (sheetMatch) outputs.push(`📊 시트: ${sheetMatch[1].trim()}`);
+              if (columnMatch) outputs.push(`📝 컬럼: ${columnMatch.map(c => c.trim()).join(', ')}`);
+            });
+          }
+
+          return `${stepNum}. ${stepTitle}\n${stepDetails}${outputs.length > 0 ? '\n   🎯 산출물: ' + outputs.join(', ') : ''}`;
+        }).join('\n\n')}\n\n⚠️ 위 단계들에서 생성된 파일명, 시트명, 컬럼 구조 등을 정확히 참조하여 이어지는 가이드를 작성하세요!`
+      : '';
+
     const detailPrompt = `${blueprint}
 
 === 현재 작업 ===
@@ -2908,7 +2937,7 @@ IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1",
 🎯 **Pass 1에서 확정된 단계들**:
 ${skeletonCard.steps ? skeletonCard.steps.map((step: any, i: number) => `${i+1}. ${step}`).join('\n') : '단계 정보 없음'}
 
-⚠️ **중요**: 위 단계들과 100% 일치하는 솔루션으로만 상세 내용을 생성하세요!
+⚠️ **중요**: 위 단계들과 100% 일치하는 솔루션으로만 상세 내용을 생성하세요!${previousContext}
 
 ${skeletonCard.type === 'guide' ? `
 🎯 **GUIDE 카드 JSON 응답 형식 (필수 준수!):**
@@ -3106,19 +3135,30 @@ ${skeletonCard.stepId ? `
     return { enrichedCard, tokens };
   }
 
-  // 🚀 병렬로 모든 카드 enrichment 실행
-  console.log(`🚀 [병렬 생성] ${skeletonCards.length}개 카드를 동시에 생성합니다...`);
-  const enrichmentResults = await Promise.all(
-    skeletonCards.map((card, index) => {
-      console.log(`📤 [병렬 ${index + 1}/${skeletonCards.length}] ${card.type} 카드 생성 시작`);
-      return enrichCardWithDetails(card);
-    })
-  );
+  // 🔄 순차적으로 모든 카드 enrichment 실행 (맥락 연결)
+  console.log(`🔄 [순차 생성] ${skeletonCards.length}개 카드를 순차적으로 생성합니다 (이전 단계 맥락 전달)...`);
+  const enrichedCards = [];
+  let totalPass2Tokens = 0;
+  const completedGuideSteps: any[] = []; // guide 카드만 저장 (맥락 전달용)
 
-  let enrichedCards = enrichmentResults.map(r => r.enrichedCard);
-  const totalPass2Tokens = enrichmentResults.reduce((sum, r) => sum + r.tokens, 0);
+  for (let index = 0; index < skeletonCards.length; index++) {
+    const card = skeletonCards[index];
+    console.log(`📤 [순차 ${index + 1}/${skeletonCards.length}] ${card.type} 카드 생성 시작${completedGuideSteps.length > 0 ? ` (${completedGuideSteps.length}개 이전 단계 참조)` : ''}`);
 
-  console.log(`✅ [병렬 생성] 완료! ${enrichedCards.length}개 카드가 동시에 완성되었습니다`);
+    // 이전에 완성된 guide 카드들을 컨텍스트로 전달
+    const result = await enrichCardWithDetails(card, completedGuideSteps);
+
+    enrichedCards.push(result.enrichedCard);
+    totalPass2Tokens += result.tokens;
+
+    // guide 카드인 경우에만 completedGuideSteps에 추가
+    if (result.enrichedCard.type === 'guide' && result.enrichedCard.detailedSteps) {
+      completedGuideSteps.push(result.enrichedCard);
+      console.log(`✅ [맥락 저장] ${result.enrichedCard.title || 'Guide'} 카드 완료 → 다음 단계 생성 시 참조됨`);
+    }
+  }
+
+  console.log(`✅ [순차 생성] 완료! ${enrichedCards.length}개 카드가 맥락을 이어받아 완성되었습니다`);
 
   // 🧹 카드 타입별로 불필요한 content 필드 제거 (인터페이스 정합성 유지)
   enrichedCards = enrichedCards.map(card => {
@@ -3134,6 +3174,49 @@ ${skeletonCard.stepId ? `
     }
 
     return card;
+  });
+
+  // 🔍 프론트엔드 파싱을 위한 데이터 구조 검증
+  console.log('🔍 [데이터 검증] 프론트엔드 파싱 가능 여부 확인...');
+  enrichedCards.forEach((card, idx) => {
+    if (card.type === 'guide') {
+      // guide 카드는 detailedSteps가 필수
+      if (!card.detailedSteps || !Array.isArray(card.detailedSteps)) {
+        console.warn(`⚠️ [검증 실패] Guide 카드 ${idx + 1}: detailedSteps가 없거나 배열이 아님`);
+        card.detailedSteps = [];
+      } else {
+        // 각 step이 객체인지, 필수 필드가 있는지 확인
+        card.detailedSteps = card.detailedSteps.map((step: any, stepIdx: number) => {
+          if (!step || typeof step !== 'object') {
+            console.warn(`⚠️ [검증 실패] Guide 카드 ${idx + 1}, Step ${stepIdx + 1}: step이 객체가 아님`);
+            return {
+              number: stepIdx + 1,
+              title: `${stepIdx + 1}단계`,
+              description: '상세 내용을 확인할 수 없습니다.',
+            };
+          }
+
+          // 필수 필드 검증 및 보정
+          const validatedStep = {
+            number: step.number || stepIdx + 1,
+            title: step.title || step.stepTitle || `${stepIdx + 1}단계`,
+            description: step.description || step.details || '상세 내용이 누락되었습니다.',
+            expectedScreen: step.expectedScreen || step.expected || '',
+            checkpoint: step.checkpoint || step.checkPoint || '',
+          };
+
+          // 빈 description 처리
+          if (!validatedStep.description || validatedStep.description.trim() === '') {
+            console.warn(`⚠️ [검증 경고] Guide 카드 ${idx + 1}, Step ${stepIdx + 1}: description이 비어있음`);
+            validatedStep.description = `${validatedStep.title}에 대한 상세 안내를 확인하세요.`;
+          }
+
+          return validatedStep;
+        });
+
+        console.log(`✅ [검증 완료] Guide 카드 ${idx + 1}: ${card.detailedSteps.length}개 단계 검증 완료`);
+      }
+    }
   });
 
   const totalTokens = (skeletonResponse.usage?.total_tokens || 0) + totalPass2Tokens;
