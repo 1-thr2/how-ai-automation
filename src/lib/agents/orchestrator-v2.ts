@@ -2896,28 +2896,29 @@ IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1",
       ? `\n\n📋 **이전 단계들의 구체적 결과** (반드시 참조!):\n${previousSteps.map((step, idx) => {
           const stepNum = idx + 1;
           const stepTitle = step.title || `${stepNum}단계`;
-          const stepDetails = step.detailedSteps
-            ? step.detailedSteps.map((d: any) => `  - ${d.title || d.description || '상세 내용'}`).join('\n')
-            : step.description || '상세 정보 없음';
 
-          // 스프레드시트/파일명 등 구체적 산출물 추출
-          const outputs = [];
-          if (step.detailedSteps) {
-            step.detailedSteps.forEach((d: any) => {
-              const desc = JSON.stringify(d);
-              // 파일명, 시트명, URL 등 추출
-              const fileMatch = desc.match(/파일명?[:\s]*["']?([^"'\n,]+)["']?/i);
-              const sheetMatch = desc.match(/시트명?[:\s]*["']?([^"'\n,]+)["']?/i);
-              const columnMatch = desc.match(/([A-Z]+열?)[:\s]*([^,\n]+)/g);
+          // 🎯 이전 단계의 전체 상세 내용을 그대로 전달 (GPT가 맥락 파악)
+          let stepFullContent = '';
 
-              if (fileMatch) outputs.push(`📄 파일: ${fileMatch[1].trim()}`);
-              if (sheetMatch) outputs.push(`📊 시트: ${sheetMatch[1].trim()}`);
-              if (columnMatch) outputs.push(`📝 컬럼: ${columnMatch.map(c => c.trim()).join(', ')}`);
-            });
+          if (step.detailedSteps && Array.isArray(step.detailedSteps)) {
+            stepFullContent = step.detailedSteps.map((d: any, i: number) => {
+              const parts = [];
+              parts.push(`  ${i + 1}) ${d.title || d.stepTitle || '제목 없음'}`);
+              if (d.description) parts.push(`     내용: ${d.description}`);
+              if (d.expectedScreen) parts.push(`     결과: ${d.expectedScreen}`);
+              if (d.checkpoint) parts.push(`     확인: ${d.checkpoint}`);
+              return parts.join('\n');
+            }).join('\n\n');
+          } else if (step.description) {
+            stepFullContent = `  ${step.description}`;
+          } else {
+            stepFullContent = '  (상세 내용 없음)';
           }
 
-          return `${stepNum}. ${stepTitle}\n${stepDetails}${outputs.length > 0 ? '\n   🎯 산출물: ' + outputs.join(', ') : ''}`;
-        }).join('\n\n')}\n\n⚠️ 위 단계들에서 생성된 파일명, 시트명, 컬럼 구조 등을 정확히 참조하여 이어지는 가이드를 작성하세요!`
+          return `[${stepNum}단계] ${stepTitle}\n${stepFullContent}`;
+        }).join('\n\n')}\n\n⚠️ **중요**: 위 이전 단계들에서 생성/설정된 모든 구체적인 값들(이름, URL, 설정값, 구조 등)을 정확히 참조하여 이어지는 가이드를 작성하세요!
+예: 이전 단계에서 "매출분석_2025" 파일을 만들었다면, 이번 단계에서도 정확히 "매출분석_2025"를 참조
+예: 이전 단계에서 "Zapier 워크플로우: 주문알림봇"을 만들었다면, 이번 단계에서도 정확히 "주문알림봇" 워크플로우를 참조`
       : '';
 
     const detailPrompt = `${blueprint}
@@ -3215,6 +3216,18 @@ ${skeletonCard.stepId ? `
         });
 
         console.log(`✅ [검증 완료] Guide 카드 ${idx + 1}: ${card.detailedSteps.length}개 단계 검증 완료`);
+
+        // 🔍 실제 데이터 구조 샘플 로깅 (디버깅용)
+        if (card.detailedSteps.length > 0) {
+          const sampleStep = card.detailedSteps[0];
+          console.log(`📋 [샘플 데이터] Guide 카드 ${idx + 1}, 첫 번째 단계:`, {
+            number: sampleStep.number,
+            title: sampleStep.title?.substring(0, 50),
+            description: sampleStep.description?.substring(0, 100),
+            hasExpectedScreen: !!sampleStep.expectedScreen,
+            hasCheckpoint: !!sampleStep.checkpoint,
+          });
+        }
       }
     }
   });
