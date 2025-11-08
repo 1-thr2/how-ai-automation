@@ -2880,7 +2880,19 @@ IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1",
     guideCard.steps = finalSteps; // 🎯 핵심: Guide도 동일한 steps 보유
     console.log(`✅ [동기화] Guide 카드에 ${finalSteps.length}개 단계 동기화 완료`);
   }
-  
+
+  // 🚨 4️⃣ Guide 카드들에 stepId 강제 추가 (GPT가 빼먹는 경우 대비)
+  let stepIdCounter = 1;
+  skeletonCards.forEach((card, idx) => {
+    if (card.type === 'guide') {
+      if (!card.stepId) {
+        card.stepId = stepIdCounter.toString();
+        console.log(`🔧 [stepId 보정] Guide 카드 ${idx + 1}에 stepId="${stepIdCounter}" 추가`);
+      }
+      stepIdCounter++;
+    }
+  });
+
   console.log(`✅ [Step C-1] Skeleton 완료 - ${skeletonCards.length}개 카드`);
 
   // 2️⃣ Pass 2: 각 카드별 상세 내용 생성 (품질 우선, 제한 없음)
