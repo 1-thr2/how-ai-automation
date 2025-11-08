@@ -3138,7 +3138,7 @@ ${skeletonCard.stepId ? `
 
   // 🔄 순차적으로 모든 카드 enrichment 실행 (맥락 연결)
   console.log(`🔄 [순차 생성] ${skeletonCards.length}개 카드를 순차적으로 생성합니다 (이전 단계 맥락 전달)...`);
-  const enrichedCards = [];
+  let enrichedCards: any[] = [];
   let totalPass2Tokens = 0;
   const completedGuideSteps: any[] = []; // guide 카드만 저장 (맥락 전달용)
 
