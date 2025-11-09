@@ -62,7 +62,7 @@ const TetrisGame: React.FC<TetrisGameProps> = ({ onScoreChange }) => {
   useEffect(() => {
     initializeBoard();
     spawnPiece();
-    const gameLoop = setInterval(update, 1000);
+    const gameLoop = setInterval(update, 1200);
     return () => clearInterval(gameLoop);
   }, []);
 
