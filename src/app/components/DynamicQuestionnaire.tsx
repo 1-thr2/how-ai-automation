@@ -147,18 +147,43 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
     const generateQuestions = async () => {
       try {
         setLoading(true);
-        
-        console.log('🔄 후속질문 생성 시작:', userInput);
-        
+
+        // 🔍 먼저 sessionStorage에서 후속질문 확인
+        if (typeof window !== 'undefined') {
+          const cachedQuestions = sessionStorage.getItem('followupQuestions');
+          if (cachedQuestions) {
+            try {
+              const data = JSON.parse(cachedQuestions);
+              console.log('✅ [DynamicQuestionnaire] sessionStorage에서 후속질문 로드:', data);
+
+              if (data.questions && Array.isArray(data.questions)) {
+                console.log('🎯 [질문 설정] 캐시된 질문 개수:', data.questions.length);
+                setQuestions(data.questions);
+                setError(null);
+                setLoading(false);
+
+                // 사용한 후 삭제
+                sessionStorage.removeItem('followupQuestions');
+                return;
+              }
+            } catch (e) {
+              console.warn('⚠️ [DynamicQuestionnaire] sessionStorage 파싱 실패:', e);
+            }
+          }
+        }
+
+        // sessionStorage에 없으면 API 호출
+        console.log('🔄 후속질문 API 호출 시작:', userInput);
+
         const response = await axios.post('/api/agent-followup', {
           userInput: userInput
         });
-        
+
         console.log('✅ [DynamicQuestionnaire] 전체 API 응답:', response.data);
         console.log('✅ [DynamicQuestionnaire] questions 필드:', response.data.questions);
         console.log('✅ [DynamicQuestionnaire] questions 타입:', typeof response.data.questions);
         console.log('✅ [DynamicQuestionnaire] questions 배열인가?:', Array.isArray(response.data.questions));
-        
+
         if (response.data.questions && Array.isArray(response.data.questions)) {
           console.log('🎯 [질문 설정] 받은 질문 개수:', response.data.questions.length);
           setQuestions(response.data.questions);
@@ -169,7 +194,7 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
       } catch (err: any) {
         console.error('❌ 동적 후속질문 생성 실패:', err);
         setError(err instanceof Error ? err.message : '질문 생성에 실패했습니다.');
-        
+
         // 🔧 기본 질문 제공 (최소 2개로 증가하여 즉시 제출 방지)
         console.log('🛠️ [폴백] 기본 질문 2개 설정');
         setQuestions([

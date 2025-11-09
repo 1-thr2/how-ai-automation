@@ -70,14 +70,24 @@ function LoadingContent() {
             }
           }, wait);
         } else {
-          // 후속질문 생성 API 호출 (기존)
+          // 후속질문 생성 API 호출
           const res = await fetch('/api/agent-followup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userInput: goal }),
           });
-          // const data = await res.json();
-          // const encodedData = encodeURIComponent(JSON.stringify(data));
+
+          if (!res.ok) {
+            throw new Error(`후속질문 생성 실패: ${res.status} ${res.statusText}`);
+          }
+
+          const data = await res.json();
+          console.log('✅ [Loading] 후속질문 생성 완료:', data);
+
+          // sessionStorage에 후속질문 데이터 저장
+          sessionStorage.setItem('followupQuestions', JSON.stringify(data));
+          console.log('💾 [Loading] sessionStorage에 후속질문 저장 완료');
+
           // 최소 1초 보장
           const elapsed = Date.now() - start;
           const wait = Math.max(0, 1000 - elapsed);
