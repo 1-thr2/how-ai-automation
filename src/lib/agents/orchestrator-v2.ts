@@ -351,7 +351,9 @@ async function executeStepAB(
 📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
 
 🔍 **웹 검색 결과** (Step AB-1):
-${JSON.stringify(searchData.searchResults, null, 2)}
+${JSON.stringify(searchData, null, 2)}
+
+🚫 **불가능 케이스 감지 여부**: ${searchData.impossibleCase === true ? `YES - ${searchData.impossibleReason}` : 'NO'}
 
 ---
 
@@ -360,6 +362,27 @@ ${stepABBlueprint}
 ---
 
 **임무**: 검색 결과를 분석하여 **최적의 도구 하나**를 선택하고 플로우를 생성하세요.
+
+⚠️ **불가능 케이스 처리 (중요!):**
+- 만약 searchData.impossibleCase가 true라면:
+  1. searchResults에서 **대안 도구**를 선택하세요 (원래 방법이 아닌 대안)
+  2. title에 "⚠️ 원래 방법 불가 - 대안 제시" 포함
+  3. reasoning에 왜 불가능하고 왜 이 대안을 선택했는지 명시
+  4. **반드시 유효한 JSON 반환** (빈 응답 금지!)
+
+예시 (불가능 케이스):
+{
+  "title": "⚠️ Instagram 자동 좋아요 불가 - 수동 관리 도구 추천",
+  "subtitle": "API 제한으로 자동화 불가, 효율적인 수동 관리 방법 제시",
+  "steps": [
+    "1단계: Hootsuite로 해시태그 모니터링 대시보드 설정",
+    "2단계: 관련 게시물 필터링 및 저장",
+    "3단계: 일괄 관리 기능으로 효율적으로 좋아요",
+    "4단계: 분석 리포트로 효과 측정"
+  ],
+  "selectedTool": "Hootsuite (수동 관리 도구)",
+  "reasoning": "Instagram API는 자동 좋아요를 제한합니다. Hootsuite는 해시태그 모니터링 + 효율적인 수동 관리를 지원하여 동일 목적 달성 가능합니다."
+}
 
 **선택 기준 우선순위**:
 1. 사용자 제약조건 충족 (필수) - 무료/유료, 난이도 등
@@ -383,7 +406,10 @@ ${stepABBlueprint}
   "reasoning": "이 도구를 선택한 구체적 이유: 무료이면서 X 커버리지가 80%로 Y보다 2배 우수"
 }
 
-**중요**: steps 배열은 정확히 3-5개, 각 단계는 선택한 도구명과 구체적 작업 포함`;
+**중요**:
+- steps 배열은 정확히 3-5개
+- 각 단계는 선택한 도구명과 구체적 작업 포함
+- 반드시 유효한 JSON만 반환 (빈 응답 절대 금지!)`;
 
     const selectionResponse = await openai.chat.completions.create({
       model: 'o3-mini', // 🧠 추론 모델로 최적 선택
