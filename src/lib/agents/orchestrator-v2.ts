@@ -110,7 +110,7 @@ async function executeStepAB(
 ✅ 2024-2025년 정보 우선 (오래된 정보 제외)
 ✅ 실사용자 후기 포함 (reddit, 블로그 등)
 
-**출력 형식** (JSON):
+**출력 형식** (필수 - 반드시 유효한 JSON만 반환):
 {
   "searchResults": [
     {
@@ -125,19 +125,26 @@ async function executeStepAB(
     }
   ],
   "searchQuality": {
-    "toolsFound": 숫자,
-    "infoCompleteness": "high/medium/low",
-    "latestYear": "2024 or 2025"
+    "toolsFound": 5,
+    "infoCompleteness": "high",
+    "latestYear": "2025"
   },
   "searchSummary": "전체 조사 요약 (2-3문장, 핵심 발견 포함)"
 }
 
-**중요**: 웹 검색으로 실제 2025년 정보를 찾으세요. 내부 지식만 사용하지 마세요!`;
+🚨 **중요 규칙**:
+1. 웹 검색으로 실제 2025년 정보를 찾으세요 (내부 지식만 사용 금지)
+2. **반드시 유효한 JSON만 반환하세요** (다른 텍스트, 설명, 마크다운 금지)
+3. JSON 외 다른 내용 절대 포함 금지
+4. 응답은 { 로 시작해서 } 로 끝나야 함`;
 
     const searchResponse = await openai.chat.completions.create({
       model: 'gpt-4o-mini-search-preview', // 🔍 검색 가능 모델
       messages: [
-        { role: 'system', content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요.' },
+        {
+          role: 'system',
+          content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요. 반드시 유효한 JSON만 반환하세요 (다른 텍스트 절대 금지).'
+        },
         { role: 'user', content: searchPrompt },
       ],
       max_completion_tokens: 2000, // 검색 결과 충분히 담기
@@ -158,11 +165,30 @@ async function executeStepAB(
         .trim();
     }
 
-    let searchData = JSON.parse(jsonContent);
+    // JSON 파싱 시도 (robust 처리)
+    let searchData: any;
     let searchTokens = searchResponse.usage?.total_tokens || 0;
-    console.log(`✅ [Step AB-1] 웹 검색 완료 - ${searchData.searchResults?.length || 0}개 도구 발견, ${searchTokens} 토큰`);
-    console.log(`📊 [Step AB-1] 검색 요약: ${searchData.searchSummary || '조사 완료'}`);
 
+    try {
+      searchData = JSON.parse(jsonContent);
+      console.log(`✅ [Step AB-1] 웹 검색 완료 - ${searchData.searchResults?.length || 0}개 도구 발견, ${searchTokens} 토큰`);
+      console.log(`📊 [Step AB-1] 검색 요약: ${searchData.searchSummary || '조사 완료'}`);
+    } catch (parseError) {
+      console.error('❌ [Step AB-1] JSON 파싱 실패:', parseError);
+      console.log('📄 [Step AB-1] 원본 응답 (처음 200자):', searchContent.substring(0, 200));
+
+      // JSON 파싱 실패 시 기본 구조 생성
+      console.log('🔄 [Step AB-1] 기본 검색 데이터 구조로 대체');
+      searchData = {
+        searchResults: [],
+        searchQuality: {
+          toolsFound: 0,
+          infoCompleteness: 'low',
+          latestYear: '2025',
+        },
+        searchSummary: '웹 검색 결과 파싱 실패 - Fallback 검색으로 진행',
+      };
+    }
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Step AB-1.5: 검색 결과 품질 검증 + Fallback
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
