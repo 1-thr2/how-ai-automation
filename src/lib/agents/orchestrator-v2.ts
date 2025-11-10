@@ -75,12 +75,40 @@ async function executeStepAB(
 
 📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
 
-**임무**: 웹 검색으로 2025년 최신 도구를 조사하세요.
+**검색 미션**: 2025년 최신 도구/방법을 웹 검색으로 조사하세요.
 
-**검색해야 할 것**:
-1. "${userInput} free tools 2025" - 최신 무료/저비용 도구
-2. "${userInput} alternatives comparison 2025" - 대안 비교
-3. "best ${userInput} reddit 2025" - 실사용자 후기
+🔍 **범용 검색 전략** (모든 케이스에 적용 - 반드시 3가지 각도로 검색):
+
+1️⃣ **일반 도구 검색**
+   쿼리: "{핵심 키워드} free tools 2025"
+   예시: "twitter monitoring free tools 2025", "email automation free tools 2025"
+   목적: 최신 무료/저비용 도구 발견
+
+2️⃣ **대안 비교 검색**
+   쿼리: "{핵심 키워드} alternatives comparison reddit 2025"
+   예시: "google drive automation alternatives comparison reddit 2025"
+   목적: 실사용자 비교, 장단점, 실제 후기
+
+3️⃣ **베스트 프랙티스 검색**
+   쿼리: "best way to {동사구} 2025"
+   예시: "best way to monitor twitter mentions 2025", "best way to automate emails 2025"
+   목적: 전문가 추천, 최신 트렌드, 검증된 방법
+
+**필수 수집 정보** (각 도구마다):
+- toolName: 도구 이름 (명확하게)
+- pricing: 무료/유료/프리미엄/무료플랜 (구체적으로)
+- coverage: 기능 범위/커버리지 (구체적 %나 설명)
+- difficulty: 쉬움/보통/어려움 (초보자 기준)
+- lastUpdated: 2024 or 2025 (최신성 확인)
+- pros: 장점 2-3개 (구체적으로)
+- cons: 단점 1-2개 (솔직하게)
+- url: 공식 웹사이트 (optional, 있으면 좋음)
+
+**품질 기준** (반드시 충족):
+✅ 최소 3개 이상 도구 발견 (더 많으면 더 좋음)
+✅ 각 도구마다 위 정보 모두 수집 (빈 항목 최소화)
+✅ 2024-2025년 정보 우선 (오래된 정보 제외)
+✅ 실사용자 후기 포함 (reddit, 블로그 등)
 
 **출력 형식** (JSON):
 {
@@ -88,18 +116,23 @@ async function executeStepAB(
     {
       "toolName": "도구명",
       "pricing": "무료/유료/프리미엄",
-      "coverage": "기능 커버리지 설명",
+      "coverage": "기능 커버리지 설명 (구체적으로)",
       "difficulty": "쉬움/보통/어려움",
       "lastUpdated": "2024 or 2025",
-      "pros": ["장점1", "장점2"],
+      "pros": ["장점1", "장점2", "장점3"],
       "cons": ["단점1", "단점2"],
-      "url": "공식 웹사이트 (optional)"
+      "url": "https://..."
     }
   ],
-  "searchSummary": "전체 조사 요약 (2-3문장)"
+  "searchQuality": {
+    "toolsFound": 숫자,
+    "infoCompleteness": "high/medium/low",
+    "latestYear": "2024 or 2025"
+  },
+  "searchSummary": "전체 조사 요약 (2-3문장, 핵심 발견 포함)"
 }
 
-**중요**: 최소 3개 이상의 도구를 조사하세요. 웹 검색으로 실제 2025년 정보를 찾으세요.`;
+**중요**: 웹 검색으로 실제 2025년 정보를 찾으세요. 내부 지식만 사용하지 마세요!`;
 
     const searchResponse = await openai.chat.completions.create({
       model: 'gpt-4o-mini-search-preview', // 🔍 검색 가능 모델
@@ -117,10 +150,79 @@ async function executeStepAB(
       throw new Error('웹 검색 결과가 비어있습니다');
     }
 
-    const searchData = JSON.parse(searchContent);
-    const searchTokens = searchResponse.usage?.total_tokens || 0;
+    let searchData = JSON.parse(searchContent);
+    let searchTokens = searchResponse.usage?.total_tokens || 0;
     console.log(`✅ [Step AB-1] 웹 검색 완료 - ${searchData.searchResults?.length || 0}개 도구 발견, ${searchTokens} 토큰`);
     console.log(`📊 [Step AB-1] 검색 요약: ${searchData.searchSummary || '조사 완료'}`);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-1.5: 검색 결과 품질 검증 + Fallback
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const toolsFound = searchData.searchResults?.length || 0;
+    const infoQuality = searchData.searchQuality?.infoCompleteness || 'low';
+    const isQualityGood = toolsFound >= 3 && (infoQuality === 'high' || infoQuality === 'medium');
+
+    console.log(`🔍 [Step AB-1.5] 검색 품질 체크: 도구 ${toolsFound}개, 완성도 ${infoQuality}`);
+
+    if (!isQualityGood) {
+      console.log('⚠️ [Step AB-1.5] 검색 품질 부족 - Fallback 검색 시도...');
+
+      try {
+        // Fallback: 명시적 RAG 호출 (searchToolInfo 사용)
+        console.log('🔄 [Fallback] searchToolInfo로 직접 검색 시작...');
+
+        const fallbackPromises = [
+          searchToolInfo(`${userInput} free tools 2025`),
+          searchToolInfo(`${userInput} alternatives best 2025`),
+        ];
+
+        const fallbackResults = await Promise.all(fallbackPromises);
+
+        // Fallback 결과 통합 (RAGResult[] 타입)
+        const mergedResults: any[] = [];
+        fallbackResults.forEach((results) => {
+          // searchToolInfo 결과를 파싱 (RAGResult[] 반환)
+          if (results && results.length > 0) {
+            results.forEach(ragResult => {
+              if (ragResult.title || ragResult.content) {
+                mergedResults.push({
+                  toolName: ragResult.title || ragResult.content?.substring(0, 50) || '도구명 미상',
+                  pricing: '확인 필요',
+                  coverage: ragResult.content?.substring(0, 100) || 'Fallback 검색 결과',
+                  difficulty: '보통',
+                  lastUpdated: '2024-2025',
+                  pros: ['웹 검색 결과'],
+                  cons: ['상세 정보 부족'],
+                  url: ragResult.url || '',
+                });
+              }
+            });
+          }
+        });
+
+        if (mergedResults.length > 0) {
+          console.log(`✅ [Fallback] ${mergedResults.length}개 추가 도구 발견`);
+          searchData.searchResults = [
+            ...(searchData.searchResults || []),
+            ...mergedResults.slice(0, 3), // 최대 3개까지만 추가
+          ];
+          searchData.searchQuality = {
+            toolsFound: searchData.searchResults.length,
+            infoCompleteness: 'medium',
+            latestYear: '2024-2025',
+          };
+        } else {
+          console.log('⚠️ [Fallback] 추가 도구 발견 실패 - 기존 결과로 진행');
+        }
+      } catch (fallbackError) {
+        console.error('❌ [Fallback] 검색 실패:', fallbackError);
+        console.log('🔄 [Fallback] 기존 검색 결과로 진행');
+      }
+    } else {
+      console.log('✅ [Step AB-1.5] 검색 품질 양호 - 바로 진행');
+    }
+
+    console.log(`📊 [Step AB-1 최종] 총 ${searchData.searchResults?.length || 0}개 도구로 분석 진행`);
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Step AB-2: o3-mini로 최적 도구 선택 및 플로우 생성
@@ -2454,9 +2556,9 @@ export async function generate3StepAutomation(
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎨 [PROGRESS] Step C 시작: 상세 실행 가이드 작성 중...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    // 🆕 Skeleton 제거, Detail만 (gpt-4o)
+    // 🆕 Skeleton 제거, Detail만 (gpt-4.1-mini)
     console.log(`✨ [Step C] Direct Detail 전략 (복잡도: ${(complexity * 100).toFixed(1)}% - 참고용)`);
-    console.log(`🎯 [모델] gpt-4o (상세 가이드 작성 - Skeleton 불필요)`);
+    console.log(`🎯 [모델] gpt-4.1-mini (상세 가이드 작성 - Skeleton 불필요, 비용 효율)`);
 
     const stepCResult = await executeStepC_SimpleDetail(
       stepABResult.flow, // flow 객체 직접 전달 (Step AB-2에서 생성한 것)
@@ -2742,10 +2844,10 @@ ${stepCBlueprint}
 - 각 guide의 stepId는 "1", "2", "3", ... (숫자 아님, 문자열!)
 - FAQ는 도구 설명이 아닌 실용적 팁`;
 
-    // 3. gpt-4o 한 번만 호출
-    console.log('🎨 [Step C] gpt-4o로 상세 가이드 생성 중...');
+    // 3. gpt-4.1-mini 한 번만 호출
+    console.log('🎨 [Step C] gpt-4.1-mini로 상세 가이드 생성 중...');
     const detailResponse = await openai.chat.completions.create({
-      model: 'gpt-4o', // 🎨 상세 가이드 작성
+      model: 'gpt-4.1-mini', // 🧪 Phase 1: 비용 효율 + 고성능 (gpt-4.1의 ~99% 성능, 1/5 가격)
       messages: [
         { role: 'system', content: '당신은 초보자도 따라할 수 있는 상세 가이드를 작성하는 전문가입니다.' },
         { role: 'user', content: detailPrompt },
@@ -2757,7 +2859,7 @@ ${stepCBlueprint}
 
     const detailContent = detailResponse.choices[0]?.message?.content;
     if (!detailContent) {
-      throw new Error('gpt-4o 응답이 비어있습니다');
+      throw new Error('gpt-4.1-mini 응답이 비어있습니다');
     }
 
     const detailData = JSON.parse(detailContent);
@@ -2783,7 +2885,7 @@ ${stepCBlueprint}
       cards: finalCards,
       tokens: detailTokens,
       latency,
-      model: 'gpt-4o',
+      model: 'gpt-4.1-mini',
       wowMetadata: {
         strategy: 'simple-detail',
         selectedTool: ragMetadata.selectedTool,
