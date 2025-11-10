@@ -140,9 +140,8 @@ async function executeStepAB(
         { role: 'system', content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요.' },
         { role: 'user', content: searchPrompt },
       ],
-      max_tokens: 2000, // 검색 결과 충분히 담기
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
+      max_completion_tokens: 2000, // 검색 결과 충분히 담기
+      // Note: gpt-4o-mini-search-preview는 temperature, response_format 미지원
     });
 
     const searchContent = searchResponse.choices[0]?.message?.content;
@@ -150,7 +149,16 @@ async function executeStepAB(
       throw new Error('웹 검색 결과가 비어있습니다');
     }
 
-    let searchData = JSON.parse(searchContent);
+    // 마크다운 코드 블록 제거 (```json ... ``` or ``` ... ```)
+    let jsonContent = searchContent.trim();
+    if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent
+        .replace(/^```(?:json)?\n?/, '')
+        .replace(/\n?```$/, '')
+        .trim();
+    }
+
+    let searchData = JSON.parse(jsonContent);
     let searchTokens = searchResponse.usage?.total_tokens || 0;
     console.log(`✅ [Step AB-1] 웹 검색 완료 - ${searchData.searchResults?.length || 0}개 도구 발견, ${searchTokens} 토큰`);
     console.log(`📊 [Step AB-1] 검색 요약: ${searchData.searchSummary || '조사 완료'}`);
