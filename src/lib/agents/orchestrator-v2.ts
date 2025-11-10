@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import pMap from 'p-map';
 import { z } from 'zod';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
-import { findContextualPatterns, quickDangerCheck, learnFromFailure, type ContextualMatch } from './failure-patterns';
+// 🗑️ Phase 1: 레거시 import 제거 (failure-patterns, intent-analyzer)
 import {
   generateRAGContext,
   searchToolInfo,
@@ -13,12 +13,6 @@ import {
 import { detectDomainEnhanced, getOptimalAITools, performPeerToolSearch } from '../services/ai-tools-registry';
 import { checkSystematicFeasibility, quickFeasibilityCheck } from '../services/feasibility-checker';
 import { getCodeTemplate, personalizeCodeTemplate } from '../code-templates';
-import {
-  analyzeUserIntent,
-  generateDynamicTemplate,
-  generateContextualCreativity,
-  optimizePromptLength,
-} from './intent-analyzer';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -2165,32 +2159,9 @@ export async function generate3StepAutomation(
     console.log(`📝 [3-Step] 사용자 입력: ${userInput}`);
     console.log(`📋 [3-Step] 후속 답변: ${JSON.stringify(followupAnswers)}`);
 
-    // 🧠 Step 0: 동적 인텐트 분석 (서버용으로 수정 완료!)
-    console.log('🧠 [Intent] 사용자 의도 분석 시작...');
-    const intentAnalysis = await analyzeUserIntent(userInput, followupAnswers);
-    console.log('🎯 [Intent] 분석 완료:', intentAnalysis);
-
-    // 🎨 맞춤형 창의적 솔루션 생성
-    const contextualCreativity = generateContextualCreativity(
-      userInput,
-      followupAnswers,
-      intentAnalysis
-    );
-    console.log('💡 [Creativity] 맞춤형 창의성 생성:', contextualCreativity);
-
-    // 동적 템플릿 생성
-    const dynamicTemplate = generateDynamicTemplate(intentAnalysis);
-    console.log('🎨 [Template] 동적 템플릿 생성 완료');
-
-    // 🛡️ 조기 위험 패턴 감지
-    console.log('🛡️ [조기 감지] 위험 패턴 체크 시작...');
-    const dangerCheck = quickDangerCheck(userInput);
-    if (dangerCheck.hasDanger) {
-      console.warn(`⚠️ [조기 감지] ${dangerCheck.warnings.length}개 위험 패턴 발견:`);
-      dangerCheck.warnings.forEach(warning => console.warn(`  - ${warning}`));
-      console.log('💡 [조기 감지] 권장 대안:');
-      dangerCheck.quickAlternatives.forEach(alt => console.log(`  - ${alt}`));
-    }
+    // 🗑️ Phase 1: 레거시 Step 0 (인텐트 분석, 위험 패턴 감지) 제거
+    // - analyzeUserIntent, generateContextualCreativity, generateDynamicTemplate 미사용
+    // - quickDangerCheck 미사용
 
     // 🚀 Step A: 빠른 플로우 생성 (논리적 구조)
     console.log('');
@@ -2270,51 +2241,10 @@ export async function generate3StepAutomation(
     // 🔍 결과 검증 시스템
     console.log('🔍 [품질 검증] 결과 검증 시작...');
     const validationResult = await validateAutomationResult(stepCResult.cards, userInput, followupAnswers);
-    
-    // 🧠 맥락 기반 실패 패턴 매칭
-    console.log('🧠 [패턴 매칭] 스마트 실패 패턴 분석 시작...');
-    const guideCard = stepCResult.cards?.find(card => card.type === 'guide');
-    const proposedSolution = guideCard ? JSON.stringify(guideCard.detailedSteps) : '';
-    const contextualMatches = await findContextualPatterns(userInput, proposedSolution, followupAnswers);
-    
-    if (contextualMatches.length > 0) {
-      console.warn(`🚨 [패턴 매칭] ${contextualMatches.length}개 위험 패턴 발견:`);
-      contextualMatches.forEach(match => {
-        console.warn(`  - ${match.pattern.id}: ${match.pattern.reason} (매칭도: ${Math.round(match.matchScore * 100)}%)`);
-        console.warn(`    감지 이유: ${match.matchReasons.join(', ')}`);
-        console.warn(`    대안: ${match.pattern.alternatives.slice(0, 2).join(', ')}`);
-      });
-      
-      // 🚀 실시간 학습: 실패 케이스 저장 (치명적이거나 검증 실패 시)
-      const shouldLearn = contextualMatches.length > 0 || !validationResult.isValid;
-      if (shouldLearn) {
-        const { saveFailureCase } = await import('./failure-pattern-storage');
-        try {
-          const savedCaseId = await saveFailureCase(
-            userInput,
-            proposedSolution,
-            contextualMatches,
-            validationResult.qualityScore,
-            contextualMatches.flatMap(m => m.pattern.alternatives).slice(0, 5), // 최대 5개 대안
-            followupAnswers?.domain || 'general'
-          );
-          
-          if (savedCaseId) {
-            console.log(`📚 [실시간 학습] 실패 케이스 저장 완료: ${savedCaseId}`);
-            
-            // 🎯 학습 통계 로깅 (5의 배수 케이스마다)
-            if (Math.random() < 0.2) { // 20% 확률로 통계 출력
-              const { getLearningStats } = await import('./failure-pattern-storage');
-              const stats = await getLearningStats();
-              console.log(`📊 [학습 통계] 총 ${stats.totalCases}건, 동적 패턴 ${stats.patternsLearned}개, 평균 신뢰도 ${Math.round(stats.averageConfidence * 100)}%`);
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ [실시간 학습] 학습 저장 실패:', error);
-        }
-      }
-    }
-    
+
+    // 🗑️ Phase 1: 레거시 패턴 매칭 및 실시간 학습 제거
+    // - findContextualPatterns, saveFailureCase, getLearningStats 미사용
+
     if (!validationResult.isValid) {
       console.warn(`⚠️ [품질 검증] 검증 실패: ${validationResult.issues.join(', ')}`);
       // 검증 실패 시 개선된 결과 생성 시도
