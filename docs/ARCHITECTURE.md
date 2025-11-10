@@ -278,19 +278,81 @@ step_c_wow.md = "프롬프트" + "문서" + "스키마" 역할 혼재
 
 ---
 
-## 📝 참고사항
+## 🧪 Phase 1 실험 (2025-11-10 시작)
 
-- **모델 선택**:
-  - Skeleton: gpt-4o (line 2824)
-  - Detail: gpt-4o-2024-11-20 (line 3017)
-  - Single-Pass: gpt-4.1 (line 2227)
+### 실험 목표
+Single-Pass vs 2-Pass 복잡도 분기를 제거하고, 항상 2-Pass 전략 사용하여:
+1. 코드 복잡도 감소 (유지보수성 향상)
+2. Skeleton(플로우 설계)에 추론 모델 사용하여 품질 향상
+3. Detail에 최신 모델 사용하여 상세 가이드 품질 향상
 
-- **토큰 제한**:
-  - Skeleton: max_tokens=1200
+### 변경 사항
+
+**전략:**
+- ~~복잡도 < 50%: Single-Pass~~
+- ~~복잡도 >= 50%: 2-Pass~~
+- **→ 항상 2-Pass 전략 (복잡도 무관)**
+
+**모델:**
+- Skeleton: ~~gpt-4o~~ → **o1-mini** (추론 모델)
+- Detail: ~~gpt-4o-2024-11-20~~ → **gpt-4.1** (최신 고품질)
+- ~~Single-Pass 제거~~
+
+**토큰:**
+- Skeleton: ~~1200~~ → **2500** (4-5단계 플로우 충분히 생성)
+- Detail: 8000 (유지)
+
+### 수집 메트릭
+
+**응답 메타데이터에 자동 수집:**
+```json
+{
+  "experiment": {
+    "phase": "phase1",
+    "description": "2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1 (Detail)",
+    "startDate": "2025-11-10",
+    "evaluationPeriod": "2주",
+    "metrics": {
+      "complexity": 0.67,
+      "modelsUsed": ["gpt-4o-mini", "gpt-4o-mini-search-preview", "o1-mini", "gpt-4.1"],
+      "strategy": "2-Pass (항상)"
+    }
+  }
+}
+```
+
+**분석 지표:**
+1. **품질**: 사용자 피드백, 4-5단계 가이드 완성도
+2. **속도**: 평균 응답 시간 (목표: 35초 이하)
+3. **비용**: 일일 평균 비용 (예상: +20%)
+4. **복잡도별 성능**: 간단한 자동화 vs 복잡한 자동화 품질 차이
+
+### 평가 기준 (2주 후)
+
+**Phase 1 유지 조건:**
+- 품질 개선 >= 10% (4-5단계 완성도 향상)
+- 비용 증가 <= 30%
+- 사용자 만족도 유지
+
+**Phase 1 종료 조건:**
+- 품질 개선 < 10% AND 비용 증가 > 30%
+- → 복잡도 기반 스마트 분기로 롤백
+
+---
+
+## 📝 참고사항 (Phase 1 반영)
+
+- **모델 선택** (Phase 1):
+  - Step A: gpt-4o-mini
+  - Step B: gpt-4o-mini-search-preview (RAG)
+  - Step C Skeleton: **o1-mini** (line 2818)
+  - Step C Detail: **gpt-4.1** (line 3013)
+
+- **토큰 제한** (Phase 1):
+  - Skeleton: max_tokens=**2500** ⬆️
   - Guide detail: max_tokens=8000
   - Other cards: max_tokens=4000
-  - Single-Pass: max_tokens=32000
 
-- **복잡도 계산**: `calculateSolutionComplexity()` 함수
-  - 50% 미만: Single-Pass
-  - 50% 이상: 2-Pass
+- **전략**:
+  - ~~복잡도 계산 후 분기~~
+  - **항상 2-Pass**

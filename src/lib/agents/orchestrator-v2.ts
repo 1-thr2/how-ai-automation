@@ -2458,7 +2458,7 @@ export async function generate3StepAutomation(
     };
     console.log(`✅ [Step B] 플로우 검증 완료: ${stepBResult.verifiedFlow.steps.length}개 검증된 단계`);
 
-    // 🧮 Step C 전략 선택: 복잡도 계산
+    // 🧮 Step C 전략 선택: 복잡도 계산 (메트릭용)
     const complexity = calculateSolutionComplexity(
       stepBResult.verifiedFlow,
       stepBResult.ragMetadata,
@@ -2467,34 +2467,28 @@ export async function generate3StepAutomation(
       followupAnswers
     );
 
-    // 🎨 Step C: 복잡도 기반 전략 선택
+    // 🎨 Step C: 2-Pass 전략 (Phase 1 실험)
     console.log('');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎨 [PROGRESS] Step C 시작: 상세 실행 가이드 작성 중...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    const useAdvancedStrategy = complexity >= 0.5;  // 복잡도 50% 이상이면 2-Pass 전략
-    console.log(`🎯 [Step C 전략] ${useAdvancedStrategy ? '2-Pass (고품질)' : 'Single-Pass (고속)'} 선택 (복잡도: ${(complexity * 100).toFixed(1)}%)`);
+    // 🧪 Phase 1 실험: 항상 2-Pass 전략 (o1-mini + gpt-4.1)
+    const useAdvancedStrategy = true;  // 복잡도 무관하게 항상 2-Pass
+    console.log(`🧪 [Phase 1 실험] 2-Pass 전략 (복잡도: ${(complexity * 100).toFixed(1)}% - 참고용)`);
+    console.log(`🎯 [모델] Skeleton: o1-mini (추론) → Detail: gpt-4.1 (품질)`);
 
-    const stepCResult = useAdvancedStrategy
-      ? await execute2PassStepC(
-          [{
-            type: 'flow',
-            title: stepBResult.verifiedFlow.title,
-            subtitle: stepBResult.verifiedFlow.subtitle,
-            steps: stepBResult.verifiedFlow.steps
-          }],
-          userInput,
-          followupAnswers,
-          stepBResult.ragMetadata,
-          overallStartTime  // startTime 전달
-        )
-      : await executeStepC(
-          stepBResult.verifiedFlow,
-          userInput,
-          followupAnswers,
-          stepBResult.ragMetadata,
-          stepAResult.feasibilityAnalysis
-        );
+    const stepCResult = await execute2PassStepC(
+      [{
+        type: 'flow',
+        title: stepBResult.verifiedFlow.title,
+        subtitle: stepBResult.verifiedFlow.subtitle,
+        steps: stepBResult.verifiedFlow.steps
+      }],
+      userInput,
+      followupAnswers,
+      stepBResult.ragMetadata,
+      overallStartTime  // startTime 전달
+    );
     metrics.stagesCompleted.push('C-guide');
     metrics.modelsUsed.push(stepCResult.model);
     metrics.totalTokens += stepCResult.tokens;
@@ -2603,12 +2597,16 @@ export async function generate3StepAutomation(
       }
     ];
 
+    // 🧪 Phase 1: complexity를 metrics에 추가 (데이터 수집용)
+    (metrics as any).complexity = complexity;
+
     console.log(`✅ [3-Step] 논리적 구조 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.totalLatencyMs}ms`);
     console.log(`📊 [3-Step] 플로우: ${stepBResult.verifiedFlow.steps.length}개 단계, 카드: ${finalCards.length}개`);
     console.log(`🔍 [3-Step] 생성된 카드 타입들: ${finalCards.map(c => c.type).join(', ')}`);
     console.log(`💰 [3-Step] 총 비용: $${totalCost.toFixed(4)}`);
     console.log(`🎯 [3-Step] 완료된 단계: ${metrics.stagesCompleted.join(' → ')}`);
     console.log(`🤖 [3-Step] 사용된 모델: ${Array.from(new Set(metrics.modelsUsed)).join(', ')}`);
+    console.log(`🧪 [Phase 1] 복잡도: ${(complexity * 100).toFixed(1)}% (데이터 수집)`);
 
     return {
       cards: finalCards,
@@ -2821,14 +2819,16 @@ IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1",
 ⚠️ **중요**: 위 예시는 3단계 Flow입니다. 실제로 생성하는 Flow 단계 수에 맞춰 정확히 그 개수만큼 guide 카드를 생성하세요!`;
 
   const skeletonResponse = await openai.chat.completions.create({
-    model: 'gpt-4o', // 🚨 Skeleton도 4o로! mini가 지시를 제대로 안 따름
+    model: 'o1-mini', // 🧪 Phase 1: 추론 모델로 플로우 설계 품질 향상
     messages: [
-      { role: 'system', content: '자동화 레시피 설계 전문가입니다. 사용자의 요청을 분석하여 실제 완성 가능한 구체적 단계들을 설계하세요. Flow와 Guide 카드의 steps 배열에는 "1단계: [도구명] [구체적 작업]" 형식으로 실제 도구명과 구체적 작업이 포함된 단계를 반드시 작성하세요. 추상적 제목(도구 설정, 자동화 설정 등) 절대 금지!' },
-      { role: 'user', content: skeletonPrompt },
+      { role: 'user', content: `당신은 자동화 레시피 설계 전문가입니다. 사용자의 요청을 분석하여 실제 완성 가능한 구체적 단계들을 설계하세요.
+
+Flow와 Guide 카드의 steps 배열에는 "1단계: [도구명] [구체적 작업]" 형식으로 실제 도구명과 구체적 작업이 포함된 단계를 반드시 작성하세요. 추상적 제목(도구 설정, 자동화 설정 등) 절대 금지!
+
+${skeletonPrompt}` },
     ],
-    max_tokens: 1200, // 🚨 토큰 증가: 구체적인 단계 생성 필요
-    temperature: 0.1, // 🚨 더 결정적으로
-    response_format: { type: 'json_object' },
+    max_tokens: 2500, // 🔥 1200 → 2500: 4-5단계 플로우도 충분히 생성 가능
+    // 🚨 o1-mini는 temperature, response_format 지원 안 함
   });
 
   const skeletonContent = skeletonResponse.choices[0]?.message?.content;
@@ -3014,7 +3014,7 @@ ${skeletonCard.stepId ? `
 초보자도 따라할 수 있는 완벽한 품질로 작성하세요.`;
 
     const detailResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-11-20', // 품질 우선
+      model: 'gpt-4.1', // 🧪 Phase 1: 최신 고품질 모델로 상세 가이드 생성
       messages: [
         { role: 'system', content: skeletonCard.type === 'guide'
           ? `당신은 실행 가이드 전문가입니다. 반드시 JSON 형식으로만 응답하세요.
