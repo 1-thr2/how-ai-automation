@@ -288,9 +288,44 @@ async function executeStepAB(
         // Fallback: 명시적 RAG 호출 (searchToolInfo 사용)
         console.log('🔄 [Fallback] searchToolInfo로 직접 검색 시작...');
 
+        // 불가능 케이스면 목적 기반 검색어로 변환
+        let searchQuery = userInput;
+        if (isImpossible && searchData.impossibleReason) {
+          console.log('🎯 [Fallback] 불가능 케이스 감지 - 목적 기반 검색어 생성...');
+
+          // 플랫폼 추출 (instagram, twitter, naver 등)
+          const platformMatch = userInput.match(/(인스타그램|인스타|트위터|네이버|카카오톡|페이스북|유튜브|instagram|twitter|naver|kakao|facebook|youtube)/i);
+          const platform = platformMatch ? platformMatch[0] : '';
+
+          // 목적 추출 (followupAnswers.purpose 활용)
+          const purposeMap: Record<string, string> = {
+            '홍보': 'marketing brand awareness',
+            '마케팅': 'marketing engagement',
+            '분석': 'analytics monitoring',
+            '수집': 'data collection monitoring',
+            '알림': 'notification alert',
+            '효율': 'productivity efficiency',
+            '자동화': 'automation workflow',
+          };
+
+          let purposeKeywords = 'tools automation';
+          if (followupAnswers?.purpose) {
+            const purposeText = String(followupAnswers.purpose);
+            for (const [key, value] of Object.entries(purposeMap)) {
+              if (purposeText.includes(key)) {
+                purposeKeywords = value;
+                break;
+              }
+            }
+          }
+
+          searchQuery = `${platform} ${purposeKeywords}`.trim();
+          console.log(`🔍 [Fallback] 변환된 검색어: "${userInput}" → "${searchQuery}"`);
+        }
+
         const fallbackPromises = [
-          searchToolInfo(`${userInput} free tools 2025`),
-          searchToolInfo(`${userInput} alternatives best 2025`),
+          searchToolInfo(`${searchQuery} free tools 2025`),
+          searchToolInfo(`${searchQuery} alternatives best 2025`),
         ];
 
         const fallbackResults = await Promise.all(fallbackPromises);
