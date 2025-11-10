@@ -2224,7 +2224,7 @@ ${verifiedFlow.steps.map((step, i) => `    {
 ✅ **필수**: 각 단계마다 구체적인 사이트 주소, 버튼명, 입력값까지 명시`;
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1', // 🔥 최신 모델 복원 - 1M context로 현실성 판단 강화
+      model: 'gpt-4.1-mini', // 🧪 Phase 1: 비용 효율 + 고성능 (executeStepC는 미사용, 일관성 유지용)
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -2472,10 +2472,10 @@ export async function generate3StepAutomation(
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎨 [PROGRESS] Step C 시작: 상세 실행 가이드 작성 중...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    // 🧪 Phase 1 실험: 항상 2-Pass 전략 (o1-mini + gpt-4.1)
+    // 🧪 Phase 1 실험: 항상 2-Pass 전략 (o1-mini + gpt-4.1-mini)
     const useAdvancedStrategy = true;  // 복잡도 무관하게 항상 2-Pass
     console.log(`🧪 [Phase 1 실험] 2-Pass 전략 (복잡도: ${(complexity * 100).toFixed(1)}% - 참고용)`);
-    console.log(`🎯 [모델] Skeleton: o1-mini (추론) → Detail: gpt-4.1 (품질)`);
+    console.log(`🎯 [모델] Skeleton: o1-mini (추론) → Detail: gpt-4.1-mini (비용효율+품질)`);
 
     const stepCResult = await execute2PassStepC(
       [{
@@ -3014,7 +3014,7 @@ ${skeletonCard.stepId ? `
 초보자도 따라할 수 있는 완벽한 품질로 작성하세요.`;
 
     const detailResponse = await openai.chat.completions.create({
-      model: 'gpt-4.1', // 🧪 Phase 1: 최신 고품질 모델로 상세 가이드 생성
+      model: 'gpt-4.1-mini', // 🧪 Phase 1: 비용 효율 + 고성능 (gpt-4.1의 1/5 가격, ~99% 성능)
       messages: [
         { role: 'system', content: skeletonCard.type === 'guide'
           ? `당신은 실행 가이드 전문가입니다. 반드시 JSON 형식으로만 응답하세요.

@@ -81,7 +81,7 @@ export async function POST(req: Request) {
         // 🧪 Phase 1 실험 정보
         experiment: {
           phase: 'phase1',
-          description: '2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1 (Detail)',
+          description: '2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1-mini (Detail)',
           startDate: '2025-11-10',
           evaluationPeriod: '2주',
           metrics: {

@@ -295,7 +295,7 @@ Single-Pass vs 2-Pass 복잡도 분기를 제거하고, 항상 2-Pass 전략 사
 
 **모델:**
 - Skeleton: ~~gpt-4o~~ → **o1-mini** (추론 모델)
-- Detail: ~~gpt-4o-2024-11-20~~ → **gpt-4.1** (최신 고품질)
+- Detail: ~~gpt-4o-2024-11-20~~ → **gpt-4.1-mini** (비용효율 + 고성능)
 - ~~Single-Pass 제거~~
 
 **토큰:**
@@ -309,12 +309,12 @@ Single-Pass vs 2-Pass 복잡도 분기를 제거하고, 항상 2-Pass 전략 사
 {
   "experiment": {
     "phase": "phase1",
-    "description": "2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1 (Detail)",
+    "description": "2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1-mini (Detail)",
     "startDate": "2025-11-10",
     "evaluationPeriod": "2주",
     "metrics": {
       "complexity": 0.67,
-      "modelsUsed": ["gpt-4o-mini", "gpt-4o-mini-search-preview", "o1-mini", "gpt-4.1"],
+      "modelsUsed": ["gpt-4o-mini", "gpt-4o-mini-search-preview", "o1-mini", "gpt-4.1-mini"],
       "strategy": "2-Pass (항상)"
     }
   }
@@ -345,8 +345,8 @@ Single-Pass vs 2-Pass 복잡도 분기를 제거하고, 항상 2-Pass 전략 사
 - **모델 선택** (Phase 1):
   - Step A: gpt-4o-mini
   - Step B: gpt-4o-mini-search-preview (RAG)
-  - Step C Skeleton: **o1-mini** (line 2818)
-  - Step C Detail: **gpt-4.1** (line 3013)
+  - Step C Skeleton: **o1-mini** (line 2822)
+  - Step C Detail: **gpt-4.1-mini** (line 3017)
 
 - **토큰 제한** (Phase 1):
   - Skeleton: max_tokens=**2500** ⬆️
