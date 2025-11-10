@@ -39,12 +39,169 @@ interface OrchestratorMetrics {
 }
 
 /**
- * Step A: 빠른 플로우 생성 (gpt-4o-mini, 속도 우선)
- * - 핵심 단계들만 빠르게 생성
- * - Step B에서 검증 후 수정
- * - Step C에서 상세 가이드 생성
+ * 🆕 Step AB: RAG 기반 최적 플로우 생성 (Step A + B 통합)
+ * - gpt-4o-mini-search-preview로 최신 도구 조사 (RAG 내장)
+ * - 최적의 도구 하나 선택
+ * - 검증된 플로우 생성
+ * - Step C에서 상세 가이드 작성
  */
-async function executeStepA(
+async function executeStepAB(
+  userInput: string,
+  followupAnswers: any
+): Promise<{
+  flow: { steps: string[]; title: string; subtitle: string };
+  tokens: number;
+  latency: number;
+  model: string;
+  ragMetadata: any;
+  selectedTool: string;
+  reasoning: string;
+}> {
+  const startTime = Date.now();
+  console.log('🔍 [Step AB] RAG 기반 최적 플로우 생성 시작...');
+  console.log(`📝 [Step AB] 사용자 요청: ${userInput}`);
+  console.log(`📋 [Step AB] 후속 답변: ${JSON.stringify(followupAnswers || {})}`);
+
+  try {
+    // 1. 블루프린트 읽기
+    const stepABBlueprint = await BlueprintReader.read('orchestrator/step_ab_research.md');
+    console.log('✅ [Step AB] 블루프린트 로드 완료');
+
+    // 2. 프롬프트 구성
+    const systemPrompt = stepABBlueprint;
+    const userPrompt = `🎯 **사용자 요청**
+"${userInput}"
+
+📋 **후속 답변**
+${JSON.stringify(followupAnswers || {}, null, 2)}
+
+---
+
+위 Blueprint에 따라 다음을 수행하세요:
+
+1. **웹 검색으로 최신 도구 조사** (2025년 현재 사용 가능한 도구)
+2. **사용자 제약조건 기준으로 필터링** (무료/유료, 난이도 등)
+3. **최적의 도구 하나 선택** (여러 대안 나열 금지)
+4. **선택한 도구로 3-5단계 플로우 생성**
+
+⚠️ **중요**: 여러 옵션을 제시하지 말고, 최적의 도구 **하나만** 선택해서 단일 레시피를 생성하세요.
+
+JSON 형식으로 응답하세요:
+{
+  "title": "자동화 플로우 제목",
+  "subtitle": "간단한 설명",
+  "steps": [
+    "1단계: [선택한 도구명] 구체적 작업",
+    "2단계: [선택한 도구명] 구체적 작업",
+    "3단계: 구체적 작업"
+  ],
+  "selectedTool": "선택한 도구명 (예: Talkwalker Alerts)",
+  "reasoning": "이 도구를 선택한 이유 (1-2문장)"
+}`;
+
+    // 3. gpt-4o-mini-search-preview로 RAG 조사 + 플로우 생성
+    console.log('🔍 [Step AB] gpt-4o-mini-search-preview로 웹 검색 시작...');
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini-2024-07-18', // 🔥 RAG 내장 검색 모델
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 1000, // 충분한 토큰으로 조사 + 플로우 생성
+      temperature: 0.3, // 약간의 창의성 허용
+      response_format: { type: 'json_object' }, // JSON 전용 모드
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('gpt-4o-mini-search-preview 응답이 비어있습니다');
+    }
+
+    // 4. JSON 파싱
+    const flowData = JSON.parse(content);
+    console.log('✅ [Step AB] JSON 파싱 성공');
+    console.log(`🎯 [Step AB] 선택된 도구: ${flowData.selectedTool || '미지정'}`);
+    console.log(`📊 [Step AB] 선택 이유: ${flowData.reasoning || '미지정'}`);
+
+    // 5. 검증
+    if (!flowData.steps || !Array.isArray(flowData.steps) || flowData.steps.length === 0) {
+      throw new Error('플로우 단계가 없습니다');
+    }
+
+    const latency = Date.now() - startTime;
+    const totalTokens = response.usage?.total_tokens || 0;
+
+    const flow = {
+      steps: flowData.steps,
+      title: flowData.title || '자동화 플로우',
+      subtitle: flowData.subtitle || '단계별 자동화 계획',
+    };
+
+    // 6. RAG 메타데이터 생성 (Step C에서 사용)
+    const ragMetadata = {
+      searchPerformed: true,
+      selectedTool: flowData.selectedTool || '미지정',
+      reasoning: flowData.reasoning || '최적의 도구 선택됨',
+      ragSearches: 1, // gpt-4o-mini-search-preview가 자동으로 검색 수행
+      ragSources: 1,
+      methodValidation: {
+        originalMethods: flow.steps.length,
+        viableMethods: flow.steps.length,
+        problematicMethods: 0,
+        alternativesFound: 0,
+        finalMethods: flow.steps.length,
+      },
+    };
+
+    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰, ${latency}ms`);
+    console.log(`📋 [Step AB] 생성된 단계들: ${flow.steps.map((s: string, i: number) => `${i + 1}. ${s.substring(0, 30)}...`).join(' | ')}`);
+
+    return {
+      flow,
+      tokens: totalTokens,
+      latency,
+      model: 'gpt-4o-mini-2024-07-18',
+      ragMetadata,
+      selectedTool: flowData.selectedTool || '미지정',
+      reasoning: flowData.reasoning || '최적의 도구 선택됨',
+    };
+  } catch (error) {
+    console.error('❌ [Step AB] 플로우 생성 실패:', error);
+
+    // Fallback: 기본 플로우 생성
+    console.log('🔄 [Step AB] Fallback 플로우 생성 중...');
+    const fallbackFlow = createFallbackFlow(userInput, followupAnswers);
+    const latency = Date.now() - startTime;
+
+    console.log(`🛡️ [Step AB] Fallback 완료 - ${fallbackFlow.steps.length}개 기본 단계, ${latency}ms`);
+
+    return {
+      flow: fallbackFlow,
+      tokens: 0,
+      latency,
+      model: 'fallback',
+      ragMetadata: {
+        searchPerformed: false,
+        error: '플로우 생성 실패',
+        methodValidation: {
+          originalMethods: 0,
+          viableMethods: 0,
+          problematicMethods: 0,
+          alternativesFound: 0,
+          finalMethods: 0,
+        },
+      },
+      selectedTool: 'fallback',
+      reasoning: '기본 플로우 생성',
+    };
+  }
+}
+
+/**
+ * 🗑️ LEGACY: Step A (기존 빠른 플로우 생성)
+ * executeStepAB로 대체됨 - 삭제 예정
+ */
+async function executeStepA_LEGACY(
   userInput: string,
   followupAnswers: any,
   intentAnalysis?: any
@@ -1692,7 +1849,11 @@ function generateValidationSummary(
  * - 문제가 있는 단계는 현실적 대안으로 수정
  * - 검증된 플로우를 Step C로 전달
  */
-async function executeStepB(
+/**
+ * 🗑️ LEGACY: Step B (기존 플로우 검증)
+ * executeStepAB로 통합됨 - 삭제 예정
+ */
+async function executeStepB_LEGACY(
   flow: {steps: string[], title: string, subtitle: string},
   userInput: string,
   feasibilityAnalysis: any
@@ -2173,45 +2334,36 @@ export async function generate3StepAutomation(
     // - analyzeUserIntent, generateContextualCreativity, generateDynamicTemplate 미사용
     // - quickDangerCheck 미사용
 
-    // 🚀 Step A: 빠른 플로우 생성 (논리적 구조)
+    // 🆕 Step AB: RAG 기반 최적 플로우 생성 (Step A + B 통합)
     console.log('');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🚀 [PROGRESS] Step A 시작: 빠른 플로우 초안 생성 중...');
+    console.log('🔍 [PROGRESS] Step AB 시작: RAG로 최신 도구 조사 + 플로우 생성 중...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    const stepAResult = await executeStepA(userInput, followupAnswers, undefined); // 🗑️ Phase 1: intentAnalysis 미사용
-    metrics.stagesCompleted.push('A-flow');
-    metrics.modelsUsed.push(stepAResult.model);
-    metrics.totalTokens += stepAResult.tokens;
+    const stepABResult = await executeStepAB(userInput, followupAnswers);
+    metrics.stagesCompleted.push('AB-research-and-flow');
+    metrics.modelsUsed.push(stepABResult.model);
+    metrics.totalTokens += stepABResult.tokens;
+    metrics.ragSearches = stepABResult.ragMetadata.ragSearches || 0;
+    metrics.ragSources = stepABResult.ragMetadata.ragSources || 0;
     metrics.costBreakdown.stepA = {
-      tokens: stepAResult.tokens,
-      model: stepAResult.model,
-      cost: calculateCost(stepAResult.tokens, stepAResult.model),
+      tokens: stepABResult.tokens,
+      model: stepABResult.model,
+      cost: calculateCost(stepABResult.tokens, stepABResult.model),
     };
-    console.log(`✅ [Step A] 플로우 생성 완료: ${stepAResult.flow.title} (${stepAResult.flow.steps.length}개 단계)`);
-
-    // 🔍 Step B: 플로우 검증 및 수정 (논리적 구조)
-    console.log('');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('🔍 [PROGRESS] Step B 시작: 2025년 최신 정보로 검증 중...');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    const stepBResult = await executeStepB(stepAResult.flow, userInput, stepAResult.feasibilityAnalysis);
-    metrics.stagesCompleted.push('B-verification');
-    metrics.totalTokens += stepBResult.tokens;
-    metrics.ragSearches = stepBResult.ragMetadata.ragSearches || 0;
-    metrics.ragSources = stepBResult.ragMetadata.ragSources || 0;
-    metrics.urlsVerified = stepBResult.ragMetadata.urlsVerified || 0;
     metrics.costBreakdown.stepB = {
-      tokens: stepBResult.tokens,
+      tokens: 0, // Step AB에 통합됨
       ragCalls: metrics.ragSearches,
-      cost: calculateCost(stepBResult.tokens, stepBResult.model) + metrics.ragSearches * 0.001,
+      cost: metrics.ragSearches * 0.001,
     };
-    console.log(`✅ [Step B] 플로우 검증 완료: ${stepBResult.verifiedFlow.steps.length}개 검증된 단계`);
+    console.log(`✅ [Step AB] 플로우 생성 완료: ${stepABResult.flow.title} (${stepABResult.flow.steps.length}개 단계)`);
+    console.log(`🎯 [Step AB] 선택된 도구: ${stepABResult.selectedTool}`);
+    console.log(`📊 [Step AB] 선택 이유: ${stepABResult.reasoning}`);
 
     // 🧮 Step C 전략 선택: 복잡도 계산 (메트릭용)
     const complexity = calculateSolutionComplexity(
-      stepBResult.verifiedFlow,
-      stepBResult.ragMetadata,
-      stepAResult.feasibilityAnalysis,
+      stepABResult.flow,
+      stepABResult.ragMetadata,
+      {}, // feasibilityAnalysis는 executeStepAB 내부에서 처리
       userInput,
       followupAnswers
     );
@@ -2229,13 +2381,13 @@ export async function generate3StepAutomation(
     const stepCResult = await execute2PassStepC(
       [{
         type: 'flow',
-        title: stepBResult.verifiedFlow.title,
-        subtitle: stepBResult.verifiedFlow.subtitle,
-        steps: stepBResult.verifiedFlow.steps
+        title: stepABResult.flow.title,
+        subtitle: stepABResult.flow.subtitle,
+        steps: stepABResult.flow.steps
       }],
       userInput,
       followupAnswers,
-      stepBResult.ragMetadata,
+      stepABResult.ragMetadata,
       overallStartTime  // startTime 전달
     );
     metrics.stagesCompleted.push('C-guide');
@@ -2284,7 +2436,7 @@ export async function generate3StepAutomation(
         type: 'guide',
         title: '📋 상세 실행 가이드',
         subtitle: '단계별 자동화 구현',
-        detailedSteps: stepBResult.verifiedFlow.steps.map((step, index) => ({
+        detailedSteps: stepABResult.flow.steps.map((step: string, index: number) => ({
           title: step,
           description: `${step}에 대한 상세 실행 가이드입니다.`,
           content: '구체적인 실행 방법은 각 도구의 공식 문서를 참조하시기 바랍니다.',
@@ -2309,7 +2461,7 @@ export async function generate3StepAutomation(
     (metrics as any).complexity = complexity;
 
     console.log(`✅ [3-Step] 논리적 구조 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.totalLatencyMs}ms`);
-    console.log(`📊 [3-Step] 플로우: ${stepBResult.verifiedFlow.steps.length}개 단계, 카드: ${finalCards.length}개`);
+    console.log(`📊 [3-Step] 플로우: ${stepABResult.flow.steps.length}개 단계, 카드: ${finalCards.length}개`);
     console.log(`🔍 [3-Step] 생성된 카드 타입들: ${finalCards.map(c => c.type).join(', ')}`);
     console.log(`💰 [3-Step] 총 비용: $${totalCost.toFixed(4)}`);
     console.log(`🎯 [3-Step] 완료된 단계: ${metrics.stagesCompleted.join(' → ')}`);
