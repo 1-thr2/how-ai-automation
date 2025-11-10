@@ -1718,9 +1718,19 @@ async function executeStepB(
     const proposedMethods = extractProposedMethodsFromFlow(flow);
     console.log(`🎯 [Step B] 추출된 방법: ${proposedMethods.map(m => m.tool + ':' + m.action.substring(0, 30)).join(', ')}`);
 
-    // 2. 🔍 각 단계의 2025년 현재 실제 작동 여부 검증
+    // 🔧 중복 도구 제거 (같은 도구를 여러 번 검증하지 않음)
+    const uniqueTools = new Map<string, typeof proposedMethods[0]>();
+    proposedMethods.forEach(method => {
+      if (!uniqueTools.has(method.tool)) {
+        uniqueTools.set(method.tool, method);
+      }
+    });
+    const uniqueMethods = Array.from(uniqueTools.values());
+    console.log(`🔧 [Step B] 중복 제거: ${proposedMethods.length}개 → ${uniqueMethods.length}개 (${proposedMethods.length - uniqueMethods.length}개 중복 제거)`);
+
+    // 2. 🔍 각 단계의 2025년 현재 실제 작동 여부 검증 (유니크한 도구만)
     const methodValidationResults = await Promise.all(
-      proposedMethods.map(method => validateMethodCurrentStatus(method, userInput))
+      uniqueMethods.map(method => validateMethodCurrentStatus(method, userInput))
     );
 
     // 3. 🚨 문제 발견된 단계들에 대한 즉시 대안 탐색
@@ -2525,7 +2535,7 @@ Flow와 Guide 카드의 steps 배열에는 "1단계: [도구명] [구체적 작�
 
 ${skeletonPrompt}` },
     ],
-    max_tokens: 2500, // 🔥 1200 → 2500: 4-5단계 플로우도 충분히 생성 가능
+    max_completion_tokens: 2500, // 🔥 o1-mini는 max_completion_tokens 사용 (max_tokens 아님!)
     // 🚨 o1-mini는 temperature, response_format 지원 안 함
   });
 

@@ -128,11 +128,44 @@ export async function searchWithRAG(
     let rawResults: any[] = [];
     try {
       const responseContent = completion.choices[0]?.message?.content || '[]';
-      rawResults = JSON.parse(responseContent);
 
-      // 응답이 배열이 아닌 경우 처리
-      if (!Array.isArray(rawResults)) {
+      // 🧹 JSON 파싱 전처리 (마크다운 코드블록 및 한글 텍스트 처리)
+      let cleanContent = responseContent.trim();
+
+      // 1️⃣ 마크다운 코드블록 제거
+      if (cleanContent.includes('```json')) {
+        const jsonStart = cleanContent.indexOf('```json');
+        const afterJsonTag = jsonStart + 7; // '```json' 길이
+        let startIndex = afterJsonTag;
+        // 첫 번째 줄바꿈까지 건너뛰기
+        if (cleanContent.charAt(startIndex) === '\n') {
+          startIndex++;
+        }
+        const endIndex = cleanContent.indexOf('```', afterJsonTag);
+        if (endIndex !== -1) {
+          cleanContent = cleanContent.substring(startIndex, endIndex).trim();
+        } else {
+          cleanContent = cleanContent.substring(startIndex).trim();
+        }
+        console.log('🔧 [RAG] 마크다운 코드블록 제거 완료');
+      } else if (cleanContent.includes('```')) {
+        // 일반 코드블록 처리
+        cleanContent = cleanContent.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        console.log('🔧 [RAG] 일반 코드블록 제거 완료');
+      }
+
+      // 2️⃣ 한글 텍스트만 있는 경우 (JSON 아님) 빈 배열 반환
+      if (!cleanContent.includes('[') && !cleanContent.includes('{')) {
+        console.log('⚠️ [RAG] JSON 형식이 아닌 텍스트 응답:', cleanContent.substring(0, 100));
         rawResults = [];
+      } else {
+        // 3️⃣ JSON 파싱 시도
+        rawResults = JSON.parse(cleanContent);
+
+        // 응답이 배열이 아닌 경우 처리
+        if (!Array.isArray(rawResults)) {
+          rawResults = [];
+        }
       }
     } catch (parseError) {
       console.error('❌ [RAG] GPT-4o 응답 파싱 실패:', parseError);
