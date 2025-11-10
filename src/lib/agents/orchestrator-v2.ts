@@ -2449,23 +2449,17 @@ export async function generate3StepAutomation(
       followupAnswers
     );
 
-    // 🎨 Step C: 2-Pass 전략 (Phase 1 실험)
+    // 🎨 Step C: 단순 상세 가이드 작성 (Skeleton 제거)
     console.log('');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🎨 [PROGRESS] Step C 시작: 상세 실행 가이드 작성 중...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    // 🧪 Phase 1 실험: 항상 2-Pass 전략 (o1-mini + gpt-4.1-mini)
-    const useAdvancedStrategy = true;  // 복잡도 무관하게 항상 2-Pass
-    console.log(`🧪 [Phase 1 실험] 2-Pass 전략 (복잡도: ${(complexity * 100).toFixed(1)}% - 참고용)`);
-    console.log(`🎯 [모델] Skeleton: o1-mini (추론) → Detail: gpt-4.1-mini (비용효율+품질)`);
+    // 🆕 Skeleton 제거, Detail만 (gpt-4o)
+    console.log(`✨ [Step C] Direct Detail 전략 (복잡도: ${(complexity * 100).toFixed(1)}% - 참고용)`);
+    console.log(`🎯 [모델] gpt-4o (상세 가이드 작성 - Skeleton 불필요)`);
 
-    const stepCResult = await execute2PassStepC(
-      [{
-        type: 'flow',
-        title: stepABResult.flow.title,
-        subtitle: stepABResult.flow.subtitle,
-        steps: stepABResult.flow.steps
-      }],
+    const stepCResult = await executeStepC_SimpleDetail(
+      stepABResult.flow, // flow 객체 직접 전달 (Step AB-2에서 생성한 것)
       userInput,
       followupAnswers,
       stepABResult.ragMetadata,
@@ -2643,8 +2637,204 @@ ${brokenContent.substring(0, 2000)}...
   return getFallbackCards('복구 실패');
 }
 
-// 🔧 2-Pass Step C 전략 (품질 우선)
-async function execute2PassStepC(
+/**
+ * 🆕 Step C: 단순 상세 가이드 생성 (Skeleton 제거)
+ * - Step AB-2에서 이미 플로우 생성 완료
+ * - gpt-4o 한 번만 호출하여 상세 가이드 작성
+ * - Skeleton 단계 불필요 (중복 제거)
+ */
+async function executeStepC_SimpleDetail(
+  flow: { steps: string[]; title: string; subtitle: string },
+  userInput: string,
+  followupAnswers: any,
+  ragMetadata: any,
+  startTime: number
+): Promise<{
+  cards: any[];
+  tokens: number;
+  latency: number;
+  model: string;
+  wowMetadata: any;
+}> {
+  console.log('✨ [Step C] 상세 가이드 생성 시작 (Skeleton 없이 Direct Detail)...');
+
+  try {
+    // 1. 블루프린트 읽기
+    const stepCBlueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
+    console.log('✅ [Step C] 블루프린트 로드 완료');
+
+    // 2. 프롬프트 구성
+    const detailPrompt = `🎯 **사용자 요청**: "${userInput}"
+
+📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
+
+🔍 **선택된 도구** (Step AB-2):
+- 도구: ${ragMetadata.selectedTool || '미지정'}
+- 선택 이유: ${ragMetadata.reasoning || '최적 도구 선택'}
+
+📋 **생성된 플로우** (Step AB-2):
+제목: ${flow.title}
+${flow.steps.map((step: string, i: number) => `${i + 1}. ${step}`).join('\n')}
+
+---
+
+${stepCBlueprint}
+
+---
+
+**임무**: 위 플로우의 각 단계별 상세 가이드를 작성하세요.
+
+**생성할 카드**:
+1. **guide 카드** (각 단계마다 1개씩, 총 ${flow.steps.length}개)
+   - stepId: "1", "2", "3", ... (문자열)
+   - detailedSteps: 해당 단계의 구체적 실행 방법 (3-5개 하위 단계)
+   - commonMistakes: 자주 하는 실수 2-3개
+   - tips: 실용적인 팁 2-3개
+
+2. **faq 카드** (1개)
+   - 실전 궁금증 3-4개 (도구 설명 X, 실제 사용 팁 O)
+
+3. **needs_analysis 카드** (1개)
+   - surfaceRequest: 사용자 표면 요청
+   - realNeed: 진짜 니즈
+   - recommendedLevel: 자동화 수준
+
+**출력 형식** (JSON):
+{
+  "cards": [
+    {
+      "type": "guide",
+      "stepId": "1",
+      "title": "${flow.steps[0]?.substring(0, 50) || '1단계'}",
+      "subtitle": "상세 실행 가이드",
+      "detailedSteps": [
+        {
+          "number": 1,
+          "title": "구체적 작업",
+          "description": "상세 설명",
+          "expectedScreen": "예상 화면",
+          "checkpoint": "확인 포인트"
+        }
+      ],
+      "commonMistakes": ["실수1", "실수2"],
+      "tips": ["팁1", "팁2"]
+    },
+    ... (${flow.steps.length}개의 guide 카드)
+    {
+      "type": "faq",
+      "title": "❓ 자주 묻는 질문",
+      "items": [
+        {"question": "질문", "answer": "답변"}
+      ]
+    },
+    {
+      "type": "needs_analysis",
+      "title": "🎯 자동화 분석",
+      "surfaceRequest": "${userInput}",
+      "realNeed": "실제 니즈 분석",
+      "recommendedLevel": "자동화 수준"
+    }
+  ]
+}
+
+**중요**:
+- guide 카드는 정확히 ${flow.steps.length}개 생성
+- 각 guide의 stepId는 "1", "2", "3", ... (숫자 아님, 문자열!)
+- FAQ는 도구 설명이 아닌 실용적 팁`;
+
+    // 3. gpt-4o 한 번만 호출
+    console.log('🎨 [Step C] gpt-4o로 상세 가이드 생성 중...');
+    const detailResponse = await openai.chat.completions.create({
+      model: 'gpt-4o', // 🎨 상세 가이드 작성
+      messages: [
+        { role: 'system', content: '당신은 초보자도 따라할 수 있는 상세 가이드를 작성하는 전문가입니다.' },
+        { role: 'user', content: detailPrompt },
+      ],
+      max_tokens: 4000, // 충분한 토큰 (모든 단계 + FAQ + needs)
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    });
+
+    const detailContent = detailResponse.choices[0]?.message?.content;
+    if (!detailContent) {
+      throw new Error('gpt-4o 응답이 비어있습니다');
+    }
+
+    const detailData = JSON.parse(detailContent);
+    const detailTokens = detailResponse.usage?.total_tokens || 0;
+    const latency = Date.now() - startTime;
+
+    console.log(`✅ [Step C] 상세 가이드 생성 완료 - ${detailData.cards?.length || 0}개 카드, ${detailTokens} 토큰, ${latency}ms`);
+
+    // Flow 카드 추가 (프론트엔드용)
+    const finalCards = [
+      {
+        type: 'flow',
+        title: flow.title,
+        subtitle: flow.subtitle,
+        steps: flow.steps,
+        id: `flow_${Date.now()}`,
+        status: 'completed',
+      },
+      ...(detailData.cards || []),
+    ];
+
+    return {
+      cards: finalCards,
+      tokens: detailTokens,
+      latency,
+      model: 'gpt-4o',
+      wowMetadata: {
+        strategy: 'simple-detail',
+        selectedTool: ragMetadata.selectedTool,
+        reasoning: ragMetadata.reasoning,
+      },
+    };
+  } catch (error) {
+    console.error('❌ [Step C] 상세 가이드 생성 실패:', error);
+
+    // Fallback: 기본 가이드 생성
+    const fallbackCards = [
+      {
+        type: 'flow',
+        title: flow.title,
+        subtitle: flow.subtitle,
+        steps: flow.steps,
+        id: `flow_${Date.now()}`,
+      },
+      {
+        type: 'guide',
+        stepId: "1",
+        title: flow.steps[0] || '1단계',
+        subtitle: '기본 가이드',
+        detailedSteps: [
+          {
+            number: 1,
+            title: flow.steps[0] || '작업 수행',
+            description: '단계별로 진행하세요.',
+            expectedScreen: '작업 화면',
+            checkpoint: '완료 확인',
+          },
+        ],
+        id: `guide_${Date.now()}`,
+      },
+    ];
+
+    const latency = Date.now() - startTime;
+
+    return {
+      cards: fallbackCards,
+      tokens: 0,
+      latency,
+      model: 'fallback',
+      wowMetadata: { strategy: 'fallback', error: String(error) },
+    };
+  }
+}
+
+// 🔧 🗑️ LEGACY: 2-Pass Step C 전략 (Skeleton + Detail)
+// executeStepC_SimpleDetail로 대체됨 - 삭제 예정
+async function execute2PassStepC_LEGACY(
   verifiedCards: any[],
   userInput: string,
   followupAnswers: any,
