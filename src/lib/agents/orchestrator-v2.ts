@@ -75,6 +75,15 @@ async function executeStepAB(
 
 📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
 
+🚫 **먼저 확인: 2025년 절대 불가능한 케이스**
+검색 전에 사용자 요청이 아래 케이스에 해당하는지 확인하세요:
+1. **Instagram DM 자동화** → 불가능 (API 제한, Zapier/Make 미지원)
+2. **네이버 부동산 크롤링** → 불가능 (API 없음, 법적 문제)
+3. **카카오톡 개인 메시지** → 불가능 (2022년부터 API 제한)
+4. **Twitter/X API 무료** → 불가능 (2023년부터 유료)
+
+⚠️ **해당되면**: 대안 도구를 검색하세요 (예: Instagram DM → 웹폼 문의)
+
 **검색 미션**: 2025년 최신 도구/방법을 웹 검색으로 조사하세요.
 
 🔍 **범용 검색 전략** (모든 케이스에 적용 - 반드시 3가지 각도로 검색):
@@ -112,6 +121,8 @@ async function executeStepAB(
 
 **출력 형식** (필수 - 반드시 유효한 JSON만 반환):
 {
+  "impossibleCase": false,
+  "impossibleReason": "",
   "searchResults": [
     {
       "toolName": "도구명",
@@ -130,6 +141,15 @@ async function executeStepAB(
     "latestYear": "2025"
   },
   "searchSummary": "전체 조사 요약 (2-3문장, 핵심 발견 포함)"
+}
+
+⚠️ **불가능 케이스인 경우**:
+{
+  "impossibleCase": true,
+  "impossibleReason": "Instagram DM API는 2025년 현재 자동화 불가능 (Meta 제한)",
+  "searchResults": [],
+  "searchQuality": { "toolsFound": 0, "infoCompleteness": "low", "latestYear": "2025" },
+  "searchSummary": "요청된 Instagram DM 자동화는 불가능합니다. 대안으로 웹폼 기반 문의 시스템을 검색했습니다."
 }
 
 🚨 **중요 규칙**:
@@ -192,6 +212,15 @@ async function executeStepAB(
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Step AB-1.5: 검색 결과 품질 검증 + Fallback
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // 불가능 케이스 체크
+    const isImpossible = searchData.impossibleCase === true;
+    if (isImpossible) {
+      console.log(`🚫 [Step AB-1.5] 불가능 케이스 감지: ${searchData.impossibleReason || '사유 없음'}`);
+      console.log('🔄 [Step AB-1.5] 대안 도구 검색으로 진행...');
+      // impossibleCase여도 대안 도구를 찾았다면 계속 진행
+    }
+
     const toolsFound = searchData.searchResults?.length || 0;
     const infoQuality = searchData.searchQuality?.infoCompleteness || 'low';
     const isQualityGood = toolsFound >= 3 && (infoQuality === 'high' || infoQuality === 'medium');
