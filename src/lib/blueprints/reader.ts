@@ -264,32 +264,79 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 - 2023년 이전 업데이트 중단 도구 → NO
 - 웹 검색으로 최신 상태 확인 필수
 
-❌ **불가능한 것을 가능하다고 제시 금지 (2025년 기준)**
+❌ **검증 없이 도구 추천 금지 (범용 검증 프로세스)**
 
-**🚫 절대 불가능한 케이스 (웹 검색 전에 먼저 확인):**
-1. **Instagram DM 자동화** → 불가능
-   - Instagram API는 DM 접근 제한 (Meta 비즈니스 계정도 매우 제한적)
-   - Zapier, Make, Integromat 모두 DM 미지원 (게시물/댓글만 가능)
-   - 웹 검색에서 "가능"이라고 나와도 실제로는 불가능
+**🔍 2단계 검증 프로세스 (모든 도구에 적용):**
 
-2. **네이버 부동산 크롤링** → 불가능
-   - 공식 API 없음, 크롤링은 서비스 약관 위반 및 법적 문제
-   - 대안: 공공데이터포털 부동산 API 사용
+### Step 1: 도구 발견 (일반 검색)
+```
+쿼리: "{핵심 키워드} automation tools 2025"
+예시: "instagram dm automation tools 2025"
+```
 
-3. **카카오톡 개인 메시지 자동화** → 불가능
-   - 2022년부터 개인 메시지 API 제한
-   - 카카오톡 채널(구 플러스친구)만 제한적 지원
+### Step 2: 실제 작동 여부 검증 (필수!)
+도구를 발견했으면 **반드시** 다음 검색으로 검증하세요:
 
-4. **Twitter/X API 무료 사용** → 불가능
-   - 2023년부터 유료 전환 ($100/월~)
-   - 대안: Talkwalker Alerts, Social Searcher 등 무료 모니터링 도구
+**검증 검색 쿼리 3가지:**
+1. **API 제한 검색**
+   ```
+   쿼리: "{플랫폼명} {기능명} API limitations 2025"
+   쿼리: "{플랫폼명} {기능명} API restrictions"
+   예시: "instagram dm api limitations 2025"
+   예시: "naver real estate api restrictions"
+   ```
 
-5. **제약조건 벗어난 도구** → 절대 제외
-   - 사용자가 "무료만"이라고 했으면 유료 도구 절대 제시 금지
-   - 사용자가 "초보자"라면 코딩 복잡한 방법 제외
+2. **실사용자 검증**
+   ```
+   쿼리: "does {도구명} actually work {연도} reddit"
+   쿼리: "{도구명} not working {연도}"
+   예시: "does zapier instagram dm actually work 2025 reddit"
+   예시: "zapier instagram dm not working 2025"
+   ```
 
-**⚠️ 중요:** 위 케이스들은 웹 검색 결과가 "가능"이라고 나와도 **실제로는 불가능**합니다.
-반드시 이 목록을 먼저 확인하고, 해당 케이스면 **대안 도구**를 찾으세요.
+3. **공식 문서 확인**
+   ```
+   쿼리: "{플랫폼명} official API documentation {기능명}"
+   예시: "instagram official api documentation direct message"
+   예시: "meta instagram api dm access"
+   ```
+
+**🚫 불가능 신호 (이런 키워드 발견 시 → 불가능 판단):**
+- "API deprecated", "no longer supported", "discontinued"
+- "API 제한", "접근 불가", "제공하지 않음"
+- "against terms of service", "violates policy"
+- "business account only with restrictions"
+- "paid tier only", "enterprise only" (무료 요청 시)
+- "Reddit: doesn't work", "stopped working since {year}"
+
+**✅ 가능 신호 (이런 키워드 발견 시 → 가능 판단):**
+- "official API available", "free tier available"
+- "actively maintained", "updated in 2024-2025"
+- "Reddit: working perfectly", "successfully integrated"
+- "official documentation exists"
+
+### Step 3: 불가능 판단 시 → 대안 찾기
+
+**목적 추출:**
+- 사용자가 원하는 **핵심 목적**이 뭔가? (도구가 아니라 목적)
+- 예: "Instagram DM 자동화" → 목적: "문의 수집 + 저장 + 알림"
+
+**대안 검색 전략:**
+```
+쿼리 1: "{목적} alternative methods 2025"
+쿼리 2: "how to achieve {목적} without {불가능한 방법}"
+쿼리 3: "{목적} workaround 2025"
+
+예시:
+- "customer inquiry collection alternative methods 2025"
+- "how to collect inquiries without instagram dm api"
+- "real estate price alert without crawling 2025"
+```
+
+**대안 평가:**
+- 동일한 목적을 달성하는가?
+- 사용자 제약조건 충족하는가? (무료/초보자 등)
+- 더 나은 점이 있는가? (더 체계적, 안정적 등)
 
 ---
 
@@ -332,7 +379,7 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 
 ---
 
-## ❌ 불가능 케이스 대응 사례
+## ❌ 검증 프로세스 실전 사례 (Instagram DM)
 
 **입력:**
 \`\`\`
@@ -340,30 +387,73 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 제약: "무료만"
 \`\`\`
 
-**과정:**
-1. ❌ 불가능 케이스 확인: Instagram DM 자동화 → 절대 불가능 목록에 해당
-2. ❌ 웹 검색: "instagram dm automation zapier 2025" → 잘못된 정보 발견 (무시)
-3. ✅ 대안 검색: "instagram comment automation 2025" or "customer inquiry automation alternative"
-4. ✅ 발견: Instagram 댓글 자동화, 웹폼 문의, 카카오톡 채널 등
-5. ✅ 선택: 웹폼 + Google Sheets + Slack (실제 구현 가능)
+**Step 1: 도구 발견**
+```
+검색: "instagram dm automation tools 2025"
+발견: Zapier, Make, Integromat 등
+```
+
+**Step 2: 검증 검색 (핵심!)**
+```
+검증 1: "instagram dm api limitations 2025"
+→ 발견: "Instagram API restricts DM access", "Meta business accounts have limited DM access"
+
+검증 2: "does zapier instagram dm actually work 2025 reddit"
+→ 발견: "Zapier doesn't support Instagram DM", "Only posts and comments"
+
+검증 3: "instagram official api documentation direct message"
+→ 발견: Meta 공식 문서에 "DM endpoints are restricted"
+```
+
+**판단: 🚫 불가능 (3가지 검증 모두 실패)**
+- API 제한 확인됨
+- 실사용자 "작동 안 함" 확인
+- 공식 문서에서 제한 명시
+
+**Step 3: 목적 추출 + 대안 검색**
+```
+목적 추출: "문의 수집" + "DB 저장" + "알림 받기" + "답변 초안"
+
+대안 검색 1: "customer inquiry collection alternative methods 2025"
+→ 발견: Web forms, Live chat, Contact forms
+
+대안 검색 2: "how to collect inquiries without instagram dm api"
+→ 발견: Link in bio → Google Forms, Typeform, Tally
+
+대안 검색 3: "instagram business inquiry automation 2025"
+→ 발견: Instagram Comments automation (실제 지원됨)
+```
+
+**최종 선택: Google Forms + Zapier + Slack**
+- ✅ 목적 100% 달성 (문의 수집, DB, 알림, 답변 모두 가능)
+- ✅ 무료 제약 충족
+- ✅ 더 나은 점: 체계적, 안정적, 스팸 필터링 가능
 
 **출력:**
 \`\`\`json
 {
-  "title": "⚠️ Instagram DM 자동화 불가 - 대안 제시",
-  "subtitle": "웹폼 기반 문의 시스템으로 동일한 목적 달성",
-  "steps": [
-    "1단계: Google Forms로 제품 문의 폼 생성 (이름, 연락처, 문의내용)",
-    "2단계: Instagram 프로필에 웹폼 링크 추가 (링크트리 활용)",
-    "3단계: Zapier로 폼 제출 시 Google Sheets 자동 저장 설정",
-    "4단계: Slack 알림 자동 전송 + GPT 답변 초안 생성"
+  "impossibleCase": true,
+  "impossibleReason": "Instagram DM API는 Meta의 제한으로 Zapier/Make 등 모든 도구에서 접근 불가능 (2025년 현재)",
+  "searchResults": [
+    {
+      "toolName": "Google Forms + Zapier + Slack",
+      "pricing": "무료",
+      "coverage": "문의 수집, DB 저장, 알림, 답변 초안 모두 지원 (100%)",
+      "difficulty": "쉬움",
+      "lastUpdated": "2025",
+      "pros": ["무료", "안정적", "Instagram 프로필 링크로 연결 가능", "스팸 필터링 가능"],
+      "cons": ["DM이 아닌 별도 폼 사용"]
+    }
   ],
-  "selectedTool": "Google Forms + Zapier + Slack",
-  "reasoning": "Instagram DM API는 2025년 현재 자동화 불가능합니다. 대신 웹폼으로 동일한 목적(문의 수집, DB 저장, 알림)을 달성할 수 있으며, 무료이고 더 체계적입니다. 사용자는 Instagram 프로필 링크로 폼에 접근 가능합니다."
+  "searchQuality": { "toolsFound": 1, "infoCompleteness": "high", "latestYear": "2025" },
+  "searchSummary": "Instagram DM 자동화는 API 제한으로 불가능합니다. 대안으로 웹폼 기반 문의 시스템을 제안하며, 동일한 목적을 더 체계적으로 달성할 수 있습니다."
 }
 \`\`\`
 
-**핵심:** 불가능한 요청이어도 **목적**은 달성 가능한 대안을 찾으세요!
+**핵심 교훈:**
+1. 도구를 발견해도 **반드시 검증 검색** 수행
+2. 불가능하면 **목적**을 추출하여 대안 찾기
+3. 대안이 원래 방법보다 더 나을 수도 있음!
 
 ---
 

@@ -75,33 +75,74 @@ async function executeStepAB(
 
 📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
 
-🚫 **먼저 확인: 2025년 절대 불가능한 케이스**
-검색 전에 사용자 요청이 아래 케이스에 해당하는지 확인하세요:
-1. **Instagram DM 자동화** → 불가능 (API 제한, Zapier/Make 미지원)
-2. **네이버 부동산 크롤링** → 불가능 (API 없음, 법적 문제)
-3. **카카오톡 개인 메시지** → 불가능 (2022년부터 API 제한)
-4. **Twitter/X API 무료** → 불가능 (2023년부터 유료)
+**검색 미션**: 2025년 최신 도구/방법을 웹 검색으로 조사하고 **반드시 검증**하세요.
 
-⚠️ **해당되면**: 대안 도구를 검색하세요 (예: Instagram DM → 웹폼 문의)
+🔍 **2단계 검증 검색 프로세스 (필수 - 모든 요청에 적용):**
 
-**검색 미션**: 2025년 최신 도구/방법을 웹 검색으로 조사하세요.
-
-🔍 **범용 검색 전략** (모든 케이스에 적용 - 반드시 3가지 각도로 검색):
+### Phase 1: 도구 발견 검색 (3가지 각도)
 
 1️⃣ **일반 도구 검색**
-   쿼리: "{핵심 키워드} free tools 2025"
-   예시: "twitter monitoring free tools 2025", "email automation free tools 2025"
-   목적: 최신 무료/저비용 도구 발견
+   쿼리: "{핵심 키워드} automation tools 2025"
+   예시: "instagram dm automation tools 2025"
 
 2️⃣ **대안 비교 검색**
-   쿼리: "{핵심 키워드} alternatives comparison reddit 2025"
-   예시: "google drive automation alternatives comparison reddit 2025"
-   목적: 실사용자 비교, 장단점, 실제 후기
+   쿼리: "{핵심 키워드} alternatives reddit 2025"
+   예시: "instagram dm automation alternatives reddit 2025"
 
-3️⃣ **베스트 프랙티스 검색**
+3️⃣ **베스트 프랙티스**
    쿼리: "best way to {동사구} 2025"
-   예시: "best way to monitor twitter mentions 2025", "best way to automate emails 2025"
-   목적: 전문가 추천, 최신 트렌드, 검증된 방법
+   예시: "best way to automate customer inquiries 2025"
+
+### Phase 2: 검증 검색 (필수! - 도구 발견 후 반드시 수행)
+
+발견한 각 도구에 대해 **반드시** 다음 3가지 검증 검색을 수행하세요:
+
+1️⃣ **API 제한 검색**
+   쿼리: "{플랫폼/서비스명} {기능} API limitations 2025"
+   쿼리: "{플랫폼/서비스명} {기능} API restrictions"
+   예시: "instagram dm api limitations 2025"
+   예시: "zapier instagram dm api access"
+
+   🚫 불가능 신호 찾기:
+   - "API deprecated", "no longer supported", "discontinued"
+   - "API 제한", "접근 불가", "제공하지 않음"
+   - "against terms of service", "restricted access"
+
+2️⃣ **실사용자 검증**
+   쿼리: "does {도구명} actually work {연도} reddit"
+   쿼리: "{도구명} not working {연도}"
+   예시: "does zapier instagram dm actually work 2025 reddit"
+
+   🚫 불가능 신호 찾기:
+   - "doesn't work", "stopped working", "no longer works"
+   - "작동 안 함", "사용 불가"
+
+3️⃣ **공식 문서 확인**
+   쿼리: "{플랫폼명} official API documentation {기능}"
+   예시: "instagram official api documentation dm access"
+
+   🚫 불가능 신호 찾기:
+   - 공식 문서에 해당 기능 없음
+   - "enterprise only", "paid tier only" (무료 요청 시)
+
+### Phase 3: 불가능 판단 시 → 대안 검색
+
+검증 결과 불가능하면 **목적**을 추출하여 대안을 검색하세요:
+
+1️⃣ **목적 추출**
+   사용자가 원하는 핵심 목적이 뭔가? (도구가 아니라 목적)
+   예: "Instagram DM 자동화" → 목적: "문의 수집 + 저장 + 알림"
+
+2️⃣ **대안 검색**
+   쿼리: "{목적} alternative methods 2025"
+   쿼리: "how to achieve {목적} without {불가능한 방법}"
+   예시: "customer inquiry collection alternative methods 2025"
+   예시: "how to collect inquiries without instagram dm"
+
+3️⃣ **대안 평가**
+   - 동일한 목적 달성 가능한가?
+   - 사용자 제약조건 충족하는가?
+   - 더 나은 장점이 있는가?
 
 **필수 수집 정보** (각 도구마다):
 - toolName: 도구 이름 (명확하게)
@@ -120,36 +161,49 @@ async function executeStepAB(
 ✅ 실사용자 후기 포함 (reddit, 블로그 등)
 
 **출력 형식** (필수 - 반드시 유효한 JSON만 반환):
+
+📌 **검증 성공 시 (도구 작동 확인됨):**
 {
   "impossibleCase": false,
   "impossibleReason": "",
+  "verificationPerformed": true,
+  "verificationDetails": "Zapier Twitter 연동 검증 완료: 공식 API 지원, Reddit 실사용자 확인, 2025년 활발히 업데이트 중",
   "searchResults": [
     {
       "toolName": "도구명",
       "pricing": "무료/유료/프리미엄",
-      "coverage": "기능 커버리지 설명 (구체적으로)",
+      "coverage": "기능 커버리지 설명",
       "difficulty": "쉬움/보통/어려움",
       "lastUpdated": "2024 or 2025",
-      "pros": ["장점1", "장점2", "장점3"],
-      "cons": ["단점1", "단점2"],
+      "pros": ["장점1", "장점2"],
+      "cons": ["단점1"],
       "url": "https://..."
     }
   ],
-  "searchQuality": {
-    "toolsFound": 5,
-    "infoCompleteness": "high",
-    "latestYear": "2025"
-  },
-  "searchSummary": "전체 조사 요약 (2-3문장, 핵심 발견 포함)"
+  "searchQuality": { "toolsFound": 3, "infoCompleteness": "high", "latestYear": "2025" },
+  "searchSummary": "3개 도구 발견 및 검증 완료"
 }
 
-⚠️ **불가능 케이스인 경우**:
+📌 **검증 실패 시 (불가능 + 대안 제시):**
 {
   "impossibleCase": true,
-  "impossibleReason": "Instagram DM API는 2025년 현재 자동화 불가능 (Meta 제한)",
-  "searchResults": [],
-  "searchQuality": { "toolsFound": 0, "infoCompleteness": "low", "latestYear": "2025" },
-  "searchSummary": "요청된 Instagram DM 자동화는 불가능합니다. 대안으로 웹폼 기반 문의 시스템을 검색했습니다."
+  "impossibleReason": "Instagram DM API는 Meta의 제한으로 자동화 불가능 (검증: API 문서 확인, Reddit 사용자 불가능 보고, Zapier 미지원)",
+  "verificationPerformed": true,
+  "verificationDetails": "Phase 2 검증 수행: instagram dm api limitations 2025 → 접근 불가 확인, zapier instagram dm reddit → 작동 안 함 확인, Meta 공식 문서 → DM endpoints restricted 확인",
+  "searchResults": [
+    {
+      "toolName": "Google Forms + Zapier + Slack (대안)",
+      "pricing": "무료",
+      "coverage": "문의 수집 + DB 저장 + 알림 100% 달성",
+      "difficulty": "쉬움",
+      "lastUpdated": "2025",
+      "pros": ["무료", "안정적", "DM보다 체계적"],
+      "cons": ["DM이 아닌 별도 폼 사용"],
+      "url": "https://forms.google.com"
+    }
+  ],
+  "searchQuality": { "toolsFound": 1, "infoCompleteness": "high", "latestYear": "2025" },
+  "searchSummary": "원래 요청(Instagram DM 자동화)은 불가능. 대안(웹폼)으로 동일 목적 달성 가능"
 }
 
 🚨 **중요 규칙**:
