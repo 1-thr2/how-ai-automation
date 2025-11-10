@@ -40,9 +40,8 @@ interface OrchestratorMetrics {
 
 /**
  * 🆕 Step AB: RAG 기반 최적 플로우 생성 (Step A + B 통합)
- * - gpt-4o-mini-search-preview로 최신 도구 조사 (RAG 내장)
- * - 최적의 도구 하나 선택
- * - 검증된 플로우 생성
+ * - Step AB-1: gpt-4o-mini-search-preview로 최신 도구 웹 검색
+ * - Step AB-2: o3-mini로 최적 도구 선택 및 플로우 생성
  * - Step C에서 상세 가이드 작성
  */
 async function executeStepAB(
@@ -67,69 +66,150 @@ async function executeStepAB(
     const stepABBlueprint = await BlueprintReader.read('orchestrator/step_ab_research.md');
     console.log('✅ [Step AB] 블루프린트 로드 완료');
 
-    // 2. 프롬프트 구성
-    const systemPrompt = stepABBlueprint;
-    const userPrompt = `🎯 **사용자 요청**
-"${userInput}"
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-1: 웹 검색으로 최신 도구 조사
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🔍 [Step AB-1] gpt-4o-mini-search-preview로 웹 검색 시작...');
 
-📋 **후속 답변**
-${JSON.stringify(followupAnswers || {}, null, 2)}
+    const searchPrompt = `🎯 **사용자 요청**: "${userInput}"
+
+📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
+
+**임무**: 웹 검색으로 2025년 최신 도구를 조사하세요.
+
+**검색해야 할 것**:
+1. "${userInput} free tools 2025" - 최신 무료/저비용 도구
+2. "${userInput} alternatives comparison 2025" - 대안 비교
+3. "best ${userInput} reddit 2025" - 실사용자 후기
+
+**출력 형식** (JSON):
+{
+  "searchResults": [
+    {
+      "toolName": "도구명",
+      "pricing": "무료/유료/프리미엄",
+      "coverage": "기능 커버리지 설명",
+      "difficulty": "쉬움/보통/어려움",
+      "lastUpdated": "2024 or 2025",
+      "pros": ["장점1", "장점2"],
+      "cons": ["단점1", "단점2"],
+      "url": "공식 웹사이트 (optional)"
+    }
+  ],
+  "searchSummary": "전체 조사 요약 (2-3문장)"
+}
+
+**중요**: 최소 3개 이상의 도구를 조사하세요. 웹 검색으로 실제 2025년 정보를 찾으세요.`;
+
+    const searchResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-mini-search-preview', // 🔍 검색 가능 모델
+      messages: [
+        { role: 'system', content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요.' },
+        { role: 'user', content: searchPrompt },
+      ],
+      max_tokens: 2000, // 검색 결과 충분히 담기
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    });
+
+    const searchContent = searchResponse.choices[0]?.message?.content;
+    if (!searchContent) {
+      throw new Error('웹 검색 결과가 비어있습니다');
+    }
+
+    const searchData = JSON.parse(searchContent);
+    const searchTokens = searchResponse.usage?.total_tokens || 0;
+    console.log(`✅ [Step AB-1] 웹 검색 완료 - ${searchData.searchResults?.length || 0}개 도구 발견, ${searchTokens} 토큰`);
+    console.log(`📊 [Step AB-1] 검색 요약: ${searchData.searchSummary || '조사 완료'}`);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-2: o3-mini로 최적 도구 선택 및 플로우 생성
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🧠 [Step AB-2] o3-mini로 최적 도구 선택 시작...');
+
+    const selectionPrompt = `🎯 **사용자 요청**: "${userInput}"
+
+📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
+
+🔍 **웹 검색 결과** (Step AB-1):
+${JSON.stringify(searchData.searchResults, null, 2)}
 
 ---
 
-위 Blueprint에 따라 다음을 수행하세요:
+${stepABBlueprint}
 
-1. **웹 검색으로 최신 도구 조사** (2025년 현재 사용 가능한 도구)
-2. **사용자 제약조건 기준으로 필터링** (무료/유료, 난이도 등)
-3. **최적의 도구 하나 선택** (여러 대안 나열 금지)
-4. **선택한 도구로 3-5단계 플로우 생성**
+---
 
-⚠️ **중요**: 여러 옵션을 제시하지 말고, 최적의 도구 **하나만** 선택해서 단일 레시피를 생성하세요.
+**임무**: 검색 결과를 분석하여 **최적의 도구 하나**를 선택하고 플로우를 생성하세요.
 
-JSON 형식으로 응답하세요:
+**선택 기준 우선순위**:
+1. 사용자 제약조건 충족 (필수) - 무료/유료, 난이도 등
+2. 기능 커버리지 최대 (중요)
+3. 난이도 최소 (중요)
+4. 최신성 (보통) - 2024-2025 업데이트
+
+⚠️ **절대 금지**: 여러 옵션 나열! 최적 **하나만** 선택해서 단일 레시피 생성
+
+**출력 형식** (JSON):
 {
   "title": "자동화 플로우 제목",
   "subtitle": "간단한 설명",
   "steps": [
-    "1단계: [선택한 도구명] 구체적 작업",
-    "2단계: [선택한 도구명] 구체적 작업",
-    "3단계: 구체적 작업"
+    "1단계: [선택한 도구명] 계정 생성 및 설정",
+    "2단계: [선택한 도구명] 키워드/조건 설정",
+    "3단계: 알림 연동 및 테스트",
+    "4단계: 최적화 및 모니터링"
   ],
   "selectedTool": "선택한 도구명 (예: Talkwalker Alerts)",
-  "reasoning": "이 도구를 선택한 이유 (1-2문장)"
-}`;
+  "reasoning": "이 도구를 선택한 구체적 이유: 무료이면서 X 커버리지가 80%로 Y보다 2배 우수"
+}
 
-    // 3. gpt-4o-mini-search-preview로 RAG 조사 + 플로우 생성
-    console.log('🔍 [Step AB] gpt-4o-mini-search-preview로 웹 검색 시작...');
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini-2024-07-18', // 🔥 RAG 내장 검색 모델
+**중요**: steps 배열은 정확히 3-5개, 각 단계는 선택한 도구명과 구체적 작업 포함`;
+
+    const selectionResponse = await openai.chat.completions.create({
+      model: 'o3-mini', // 🧠 추론 모델로 최적 선택
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: 'user', content: selectionPrompt },
       ],
-      max_tokens: 1000, // 충분한 토큰으로 조사 + 플로우 생성
-      temperature: 0.3, // 약간의 창의성 허용
-      response_format: { type: 'json_object' }, // JSON 전용 모드
+      max_completion_tokens: 1500, // o3-mini는 max_completion_tokens 사용
+      // 🚨 o3-mini는 temperature, response_format 지원 안 함
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('gpt-4o-mini-search-preview 응답이 비어있습니다');
+    const selectionContent = selectionResponse.choices[0]?.message?.content;
+    if (!selectionContent) {
+      throw new Error('o3-mini 응답이 비어있습니다');
     }
 
-    // 4. JSON 파싱
-    const flowData = JSON.parse(content);
-    console.log('✅ [Step AB] JSON 파싱 성공');
-    console.log(`🎯 [Step AB] 선택된 도구: ${flowData.selectedTool || '미지정'}`);
-    console.log(`📊 [Step AB] 선택 이유: ${flowData.reasoning || '미지정'}`);
+    // JSON 파싱 (o3-mini는 response_format 지원 안 하므로 수동 추출)
+    let flowData;
+    try {
+      // JSON 코드블록 제거 시도
+      let cleanContent = selectionContent.trim();
+      if (cleanContent.includes('```json')) {
+        const jsonStart = cleanContent.indexOf('```json') + 7;
+        const jsonEnd = cleanContent.indexOf('```', jsonStart);
+        cleanContent = cleanContent.substring(jsonStart, jsonEnd).trim();
+      } else if (cleanContent.includes('```')) {
+        cleanContent = cleanContent.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+      }
+      flowData = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('❌ [Step AB-2] JSON 파싱 실패, 원본 응답:', selectionContent);
+      throw new Error('o3-mini JSON 파싱 실패');
+    }
 
-    // 5. 검증
+    const selectionTokens = selectionResponse.usage?.total_tokens || 0;
+    console.log(`✅ [Step AB-2] 도구 선택 완료 - ${selectionTokens} 토큰`);
+    console.log(`🎯 [Step AB-2] 선택된 도구: ${flowData.selectedTool || '미지정'}`);
+    console.log(`📊 [Step AB-2] 선택 이유: ${flowData.reasoning || '미지정'}`);
+
+    // 검증
     if (!flowData.steps || !Array.isArray(flowData.steps) || flowData.steps.length === 0) {
       throw new Error('플로우 단계가 없습니다');
     }
 
     const latency = Date.now() - startTime;
-    const totalTokens = response.usage?.total_tokens || 0;
+    const totalTokens = searchTokens + selectionTokens;
 
     const flow = {
       steps: flowData.steps,
@@ -137,13 +217,14 @@ JSON 형식으로 응답하세요:
       subtitle: flowData.subtitle || '단계별 자동화 계획',
     };
 
-    // 6. RAG 메타데이터 생성 (Step C에서 사용)
+    // RAG 메타데이터 생성 (Step C에서 사용)
     const ragMetadata = {
       searchPerformed: true,
       selectedTool: flowData.selectedTool || '미지정',
       reasoning: flowData.reasoning || '최적의 도구 선택됨',
-      ragSearches: 1, // gpt-4o-mini-search-preview가 자동으로 검색 수행
-      ragSources: 1,
+      ragSearches: 1, // gpt-4o-mini-search-preview 1회
+      ragSources: searchData.searchResults?.length || 0,
+      searchSummary: searchData.searchSummary || '',
       methodValidation: {
         originalMethods: flow.steps.length,
         viableMethods: flow.steps.length,
@@ -153,14 +234,14 @@ JSON 형식으로 응답하세요:
       },
     };
 
-    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰, ${latency}ms`);
+    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (검색:${searchTokens} + 선택:${selectionTokens}), ${latency}ms`);
     console.log(`📋 [Step AB] 생성된 단계들: ${flow.steps.map((s: string, i: number) => `${i + 1}. ${s.substring(0, 30)}...`).join(' | ')}`);
 
     return {
       flow,
       tokens: totalTokens,
       latency,
-      model: 'gpt-4o-mini-2024-07-18',
+      model: 'gpt-4o-mini-search-preview + o3-mini', // 두 모델 조합
       ragMetadata,
       selectedTool: flowData.selectedTool || '미지정',
       reasoning: flowData.reasoning || '최적의 도구 선택됨',
