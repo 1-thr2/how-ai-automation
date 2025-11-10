@@ -269,37 +269,37 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 **🔍 2단계 검증 프로세스 (모든 도구에 적용):**
 
 ### Step 1: 도구 발견 (일반 검색)
-```
+\`\`\`
 쿼리: "{핵심 키워드} automation tools 2025"
 예시: "instagram dm automation tools 2025"
-```
+\`\`\`
 
 ### Step 2: 실제 작동 여부 검증 (필수!)
 도구를 발견했으면 **반드시** 다음 검색으로 검증하세요:
 
 **검증 검색 쿼리 3가지:**
 1. **API 제한 검색**
-   ```
+   \`\`\`
    쿼리: "{플랫폼명} {기능명} API limitations 2025"
    쿼리: "{플랫폼명} {기능명} API restrictions"
    예시: "instagram dm api limitations 2025"
    예시: "naver real estate api restrictions"
-   ```
+   \`\`\`
 
 2. **실사용자 검증**
-   ```
+   \`\`\`
    쿼리: "does {도구명} actually work {연도} reddit"
    쿼리: "{도구명} not working {연도}"
    예시: "does zapier instagram dm actually work 2025 reddit"
    예시: "zapier instagram dm not working 2025"
-   ```
+   \`\`\`
 
 3. **공식 문서 확인**
-   ```
+   \`\`\`
    쿼리: "{플랫폼명} official API documentation {기능명}"
    예시: "instagram official api documentation direct message"
    예시: "meta instagram api dm access"
-   ```
+   \`\`\`
 
 **🚫 불가능 신호 (이런 키워드 발견 시 → 불가능 판단):**
 - "API deprecated", "no longer supported", "discontinued"
@@ -322,7 +322,7 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 - 예: "Instagram DM 자동화" → 목적: "문의 수집 + 저장 + 알림"
 
 **대안 검색 전략:**
-```
+\`\`\`
 쿼리 1: "{목적} alternative methods 2025"
 쿼리 2: "how to achieve {목적} without {불가능한 방법}"
 쿼리 3: "{목적} workaround 2025"
@@ -331,7 +331,7 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 - "customer inquiry collection alternative methods 2025"
 - "how to collect inquiries without instagram dm api"
 - "real estate price alert without crawling 2025"
-```
+\`\`\`
 
 **대안 평가:**
 - 동일한 목적을 달성하는가?
@@ -388,13 +388,13 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 \`\`\`
 
 **Step 1: 도구 발견**
-```
+\`\`\`
 검색: "instagram dm automation tools 2025"
 발견: Zapier, Make, Integromat 등
-```
+\`\`\`
 
 **Step 2: 검증 검색 (핵심!)**
-```
+\`\`\`
 검증 1: "instagram dm api limitations 2025"
 → 발견: "Instagram API restricts DM access", "Meta business accounts have limited DM access"
 
@@ -403,7 +403,7 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 
 검증 3: "instagram official api documentation direct message"
 → 발견: Meta 공식 문서에 "DM endpoints are restricted"
-```
+\`\`\`
 
 **판단: 🚫 불가능 (3가지 검증 모두 실패)**
 - API 제한 확인됨
@@ -411,7 +411,7 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 - 공식 문서에서 제한 명시
 
 **Step 3: 목적 추출 + 대안 검색**
-```
+\`\`\`
 목적 추출: "문의 수집" + "DB 저장" + "알림 받기" + "답변 초안"
 
 대안 검색 1: "customer inquiry collection alternative methods 2025"
@@ -422,7 +422,7 @@ export const ORCHESTRATOR_STEP_AB = `# Step AB: RAG 기반 최적 플로우 생�
 
 대안 검색 3: "instagram business inquiry automation 2025"
 → 발견: Instagram Comments automation (실제 지원됨)
-```
+\`\`\`
 
 **최종 선택: Google Forms + Zapier + Slack**
 - ✅ 목적 100% 달성 (문의 수집, DB, 알림, 답변 모두 가능)
