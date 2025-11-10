@@ -197,11 +197,21 @@ IF (제안_솔루션 == 기술적_불가능) {
 **필수 포함 요소:**
 - **basicConcept**: 해당 단계가 필요한 이유와 목표
 - **detailedSteps**: 구체적인 실행 단계들 (5-8개)
+  - number: 🚨 반드시 1부터 시작 (2부터 시작 절대 금지!)
   - title: 작업명
   - description: 정확한 클릭/입력 방법
   - expectedScreen: 다음 화면에 나타날 요소
   - checkpoint: 성공 확인 방법
-- **codeBlocks**: 필요한 경우 완전한 코드 제공
+
+**선택 포함 요소:**
+- **codeBlocks**: 코드가 필요한 경우만 제공 (배열)
+  - title: 🚨 코드의 제목 (description이 아님!)
+  - language: javascript | python | html 등
+  - code: 완전하게 실행 가능한 코드
+  - copyInstructions: 🚨 필수! 코드를 어디에 붙여넣을지 명시
+  - saveLocation: 🚨 필수! 저장 파일명 (예: "코드.gs")
+- **commonMistakes**: ⚠️ 자주하는 실수 3-5개 (문자열 배열)
+- **practicalTips**: 💡 실용적 팁 3-5개 (문자열 배열)
 
 **초보자 친화성 체크리스트:**
 
@@ -279,11 +289,22 @@ https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXX
   ],
   "codeBlocks": [
     {
-      "filename": "코드.gs",
+      "title": "YouTube 댓글 수집 + ChatGPT 분석 코드",
       "language": "javascript",
       "code": "// YouTube 댓글 수집 + ChatGPT 분석\nconst YOUTUBE_API_KEY = 'YOUR_YOUTUBE_API_KEY';\nconst CHATGPT_API_KEY = 'YOUR_OPENAI_API_KEY';\nconst VIDEO_ID = 'YOUR_VIDEO_ID'; // 예: dQw4w9WgXcQ\n\nfunction analyzeComments() {\n  // YouTube 댓글 가져오기\n  const url = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${VIDEO_ID}&key=${YOUTUBE_API_KEY}&maxResults=50`;\n  const response = UrlFetchApp.fetch(url);\n  const data = JSON.parse(response.getContentText());\n  \n  // 각 댓글 분석\n  data.items.forEach(item => {\n    const comment = item.snippet.topLevelComment.snippet.textDisplay;\n    const sentiment = analyzeSentiment(comment);\n    Logger.log(`댓글: ${comment} → 감정: ${sentiment}`);\n  });\n}\n\nfunction analyzeSentiment(text) {\n  const prompt = `다음 댓글의 감정을 긍정/부정/중립 중 하나로 분류해주세요: \"${text}\"`;\n  \n  const options = {\n    method: 'post',\n    headers: {\n      'Authorization': `Bearer ${CHATGPT_API_KEY}`,\n      'Content-Type': 'application/json'\n    },\n    payload: JSON.stringify({\n      model: 'gpt-4o-mini',\n      messages: [{role: 'user', content: prompt}],\n      max_tokens: 10\n    })\n  };\n  \n  const result = UrlFetchApp.fetch('https://api.openai.com/v1/chat/completions', options);\n  const json = JSON.parse(result.getContentText());\n  return json.choices[0].message.content.trim();\n}",
-      "description": "무서워 보이지만 그냥 복사-붙여넣기만 하면 됩니다! API 키만 본인 것으로 바꾸세요."
+      "copyInstructions": "Google Apps Script 편집기에서 코드.gs 파일을 열고, 기존 코드를 모두 삭제한 후 이 코드를 붙여넣으세요",
+      "saveLocation": "코드.gs"
     }
+  ],
+  "commonMistakes": [
+    "API 키를 작은따옴표 안에 넣지 않고 YOUR_API_KEY 그대로 두는 경우",
+    "VIDEO_ID를 유튜브 전체 URL로 입력하는 경우 (ID만 필요)",
+    "코드 저장 후 배포하지 않아 변경사항이 적용되지 않음"
+  ],
+  "practicalTips": [
+    "무료 API 할당량: YouTube API는 하루 10,000쿼리, ChatGPT API는 사용량 기준 과금",
+    "테스트 시 maxResults=5로 줄여서 시도해보세요",
+    "오류가 나면 Apps Script 실행 로그(Ctrl+Enter)에서 정확한 오류 확인"
   ]
 }
 ```
@@ -327,11 +348,22 @@ https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXX
   ],
   "codeBlocks": [
     {
-      "filename": "parseResume.gs",
+      "title": "이력서 자동 파싱 코드",
       "language": "javascript",
       "code": "const CLAUDE_API_KEY = 'YOUR_CLAUDE_API_KEY';\nconst SHEET_ID = 'YOUR_SPREADSHEET_ID';\n\nfunction parseResumesFromEmail() {\n  const threads = GmailApp.search('subject:이력서 has:attachment');\n  \n  threads.forEach(thread => {\n    const messages = thread.getMessages();\n    messages.forEach(message => {\n      const attachments = message.getAttachments();\n      \n      attachments.forEach(attachment => {\n        if (attachment.getContentType() === 'application/pdf') {\n          const pdfText = extractTextFromPDF(attachment);\n          const parsedData = parseWithClaude(pdfText);\n          saveToSheet(parsedData);\n        }\n      });\n    });\n  });\n}\n\nfunction parseWithClaude(text) {\n  const prompt = `다음 이력서에서 정보를 추출해주세요. JSON 형식으로만 답변:\n{\"name\": \"이름\", \"email\": \"이메일\", \"phone\": \"전화번호\", \"experience\": \"경력년수\", \"skills\": [\"기술1\", \"기술2\"]}\n\n이력서 내용:\n${text}`;\n  \n  const options = {\n    method: 'post',\n    headers: {\n      'x-api-key': CLAUDE_API_KEY,\n      'anthropic-version': '2023-06-01',\n      'content-type': 'application/json'\n    },\n    payload: JSON.stringify({\n      model: 'claude-3-haiku-20240307',\n      max_tokens: 1024,\n      messages: [{role: 'user', content: prompt}]\n    })\n  };\n  \n  const response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', options);\n  const json = JSON.parse(response.getContentText());\n  return JSON.parse(json.content[0].text);\n}\n\nfunction saveToSheet(data) {\n  const sheet = SpreadsheetApp.openById(SHEET_ID).getActiveSheet();\n  sheet.appendRow([data.name, data.email, data.phone, data.experience, data.skills.join(', ')]);\n  Logger.log('저장 완료: ' + data.name);\n}",
-      "description": "이 코드는 이메일에서 이력서를 찾아 Claude가 자동으로 읽고 스프레드시트에 정리합니다. API 키와 스프레드시트 ID만 바꾸세요!"
+      "copyInstructions": "Apps Script 편집기에서 '새 파일 추가(+)' 클릭 → parseResume.gs 입력 → 이 코드 붙여넣기",
+      "saveLocation": "parseResume.gs"
     }
+  ],
+  "commonMistakes": [
+    "SHEET_ID를 스프레드시트 전체 URL로 입력 (URL에서 '/d/' 다음 문자열만 필요)",
+    "Claude API 키가 'sk-ant-'로 시작하지 않는 경우",
+    "PDF 라이브러리를 추가하지 않아 extractTextFromPDF 함수가 없다는 오류"
+  ],
+  "practicalTips": [
+    "Claude API는 무료 티어로 월 5달러 크레딧 제공 (약 200개 이력서 분석 가능)",
+    "Gmail 검색어를 'subject:지원서 OR subject:이력서'로 확장하면 더 많은 메일 수집",
+    "스프레드시트 헤더는 미리 만들어두세요: 이름 | 이메일 | 전화번호 | 경력 | 기술스택"
   ]
 }
 ```
@@ -361,7 +393,7 @@ IF (flow.steps.length == 4) {
   "automationLevel": "완전자동|반자동|수동",
   "detailedSteps": [
     {
-      "number": 1,
+      "number": 1,  // 🚨 반드시 1부터 시작! (2부터 시작 절대 금지)
       "title": "구체적인 작업",
       "description": "정확히 어떤 버튼을 클릭하고 무엇을 입력할지",
       "expectedScreen": "이 작업 후 화면에 나타날 구체적 요소",
@@ -370,11 +402,22 @@ IF (flow.steps.length == 4) {
   ],
   "codeBlocks": [  // 필요한 경우만
     {
-      "filename": "코드.gs",
+      "title": "Slack 웹훅 테스트 코드",  // 🚨 description이 아닌 title 사용!
       "language": "javascript",
-      "code": "완전하게 실행 가능한 코드",
-      "description": "코드 설명 및 안심 메시지"
+      "code": "완전하게 실행 가능한 코드\n// API 키는 YOUR_API_KEY를 본인 키로 교체",
+      "copyInstructions": "Google Apps Script 편집기 > 코드.gs 파일에 붙여넣기",  // 🚨 필수: 붙여넣기 위치
+      "saveLocation": "코드.gs"  // 🚨 필수: 저장 위치
     }
+  ],
+  "commonMistakes": [  // ⚠️ 자주하는 실수 (선택사항, 3-5개)
+    "API 키를 작은따옴표 밖에 입력하는 경우",
+    "코드를 붙여넣을 때 기존 코드를 삭제하지 않아 충돌 발생",
+    "배포 버튼을 누르지 않아 변경사항이 적용되지 않음"
+  ],
+  "practicalTips": [  // 💡 실용적 팁 (선택사항, 3-5개)
+    "API 키는 절대 GitHub에 올리지 마세요. 유출되면 즉시 재발급하세요",
+    "코드 실행 전 '저장' 버튼(Ctrl+S)을 먼저 눌러주세요",
+    "오류가 나면 '실행 로그' 탭에서 정확한 오류 메시지를 확인하세요"
   ]
 }
 ```
