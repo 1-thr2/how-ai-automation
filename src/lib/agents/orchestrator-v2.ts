@@ -2168,7 +2168,7 @@ export async function generate3StepAutomation(
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🚀 [PROGRESS] Step A 시작: 빠른 플로우 초안 생성 중...');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    const stepAResult = await executeStepA(userInput, followupAnswers, intentAnalysis);
+    const stepAResult = await executeStepA(userInput, followupAnswers, undefined); // 🗑️ Phase 1: intentAnalysis 미사용
     metrics.stagesCompleted.push('A-flow');
     metrics.modelsUsed.push(stepAResult.model);
     metrics.totalTokens += stepAResult.tokens;
