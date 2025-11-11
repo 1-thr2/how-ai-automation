@@ -67,262 +67,266 @@ async function executeStepAB(
     console.log('✅ [Step AB] 블루프린트 로드 완료');
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Step AB-0: 사용자 요청 → 핵심 키워드 추출 (NEW!)
+    // Step AB-0: o3-mini 깊은 추론 + 검색 전략 수립
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    console.log('🔍 [Step AB-0] 사용자 요청에서 핵심 키워드 추출 중...');
+    console.log('🧠 [Step AB-0] o3-mini로 깊은 추론 + 검색 전략 수립 중...');
 
-    const keywordPrompt = `사용자 요청에서 검색에 적합한 핵심 키워드를 추출하세요.
+    const reasoningPrompt = `당신은 세계 최고의 자동화 컨설턴트입니다. 사용자의 요청을 깊이 분석하여 최적의 검색 전략을 수립합니다.
 
-사용자 요청: "${userInput}"
-후속 답변: ${JSON.stringify(followupAnswers || {}, null, 2)}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📥 입력 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**목표**: 도구 검색에 최적화된 짧고 정확한 키워드 3-5개 추출
+**사용자 요청**: "${userInput}"
 
-**추출 규칙**:
-1. 긴 문장 → 핵심 개념만 추출
-2. 구체적인 도구명이나 기술명 우선
-3. 목적/기능 중심 키워드
-4. 영문 약어가 있으면 포함 (예: ATS, CRM, API)
+**후속 답변**:
+${JSON.stringify(followupAnswers, null, 2)}
 
-**예시**:
-- "사내에 ATS 툴 없어서 후보자 관리..." → ["ATS", "후보자 관리", "채용 관리"]
-- "인스타그램 DM 자동화하고 싶어요" → ["Instagram DM", "자동 응답", "메시지 자동화"]
-- "매출 데이터 분석해서 슬랙 알림" → ["매출 분석", "Slack 알림", "데이터 자동화"]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 당신의 임무: 5단계 추론 + 전략적 검색 계획
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**출력 형식 (JSON)**:
+**Step 1: 맥락 이해**
+- 왜 이 요청을 하는가? (배경, 현재 문제점)
+- 제약 조건은? (비용, 권한, 기술 수준)
+- 팀/조직 상황은? (혼자? 팀? 규모?)
+
+**Step 2: 진짜 니즈 파악**
+- 표면 요청 vs 진짜 니즈
+- 실제로 해결하려는 문제
+- 숨겨진 Pain Point
+
+**Step 3: 솔루션 방향 탐색**
+- 3가지 이상의 접근 방향 탐색
+- 각 방향의 장단점, 적합도 점수 (0-100)
+
+**Step 4: 검색 전략 수립**
+- 각 방향마다 검색 쿼리 설계
+- 왜 이걸 검색하는가? (목적)
+- 무엇을 찾을 것으로 예상하는가?
+- 우선순위 (high/medium/low)
+
+**Step 5: 조합 전략**
+- 도구 하나에 매몰되지 않고 창의적 조합 탐색
+- 사용자 제약 조건 우선순위
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📤 출력 형식
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 {
-  "keywords": ["키워드1", "키워드2", "키워드3"],
-  "searchQuery": "키워드1 키워드2 키워드3"
-}`;
+  "contextAnalysis": {
+    "background": "왜 이 요청을 하는가",
+    "constraints": ["제약 조건들"],
+    "userSituation": "사용자 상황"
+  },
+  "realNeeds": {
+    "surfaceRequest": "표면적 요청",
+    "actualNeeds": ["진짜 니즈들"],
+    "painPoints": ["해결하려는 문제들"]
+  },
+  "solutionDirections": [
+    {
+      "direction": "방향 이름",
+      "approach": "접근 방식",
+      "pros": ["장점들"],
+      "cons": ["단점들"],
+      "fitScore": 85,
+      "reasoning": "왜 이 점수를 줬는가"
+    }
+  ],
+  "searchQueries": [
+    {
+      "query": "실제 검색할 문자열",
+      "purpose": "왜 이걸 검색하는가",
+      "direction": "어떤 방향과 연관",
+      "expectedFindings": "무엇을 찾을 것으로 예상",
+      "priority": "high|medium|low"
+    }
+  ],
+  "combinationStrategies": [
+    {
+      "name": "전략 이름",
+      "tools": ["도구들"],
+      "rationale": "왜 이 조합",
+      "constraints_met": ["만족하는 제약들"]
+    }
+  ]
+}
 
-    const keywordResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // 빠르고 저렴한 모델
-      messages: [
-        { role: 'system', content: '당신은 검색 쿼리 최적화 전문가입니다. 긴 문장을 핵심 키워드로 변환하세요.' },
-        { role: 'user', content: keywordPrompt },
-      ],
-      max_tokens: 300,
-      temperature: 0.2, // 결정적으로
-      response_format: { type: 'json_object' },
+🚨 중요: 단어에 매몰되지 마라. "ATS"라고 했어도 Notion이 더 나으면 Notion 탐색.
+제약 조건 절대 준수. "무료만"이면 유료 도구 제외.
+`;
+
+    const reasoningResponse = await openai.chat.completions.create({
+      model: 'o3-mini',
+      messages: [{ role: 'user', content: reasoningPrompt }],
+      max_completion_tokens: 3000, // 깊은 추론을 위해 충분한 토큰
     });
 
-    let extractedKeywords: { keywords: string[]; searchQuery: string };
-    let keywordTokens = 0;
+    const reasoningContent = reasoningResponse.choices[0]?.message?.content;
+    if (!reasoningContent) {
+      throw new Error('o3-mini 추론 응답이 비어있습니다');
+    }
+
+    // JSON 파싱 (o3-mini는 response_format 미지원)
+    let reasoningData: any;
+    let reasoningTokens = reasoningResponse.usage?.total_tokens || 0;
+    const reasoningThinkingTokens = (reasoningResponse.usage as any)?.completion_tokens_details?.reasoning_tokens || 0;
     try {
-      const keywordContent = keywordResponse.choices[0]?.message?.content || '{}';
-      extractedKeywords = JSON.parse(keywordContent);
-      keywordTokens = keywordResponse.usage?.total_tokens || 0;
-      console.log(`✅ [Step AB-0] 키워드 추출 완료: ${JSON.stringify(extractedKeywords.keywords)} (${keywordTokens} 토큰)`);
-      console.log(`🔍 [Step AB-0] 검색 쿼리: "${extractedKeywords.searchQuery}"`);
+      let cleanContent = reasoningContent.trim();
+      if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent
+          .replace(/^```(?:json)?\n?/, '')
+          .replace(/\n?```$/, '')
+          .trim();
+      }
+      reasoningData = JSON.parse(cleanContent);
+      console.log(`✅ [Step AB-0] 추론 완료 - ${reasoningData.searchQueries?.length || 0}개 검색 쿼리 생성 (${reasoningTokens} 토큰, 추론: ${reasoningThinkingTokens})`);
+      console.log(`🎯 [Step AB-0] 진짜 니즈: ${JSON.stringify(reasoningData.realNeeds?.actualNeeds || [])}`);
     } catch (e) {
-      console.error('❌ [Step AB-0] 키워드 추출 실패, 원본 요청 사용');
-      extractedKeywords = {
-        keywords: [userInput.substring(0, 50)],
-        searchQuery: userInput.substring(0, 100),
+      console.error('❌ [Step AB-0] JSON 파싱 실패, Fallback 처리');
+      reasoningData = {
+        searchQueries: [
+          { query: `${userInput.substring(0, 50)} free tools 2025`, purpose: '도구 찾기', priority: 'high' }
+        ]
       };
     }
 
-    // 추출된 키워드를 검색에 사용
-    const searchQueryBase = extractedKeywords.searchQuery;
-
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // Step AB-1: 웹 검색으로 최신 도구 조사
+    // Step AB-1: 전략적 웹 검색 (o3-mini가 제안한 쿼리들)
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    console.log('🔍 [Step AB-1] gpt-4o-mini-search-preview로 웹 검색 시작...');
+    console.log('🔍 [Step AB-1] 전략적 검색 시작 (o3-mini 제안 쿼리 사용)...');
 
-    const searchPrompt = `🎯 **사용자 요청**: "${userInput}"
-🔍 **검색 키워드**: "${searchQueryBase}"
+    // 우선순위 high인 쿼리들만 선택 (최대 3개)
+    const priorityQueries = (reasoningData.searchQueries || [])
+      .filter((sq: any) => sq.priority === 'high')
+      .slice(0, 3);
 
-📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
+    if (priorityQueries.length === 0) {
+      // Fallback: 모든 쿼리 중 최대 3개
+      priorityQueries.push(...(reasoningData.searchQueries || []).slice(0, 3));
+    }
 
-**검색 미션**: 2025년 최신 도구/방법을 웹 검색으로 조사하고 **반드시 검증**하세요.
+    console.log(`📊 [Step AB-1] ${priorityQueries.length}개 우선순위 검색 쿼리 실행`);
+    priorityQueries.forEach((sq: any, idx: number) => {
+      console.log(`  ${idx + 1}. [${sq.priority}] "${sq.query}" - ${sq.purpose}`);
+    });
 
-🔍 **2단계 검증 검색 프로세스 (필수 - 모든 요청에 적용):**
+    // 각 쿼리마다 병렬로 검색 실행
+    const searchPromises = priorityQueries.map(async (sq: any, idx: number) => {
+      const searchPrompt = `🔍 **검색 쿼리**: "${sq.query}"
+🎯 **검색 목적**: ${sq.purpose}
+📝 **사용자 원문**: "${userInput}"
 
-### Phase 1: 도구 발견 검색 (3가지 각도)
+**임무**: 위 쿼리로 웹 검색하여 2025년 최신 도구/방법을 찾으세요.
 
-1️⃣ **일반 도구 검색**
-   쿼리: "{핵심 키워드} automation tools 2025"
-   예시: "instagram dm automation tools 2025"
+**반드시 수집할 정보**:
+- toolName: 도구 이름
+- pricing: 무료/유료/프리미엄 (구체적으로)
+- coverage: 기능 범위 설명
+- difficulty: 쉬움/보통/어려움
+- lastUpdated: 2024 or 2025
+- pros: 장점 2-3개
+- cons: 단점 1-2개
+- url: 공식 웹사이트 (optional)
 
-2️⃣ **대안 비교 검색**
-   쿼리: "{핵심 키워드} alternatives reddit 2025"
-   예시: "instagram dm automation alternatives reddit 2025"
-
-3️⃣ **베스트 프랙티스**
-   쿼리: "best way to {동사구} 2025"
-   예시: "best way to automate customer inquiries 2025"
-
-### Phase 2: 검증 검색 (필수! - 도구 발견 후 반드시 수행)
-
-발견한 각 도구에 대해 **반드시** 다음 3가지 검증 검색을 수행하세요:
-
-1️⃣ **API 제한 검색**
-   쿼리: "{플랫폼/서비스명} {기능} API limitations 2025"
-   쿼리: "{플랫폼/서비스명} {기능} API restrictions"
-   예시: "instagram dm api limitations 2025"
-   예시: "zapier instagram dm api access"
-
-   🚫 불가능 신호 찾기:
-   - "API deprecated", "no longer supported", "discontinued"
-   - "API 제한", "접근 불가", "제공하지 않음"
-   - "against terms of service", "restricted access"
-
-2️⃣ **실사용자 검증**
-   쿼리: "does {도구명} actually work {연도} reddit"
-   쿼리: "{도구명} not working {연도}"
-   예시: "does zapier instagram dm actually work 2025 reddit"
-
-   🚫 불가능 신호 찾기:
-   - "doesn't work", "stopped working", "no longer works"
-   - "작동 안 함", "사용 불가"
-
-3️⃣ **공식 문서 확인**
-   쿼리: "{플랫폼명} official API documentation {기능}"
-   예시: "instagram official api documentation dm access"
-
-   🚫 불가능 신호 찾기:
-   - 공식 문서에 해당 기능 없음
-   - "enterprise only", "paid tier only" (무료 요청 시)
-
-### Phase 3: 불가능 판단 시 → 대안 검색
-
-검증 결과 불가능하면 **목적**을 추출하여 대안을 검색하세요:
-
-1️⃣ **목적 추출**
-   사용자가 원하는 핵심 목적이 뭔가? (도구가 아니라 목적)
-   예: "Instagram DM 자동화" → 목적: "문의 수집 + 저장 + 알림"
-
-2️⃣ **대안 검색**
-   쿼리: "{목적} alternative methods 2025"
-   쿼리: "how to achieve {목적} without {불가능한 방법}"
-   예시: "customer inquiry collection alternative methods 2025"
-   예시: "how to collect inquiries without instagram dm"
-
-3️⃣ **대안 평가**
-   - 동일한 목적 달성 가능한가?
-   - 사용자 제약조건 충족하는가?
-   - 더 나은 장점이 있는가?
-
-**필수 수집 정보** (각 도구마다):
-- toolName: 도구 이름 (명확하게)
-- pricing: 무료/유료/프리미엄/무료플랜 (구체적으로)
-- coverage: 기능 범위/커버리지 (구체적 %나 설명)
-- difficulty: 쉬움/보통/어려움 (초보자 기준)
-- lastUpdated: 2024 or 2025 (최신성 확인)
-- pros: 장점 2-3개 (구체적으로)
-- cons: 단점 1-2개 (솔직하게)
-- url: 공식 웹사이트 (optional, 있으면 좋음)
-
-**품질 기준** (반드시 충족):
-✅ 최소 3개 이상 도구 발견 (더 많으면 더 좋음)
-✅ 각 도구마다 위 정보 모두 수집 (빈 항목 최소화)
-✅ 2024-2025년 정보 우선 (오래된 정보 제외)
-✅ 실사용자 후기 포함 (reddit, 블로그 등)
-
-**출력 형식** (필수 - 반드시 유효한 JSON만 반환):
-
-📌 **검증 성공 시 (도구 작동 확인됨):**
+**출력 형식** (유효한 JSON만 반환):
 {
-  "impossibleCase": false,
-  "impossibleReason": "",
-  "verificationPerformed": true,
-  "verificationDetails": "Zapier Twitter 연동 검증 완료: 공식 API 지원, Reddit 실사용자 확인, 2025년 활발히 업데이트 중",
   "searchResults": [
     {
       "toolName": "도구명",
-      "pricing": "무료/유료/프리미엄",
-      "coverage": "기능 커버리지 설명",
+      "pricing": "무료/유료",
+      "coverage": "기능 설명",
       "difficulty": "쉬움/보통/어려움",
-      "lastUpdated": "2024 or 2025",
+      "lastUpdated": "2025",
       "pros": ["장점1", "장점2"],
       "cons": ["단점1"],
       "url": "https://..."
     }
   ],
-  "searchQuality": { "toolsFound": 3, "infoCompleteness": "high", "latestYear": "2025" },
-  "searchSummary": "3개 도구 발견 및 검증 완료"
+  "searchSummary": "간단한 요약 (1-2문장)"
 }
 
-📌 **검증 실패 시 (불가능 + 대안 제시):**
-{
-  "impossibleCase": true,
-  "impossibleReason": "Instagram DM API는 Meta의 제한으로 자동화 불가능 (검증: API 문서 확인, Reddit 사용자 불가능 보고, Zapier 미지원)",
-  "verificationPerformed": true,
-  "verificationDetails": "Phase 2 검증 수행: instagram dm api limitations 2025 → 접근 불가 확인, zapier instagram dm reddit → 작동 안 함 확인, Meta 공식 문서 → DM endpoints restricted 확인",
-  "searchResults": [
-    {
-      "toolName": "Google Forms + Zapier + Slack (대안)",
-      "pricing": "무료",
-      "coverage": "문의 수집 + DB 저장 + 알림 100% 달성",
-      "difficulty": "쉬움",
-      "lastUpdated": "2025",
-      "pros": ["무료", "안정적", "DM보다 체계적"],
-      "cons": ["DM이 아닌 별도 폼 사용"],
-      "url": "https://forms.google.com"
-    }
-  ],
-  "searchQuality": { "toolsFound": 1, "infoCompleteness": "high", "latestYear": "2025" },
-  "searchSummary": "원래 요청(Instagram DM 자동화)은 불가능. 대안(웹폼)으로 동일 목적 달성 가능"
-}
+🚨 **중요**: 반드시 유효한 JSON만 반환하세요 (다른 텍스트 절대 금지)`;
 
-🚨 **중요 규칙**:
-1. 웹 검색으로 실제 2025년 정보를 찾으세요 (내부 지식만 사용 금지)
-2. **반드시 유효한 JSON만 반환하세요** (다른 텍스트, 설명, 마크다운 금지)
-3. JSON 외 다른 내용 절대 포함 금지
-4. 응답은 { 로 시작해서 } 로 끝나야 함`;
+      try {
+        console.log(`  🔄 [${idx + 1}/${priorityQueries.length}] 검색 중: "${sq.query}"...`);
 
-    const searchResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini-search-preview', // 🔍 검색 가능 모델
-      messages: [
-        {
-          role: 'system',
-          content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요. 반드시 유효한 JSON만 반환하세요 (다른 텍스트 절대 금지).'
-        },
-        { role: 'user', content: searchPrompt },
-      ],
-      max_completion_tokens: 2000, // 검색 결과 충분히 담기
-      // Note: gpt-4o-mini-search-preview는 temperature, response_format 미지원
+        const response = await openai.chat.completions.create({
+          model: 'gpt-4o-mini-search-preview',
+          messages: [
+            {
+              role: 'system',
+              content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요. 반드시 유효한 JSON만 반환하세요.'
+            },
+            { role: 'user', content: searchPrompt },
+          ],
+          max_completion_tokens: 1500,
+        });
+
+        const content = response.choices[0]?.message?.content || '{}';
+
+        // 마크다운 코드 블록 제거
+        let jsonContent = content.trim();
+        if (jsonContent.startsWith('```')) {
+          jsonContent = jsonContent
+            .replace(/^```(?:json)?\n?/, '')
+            .replace(/\n?```$/, '')
+            .trim();
+        }
+
+        const parsed = JSON.parse(jsonContent);
+        const tokensUsed = response.usage?.total_tokens || 0;
+        const toolsFound = parsed.searchResults?.length || 0;
+
+        console.log(`  ✅ [${idx + 1}/${priorityQueries.length}] 완료: ${toolsFound}개 도구 발견, ${tokensUsed} 토큰`);
+
+        return {
+          query: sq.query,
+          purpose: sq.purpose,
+          data: parsed,
+          tokens: tokensUsed
+        };
+      } catch (error) {
+        console.error(`  ❌ [${idx + 1}/${priorityQueries.length}] 검색 실패:`, error);
+        return {
+          query: sq.query,
+          purpose: sq.purpose,
+          data: { searchResults: [], searchSummary: '검색 실패' },
+          tokens: 0
+        };
+      }
     });
 
-    const searchContent = searchResponse.choices[0]?.message?.content;
-    if (!searchContent) {
-      throw new Error('웹 검색 결과가 비어있습니다');
-    }
+    // 모든 검색 완료 대기
+    const searchResultsArray = await Promise.all(searchPromises);
 
-    // 마크다운 코드 블록 제거 (```json ... ``` or ``` ... ```)
-    let jsonContent = searchContent.trim();
-    if (jsonContent.startsWith('```')) {
-      jsonContent = jsonContent
-        .replace(/^```(?:json)?\n?/, '')
-        .replace(/\n?```$/, '')
-        .trim();
-    }
+    // 검색 결과 통합
+    const allSearchResults: any[] = [];
+    let totalSearchTokens = 0;
 
-    // JSON 파싱 시도 (robust 처리)
-    let searchData: any;
-    let searchTokens = searchResponse.usage?.total_tokens || 0;
+    searchResultsArray.forEach((result) => {
+      totalSearchTokens += result.tokens;
+      if (result.data.searchResults && result.data.searchResults.length > 0) {
+        allSearchResults.push(...result.data.searchResults);
+      }
+    });
 
-    try {
-      searchData = JSON.parse(jsonContent);
-      console.log(`✅ [Step AB-1] 웹 검색 완료 - ${searchData.searchResults?.length || 0}개 도구 발견, ${searchTokens} 토큰`);
-      console.log(`📊 [Step AB-1] 검색 요약: ${searchData.searchSummary || '조사 완료'}`);
-    } catch (parseError) {
-      console.error('❌ [Step AB-1] JSON 파싱 실패:', parseError);
-      console.log('📄 [Step AB-1] 원본 응답 (처음 200자):', searchContent.substring(0, 200));
+    console.log(`✅ [Step AB-1] 병렬 검색 완료 - 총 ${allSearchResults.length}개 도구 발견, ${totalSearchTokens} 토큰`);
 
-      // JSON 파싱 실패 시 기본 구조 생성
-      console.log('🔄 [Step AB-1] 기본 검색 데이터 구조로 대체');
-      searchData = {
-        searchResults: [],
-        searchQuality: {
-          toolsFound: 0,
-          infoCompleteness: 'low',
-          latestYear: '2025',
-        },
-        searchSummary: '웹 검색 결과 파싱 실패 - Fallback 검색으로 진행',
-      };
-    }
+    // searchData 구조 생성
+    let searchData: any = {
+      searchResults: allSearchResults,
+      searchQuality: {
+        toolsFound: allSearchResults.length,
+        infoCompleteness: allSearchResults.length >= 3 ? 'high' : 'medium',
+        latestYear: '2025'
+      },
+      searchSummary: `${priorityQueries.length}개 전략적 검색으로 ${allSearchResults.length}개 도구 발견`
+    };
+
+    let searchTokens = totalSearchTokens;
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Step AB-1.5: 검색 결과 품질 검증 + Fallback
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -348,8 +352,8 @@ async function executeStepAB(
         // Fallback: 명시적 RAG 호출 (searchToolInfo 사용)
         console.log('🔄 [Fallback] searchToolInfo로 직접 검색 시작...');
 
-        // 🔥 Step AB-0에서 추출한 키워드 사용 (긴 문장 대신)
-        let searchQuery = searchQueryBase;
+        // 기본 검색어: userInput의 일부 사용
+        let searchQuery = userInput.substring(0, 50);
         if (isImpossible && searchData.impossibleReason) {
           console.log('🎯 [Fallback] 불가능 케이스 감지 - 목적 기반 검색어 생성...');
 
@@ -445,7 +449,10 @@ async function executeStepAB(
 
 📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
 
-🔍 **웹 검색 결과** (Step AB-1):
+🧠 **Step AB-0 추론 결과** (o3-mini의 초기 분석):
+${JSON.stringify(reasoningData, null, 2)}
+
+🔍 **Step AB-1 검색 결과** (전략적 검색으로 발견한 도구들):
 ${JSON.stringify(searchData, null, 2)}
 
 🚫 **불가능 케이스 감지 여부**: ${searchData.impossibleCase === true ? `YES - ${searchData.impossibleReason}` : 'NO'}
@@ -456,7 +463,9 @@ ${stepABBlueprint}
 
 ---
 
-**임무**: 검색 결과를 분석하여 **최적의 도구 하나**를 선택하고 플로우를 생성하세요.
+**임무**: 위의 정보를 종합하여 **최적의 도구 하나**를 선택하고 플로우를 생성하세요.
+- Step AB-0에서 이미 깊은 추론을 수행했으니, 그 인사이트를 활용하세요
+- Step AB-1에서 발견한 구체적인 도구 정보를 바탕으로 최종 결정하세요
 
 ⚠️ **불가능 케이스 처리 (중요!):**
 - 만약 searchData.impossibleCase가 true라면:
@@ -556,7 +565,8 @@ ${stepABBlueprint}
     }
 
     const selectionTokens = selectionResponse.usage?.total_tokens || 0;
-    console.log(`✅ [Step AB-2] 도구 선택 완료 - ${selectionTokens} 토큰`);
+    const selectionThinkingTokens = (selectionResponse.usage as any)?.completion_tokens_details?.reasoning_tokens || 0;
+    console.log(`✅ [Step AB-2] 도구 선택 완료 - ${selectionTokens} 토큰 (추론: ${selectionThinkingTokens})`);
     console.log(`🎯 [Step AB-2] 선택된 도구: ${flowData.selectedTool || '미지정'}`);
     console.log(`📊 [Step AB-2] 선택 이유: ${flowData.reasoning || '미지정'}`);
 
@@ -566,7 +576,7 @@ ${stepABBlueprint}
     }
 
     const latency = Date.now() - startTime;
-    const totalTokens = keywordTokens + searchTokens + selectionTokens;
+    const totalTokens = reasoningTokens + searchTokens + selectionTokens;
 
     const flow = {
       steps: flowData.steps,
@@ -591,14 +601,14 @@ ${stepABBlueprint}
       },
     };
 
-    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (키워드:${keywordTokens} + 검색:${searchTokens} + 선택:${selectionTokens}), ${latency}ms`);
+    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (추론:${reasoningTokens} + 검색:${searchTokens} + 선택:${selectionTokens}), ${latency}ms`);
     console.log(`📋 [Step AB] 생성된 단계들: ${flow.steps.map((s: string, i: number) => `${i + 1}. ${s.substring(0, 30)}...`).join(' | ')}`);
 
     return {
       flow,
       tokens: totalTokens,
       latency,
-      model: 'gpt-4o-mini-search-preview + o3-mini', // 두 모델 조합
+      model: 'o3-mini + gpt-4o-mini-search-preview', // 추론 + 검색 모델 조합
       ragMetadata,
       selectedTool: flowData.selectedTool || '미지정',
       reasoning: flowData.reasoning || '최적의 도구 선택됨',
