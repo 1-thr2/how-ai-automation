@@ -67,11 +67,71 @@ async function executeStepAB(
     console.log('✅ [Step AB] 블루프린트 로드 완료');
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-0: 사용자 요청 → 핵심 키워드 추출 (NEW!)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🔍 [Step AB-0] 사용자 요청에서 핵심 키워드 추출 중...');
+
+    const keywordPrompt = `사용자 요청에서 검색에 적합한 핵심 키워드를 추출하세요.
+
+사용자 요청: "${userInput}"
+후속 답변: ${JSON.stringify(followupAnswers || {}, null, 2)}
+
+**목표**: 도구 검색에 최적화된 짧고 정확한 키워드 3-5개 추출
+
+**추출 규칙**:
+1. 긴 문장 → 핵심 개념만 추출
+2. 구체적인 도구명이나 기술명 우선
+3. 목적/기능 중심 키워드
+4. 영문 약어가 있으면 포함 (예: ATS, CRM, API)
+
+**예시**:
+- "사내에 ATS 툴 없어서 후보자 관리..." → ["ATS", "후보자 관리", "채용 관리"]
+- "인스타그램 DM 자동화하고 싶어요" → ["Instagram DM", "자동 응답", "메시지 자동화"]
+- "매출 데이터 분석해서 슬랙 알림" → ["매출 분석", "Slack 알림", "데이터 자동화"]
+
+**출력 형식 (JSON)**:
+{
+  "keywords": ["키워드1", "키워드2", "키워드3"],
+  "searchQuery": "키워드1 키워드2 키워드3"
+}`;
+
+    const keywordResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // 빠르고 저렴한 모델
+      messages: [
+        { role: 'system', content: '당신은 검색 쿼리 최적화 전문가입니다. 긴 문장을 핵심 키워드로 변환하세요.' },
+        { role: 'user', content: keywordPrompt },
+      ],
+      max_tokens: 300,
+      temperature: 0.2, // 결정적으로
+      response_format: { type: 'json_object' },
+    });
+
+    let extractedKeywords: { keywords: string[]; searchQuery: string };
+    let keywordTokens = 0;
+    try {
+      const keywordContent = keywordResponse.choices[0]?.message?.content || '{}';
+      extractedKeywords = JSON.parse(keywordContent);
+      keywordTokens = keywordResponse.usage?.total_tokens || 0;
+      console.log(`✅ [Step AB-0] 키워드 추출 완료: ${JSON.stringify(extractedKeywords.keywords)} (${keywordTokens} 토큰)`);
+      console.log(`🔍 [Step AB-0] 검색 쿼리: "${extractedKeywords.searchQuery}"`);
+    } catch (e) {
+      console.error('❌ [Step AB-0] 키워드 추출 실패, 원본 요청 사용');
+      extractedKeywords = {
+        keywords: [userInput.substring(0, 50)],
+        searchQuery: userInput.substring(0, 100),
+      };
+    }
+
+    // 추출된 키워드를 검색에 사용
+    const searchQueryBase = extractedKeywords.searchQuery;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Step AB-1: 웹 검색으로 최신 도구 조사
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     console.log('🔍 [Step AB-1] gpt-4o-mini-search-preview로 웹 검색 시작...');
 
     const searchPrompt = `🎯 **사용자 요청**: "${userInput}"
+🔍 **검색 키워드**: "${searchQueryBase}"
 
 📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
 
@@ -288,8 +348,8 @@ async function executeStepAB(
         // Fallback: 명시적 RAG 호출 (searchToolInfo 사용)
         console.log('🔄 [Fallback] searchToolInfo로 직접 검색 시작...');
 
-        // 불가능 케이스면 목적 기반 검색어로 변환
-        let searchQuery = userInput;
+        // 🔥 Step AB-0에서 추출한 키워드 사용 (긴 문장 대신)
+        let searchQuery = searchQueryBase;
         if (isImpossible && searchData.impossibleReason) {
           console.log('🎯 [Fallback] 불가능 케이스 감지 - 목적 기반 검색어 생성...');
 
@@ -506,7 +566,7 @@ ${stepABBlueprint}
     }
 
     const latency = Date.now() - startTime;
-    const totalTokens = searchTokens + selectionTokens;
+    const totalTokens = keywordTokens + searchTokens + selectionTokens;
 
     const flow = {
       steps: flowData.steps,
@@ -531,7 +591,7 @@ ${stepABBlueprint}
       },
     };
 
-    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (검색:${searchTokens} + 선택:${selectionTokens}), ${latency}ms`);
+    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (키워드:${keywordTokens} + 검색:${searchTokens} + 선택:${selectionTokens}), ${latency}ms`);
     console.log(`📋 [Step AB] 생성된 단계들: ${flow.steps.map((s: string, i: number) => `${i + 1}. ${s.substring(0, 30)}...`).join(' | ')}`);
 
     return {
