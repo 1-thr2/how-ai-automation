@@ -2962,7 +2962,25 @@ ${stepCBlueprint}
 
 ---
 
-**임무**: 위 플로우의 각 단계별 상세 가이드를 작성하세요.
+🚨🚨🚨 **매우 중요: 초등학생도 따라할 수 있는 수준의 상세함** 🚨🚨🚨
+
+**임무**: 위 플로우의 각 단계별 **극도로 상세한** 가이드를 작성하세요.
+
+**상세함의 기준**:
+1. 📸 **스크린샷 찍듯이**: "왼쪽 상단에 있는 파란색 '새 프로젝트' 버튼 클릭" 수준
+2. 🧒 **초등학생 이해 수준**: 전문 용어 최소화, 모든 단계를 쪼개서 설명
+3. ✋ **손을 잡고 가듯이**: "이제 마우스를 움직여서...", "여기에 다음 내용을 입력하세요..." 수준
+4. 🎯 **그대로만 하면 완성**: 추가 검색이나 생각 없이 따라만 하면 100% 완성되는 수준
+5. 📝 **복사-붙여넣기 완전한 코드**: 코드는 실행 가능한 완전한 형태로 제공
+
+**각 detailedSteps는**:
+- 최소 7-10개 이상의 매우 세부적인 단계로 구성
+- 각 단계마다 정확한 클릭 위치, 입력값, 예상 화면 명시
+- "확인" 대신 "오른쪽 아래 파란색 '확인' 버튼 클릭" 수준으로 구체화
+- 코드가 필요하면 codeBlocks 배열에 완전한 실행 가능 코드 포함
+- commonMistakes는 최소 5개 이상, practicalTips는 최소 5개 이상
+
+**블루프린트의 예시를 참고하되, 훨씬 더 상세하게 작성하세요!**
 
 **생성할 카드**:
 1. **guide 카드** (각 단계마다 1개씩, 총 ${flow.steps.length}개)
@@ -3022,22 +3040,22 @@ ${stepCBlueprint}
 - 각 guide의 stepId는 "1", "2", "3", ... (숫자 아님, 문자열!)
 - FAQ는 도구 설명이 아닌 실용적 팁`;
 
-    // 3. gpt-4.1-mini 한 번만 호출
-    console.log('🎨 [Step C] gpt-4.1-mini로 상세 가이드 생성 중...');
+    // 3. gpt-4o 한 번만 호출 (더 상세한 가이드를 위해 강력한 모델 사용)
+    console.log('🎨 [Step C] gpt-4o로 상세 가이드 생성 중...');
     const detailResponse = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini', // 🧪 Phase 1: 비용 효율 + 고성능 (gpt-4.1의 ~99% 성능, 1/5 가격)
+      model: 'gpt-4o-2024-11-20', // 🎯 더 상세하고 고품질의 가이드 생성을 위해 강력한 모델 사용
       messages: [
-        { role: 'system', content: '당신은 초보자도 따라할 수 있는 상세 가이드를 작성하는 전문가입니다.' },
+        { role: 'system', content: '당신은 초보자도 따라할 수 있는 상세 가이드를 작성하는 전문가입니다. 초등학생도 이해할 수 있는 수준으로, 스크린샷을 찍듯이 하나하나 설명하고, 그대로만 하면 완성될 수 있도록 매우 상세하게 작성하세요.' },
         { role: 'user', content: detailPrompt },
       ],
-      max_tokens: 4000, // 충분한 토큰 (모든 단계 + FAQ + needs)
+      max_tokens: 12000, // 🔥 매우 상세한 가이드를 위해 토큰 대폭 증가 (4000 → 12000)
       temperature: 0.3,
       response_format: { type: 'json_object' },
     });
 
     const detailContent = detailResponse.choices[0]?.message?.content;
     if (!detailContent) {
-      throw new Error('gpt-4.1-mini 응답이 비어있습니다');
+      throw new Error('gpt-4o 응답이 비어있습니다');
     }
 
     const detailData = JSON.parse(detailContent);
@@ -3063,7 +3081,7 @@ ${stepCBlueprint}
       cards: finalCards,
       tokens: detailTokens,
       latency,
-      model: 'gpt-4.1-mini',
+      model: 'gpt-4o-2024-11-20',
       wowMetadata: {
         strategy: 'simple-detail',
         selectedTool: ragMetadata.selectedTool,
