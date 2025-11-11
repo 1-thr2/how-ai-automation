@@ -32,8 +32,34 @@ CREATE POLICY "자동화 요청 등록 허용" ON public.automation_requests
     FOR INSERT WITH CHECK (true);
 
 -- ===============================================
+-- 🔗 공유 링크 테이블
+-- ===============================================
+-- 자동화 결과 공유용 링크 관리 테이블
+CREATE TABLE IF NOT EXISTS public.share_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- 공유 링크 고유 ID (URL에 사용)
+    request_id BIGINT NOT NULL REFERENCES public.automation_requests(id) ON DELETE CASCADE, -- 참조하는 자동화 요청 ID
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL, -- 생성 시각
+    expires_at TIMESTAMP WITH TIME ZONE -- 만료 시각 (옵션)
+);
+
+-- 인덱스 생성 (성능 최적화)
+CREATE INDEX IF NOT EXISTS idx_share_links_request_id ON public.share_links(request_id);
+CREATE INDEX IF NOT EXISTS idx_share_links_expires_at ON public.share_links(expires_at);
+
+-- RLS (Row Level Security) 정책 설정
+ALTER TABLE public.share_links ENABLE ROW LEVEL SECURITY;
+
+-- 모든 사용자가 공유 링크를 조회할 수 있음
+CREATE POLICY "공유 링크 조회 허용" ON public.share_links
+    FOR SELECT USING (expires_at IS NULL OR expires_at > NOW());
+
+-- 모든 사용자가 공유 링크를 생성할 수 있음
+CREATE POLICY "공유 링크 생성 허용" ON public.share_links
+    FOR INSERT WITH CHECK (true);
+
+-- ===============================================
 -- 🔍 참고: Supabase 대시보드에서 실행하세요
 -- ===============================================
 -- 1. Supabase 프로젝트 → SQL Editor
 -- 2. 위 스크립트 복사/붙여넣기 → 실행
--- 3. Table Editor에서 game_scores 테이블 확인 
+-- 3. Table Editor에서 automation_requests와 share_links 테이블 확인 

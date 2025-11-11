@@ -22,12 +22,14 @@ const nextConfig = {
     return config;
   },
   
-  // 빌드 시 lint/타입 에러 무시 (Vercel 배포용)
+  // 빌드 시 lint/타입 에러 처리
+  // 프로덕션에서는 에러를 표면화하여 품질 보장
+  // Preview 배포에서만 일시적으로 허용
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: process.env.VERCEL_ENV === 'preview',
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: process.env.VERCEL_ENV === 'preview',
   },
   
   // 컴파일러 최적화

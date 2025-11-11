@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import pMap from 'p-map';
 import { z } from 'zod';
 import { BlueprintReader, estimateTokens, selectModel } from '../blueprints/reader';
-import { findContextualPatterns, quickDangerCheck, learnFromFailure, type ContextualMatch } from './failure-patterns';
+// 🗑️ Phase 1: 레거시 import 제거 (failure-patterns, intent-analyzer)
 import {
   generateRAGContext,
   searchToolInfo,
@@ -13,12 +13,6 @@ import {
 import { detectDomainEnhanced, getOptimalAITools, performPeerToolSearch } from '../services/ai-tools-registry';
 import { checkSystematicFeasibility, quickFeasibilityCheck } from '../services/feasibility-checker';
 import { getCodeTemplate, personalizeCodeTemplate } from '../code-templates';
-import {
-  analyzeUserIntent,
-  generateDynamicTemplate,
-  generateContextualCreativity,
-  optimizePromptLength,
-} from './intent-analyzer';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -45,12 +39,679 @@ interface OrchestratorMetrics {
 }
 
 /**
- * Step A: 빠른 플로우 생성 (gpt-4o-mini, 속도 우선)
- * - 핵심 단계들만 빠르게 생성
- * - Step B에서 검증 후 수정
- * - Step C에서 상세 가이드 생성
+ * 🆕 Step AB: RAG 기반 최적 플로우 생성 (Step A + B 통합)
+ * - Step AB-1: gpt-4o-mini-search-preview로 최신 도구 웹 검색
+ * - Step AB-2: o3-mini로 최적 도구 선택 및 플로우 생성
+ * - Step C에서 상세 가이드 작성
  */
-async function executeStepA(
+async function executeStepAB(
+  userInput: string,
+  followupAnswers: any
+): Promise<{
+  flow: { steps: string[]; title: string; subtitle: string };
+  tokens: number;
+  latency: number;
+  model: string;
+  ragMetadata: any;
+  selectedTool: string;
+  reasoning: string;
+}> {
+  const startTime = Date.now();
+  console.log('🔍 [Step AB] RAG 기반 최적 플로우 생성 시작...');
+  console.log(`📝 [Step AB] 사용자 요청: ${userInput}`);
+  console.log(`📋 [Step AB] 후속 답변: ${JSON.stringify(followupAnswers || {})}`);
+
+  try {
+    // 1. 블루프린트 읽기
+    const stepABBlueprint = await BlueprintReader.read('orchestrator/step_ab_research.md');
+    console.log('✅ [Step AB] 블루프린트 로드 완료');
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-0: o3-mini 깊은 추론 + 검색 전략 수립
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🧠 [Step AB-0] o3-mini로 깊은 추론 + 검색 전략 수립 중...');
+
+    const reasoningPrompt = `당신은 세계 최고의 자동화 컨설턴트입니다. 사용자의 요청을 깊이 분석하여 최적의 검색 전략을 수립합니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📥 입력 정보
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**사용자 요청**: "${userInput}"
+
+**후속 답변**:
+${JSON.stringify(followupAnswers, null, 2)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 당신의 임무: 5단계 추론 + 전략적 검색 계획
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Step 1: 맥락 이해**
+- 왜 이 요청을 하는가? (배경, 현재 문제점)
+- 제약 조건은? (비용, 권한, 기술 수준)
+- 팀/조직 상황은? (혼자? 팀? 규모?)
+
+**Step 2: 진짜 니즈 파악**
+- 표면 요청 vs 진짜 니즈
+- 실제로 해결하려는 문제
+- 숨겨진 Pain Point
+
+**Step 3: 솔루션 방향 탐색**
+- 3가지 이상의 접근 방향 탐색
+- 각 방향의 장단점, 적합도 점수 (0-100)
+
+**Step 4: 검색 전략 수립**
+- 각 방향마다 검색 쿼리 설계
+- 왜 이걸 검색하는가? (목적)
+- 무엇을 찾을 것으로 예상하는가?
+- 우선순위 (high/medium/low)
+
+**Step 5: 조합 전략**
+- 도구 하나에 매몰되지 않고 창의적 조합 탐색
+- 사용자 제약 조건 우선순위
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📤 출력 형식
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{
+  "contextAnalysis": {
+    "background": "왜 이 요청을 하는가",
+    "constraints": ["제약 조건들"],
+    "userSituation": "사용자 상황"
+  },
+  "realNeeds": {
+    "surfaceRequest": "표면적 요청",
+    "actualNeeds": ["진짜 니즈들"],
+    "painPoints": ["해결하려는 문제들"]
+  },
+  "solutionDirections": [
+    {
+      "direction": "방향 이름",
+      "approach": "접근 방식",
+      "pros": ["장점들"],
+      "cons": ["단점들"],
+      "fitScore": 85,
+      "reasoning": "왜 이 점수를 줬는가"
+    }
+  ],
+  "searchQueries": [
+    {
+      "query": "실제 검색할 문자열",
+      "purpose": "왜 이걸 검색하는가",
+      "direction": "어떤 방향과 연관",
+      "expectedFindings": "무엇을 찾을 것으로 예상",
+      "priority": "high|medium|low"
+    }
+  ],
+  "combinationStrategies": [
+    {
+      "name": "전략 이름",
+      "tools": ["도구들"],
+      "rationale": "왜 이 조합",
+      "constraints_met": ["만족하는 제약들"]
+    }
+  ]
+}
+
+🚨 중요: 단어에 매몰되지 마라. "ATS"라고 했어도 Notion이 더 나으면 Notion 탐색.
+제약 조건 절대 준수. "무료만"이면 유료 도구 제외.
+`;
+
+    const reasoningResponse = await openai.chat.completions.create({
+      model: 'o3-mini',
+      messages: [{ role: 'user', content: reasoningPrompt }],
+      max_completion_tokens: 3000, // 깊은 추론을 위해 충분한 토큰
+    });
+
+    const reasoningContent = reasoningResponse.choices[0]?.message?.content;
+    if (!reasoningContent) {
+      throw new Error('o3-mini 추론 응답이 비어있습니다');
+    }
+
+    // JSON 파싱 (o3-mini는 response_format 미지원)
+    let reasoningData: any;
+    let reasoningTokens = reasoningResponse.usage?.total_tokens || 0;
+    const reasoningThinkingTokens = (reasoningResponse.usage as any)?.completion_tokens_details?.reasoning_tokens || 0;
+    try {
+      let cleanContent = reasoningContent.trim();
+      if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent
+          .replace(/^```(?:json)?\n?/, '')
+          .replace(/\n?```$/, '')
+          .trim();
+      }
+      reasoningData = JSON.parse(cleanContent);
+      console.log(`✅ [Step AB-0] 추론 완료 - ${reasoningData.searchQueries?.length || 0}개 검색 쿼리 생성 (${reasoningTokens} 토큰, 추론: ${reasoningThinkingTokens})`);
+      console.log(`🎯 [Step AB-0] 진짜 니즈: ${JSON.stringify(reasoningData.realNeeds?.actualNeeds || [])}`);
+    } catch (e) {
+      console.error('❌ [Step AB-0] JSON 파싱 실패, Fallback 처리');
+      reasoningData = {
+        searchQueries: [
+          { query: `${userInput.substring(0, 50)} free tools 2025`, purpose: '도구 찾기', priority: 'high' }
+        ]
+      };
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-1: 전략적 웹 검색 (o3-mini가 제안한 쿼리들)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🔍 [Step AB-1] 전략적 검색 시작 (o3-mini 제안 쿼리 사용)...');
+
+    // 우선순위 high인 쿼리들만 선택 (최대 3개)
+    const priorityQueries = (reasoningData.searchQueries || [])
+      .filter((sq: any) => sq.priority === 'high')
+      .slice(0, 3);
+
+    if (priorityQueries.length === 0) {
+      // Fallback: 모든 쿼리 중 최대 3개
+      priorityQueries.push(...(reasoningData.searchQueries || []).slice(0, 3));
+    }
+
+    console.log(`📊 [Step AB-1] ${priorityQueries.length}개 우선순위 검색 쿼리 실행`);
+    priorityQueries.forEach((sq: any, idx: number) => {
+      console.log(`  ${idx + 1}. [${sq.priority}] "${sq.query}" - ${sq.purpose}`);
+    });
+
+    // 각 쿼리마다 병렬로 RAG 검색 실행
+    const searchPromises = priorityQueries.map(async (sq: any, idx: number) => {
+      try {
+        console.log(`  🔄 [${idx + 1}/${priorityQueries.length}] RAG 검색 중: "${sq.query}"...`);
+
+        // RAG 검색 실행
+        const ragResults = await searchToolInfo(sq.query);
+
+        if (!ragResults || ragResults.length === 0) {
+          console.log(`  ⚠️ [${idx + 1}/${priorityQueries.length}] 검색 결과 없음`);
+          return {
+            query: sq.query,
+            purpose: sq.purpose,
+            ragResults: [],
+            toolsFound: 0
+          };
+        }
+
+        console.log(`  ✅ [${idx + 1}/${priorityQueries.length}] 완료: ${ragResults.length}개 결과 발견`);
+
+        return {
+          query: sq.query,
+          purpose: sq.purpose,
+          ragResults,
+          toolsFound: ragResults.length
+        };
+      } catch (error) {
+        console.error(`  ❌ [${idx + 1}/${priorityQueries.length}] 검색 실패:`, error);
+        return {
+          query: sq.query,
+          purpose: sq.purpose,
+          ragResults: [],
+          toolsFound: 0
+        };
+      }
+    });
+
+    // 모든 검색 완료 대기
+    const searchResultsArray = await Promise.all(searchPromises);
+
+    // RAG 결과를 searchResults 형식으로 변환
+    const allSearchResults: any[] = [];
+    let totalToolsFound = 0;
+
+    searchResultsArray.forEach((result) => {
+      totalToolsFound += result.toolsFound;
+      if (result.ragResults && result.ragResults.length > 0) {
+        result.ragResults.forEach((ragResult: any) => {
+          allSearchResults.push({
+            toolName: ragResult.title || '도구명 미상',
+            pricing: '확인 필요',
+            coverage: ragResult.content?.substring(0, 150) || 'RAG 검색 결과',
+            difficulty: '보통',
+            lastUpdated: '2024-2025',
+            pros: ['검색 결과에서 발견'],
+            cons: ['상세 정보 확인 필요'],
+            url: ragResult.url || '',
+            source: ragResult, // 원본 RAG 데이터 보존
+          });
+        });
+      }
+    });
+
+    console.log(`✅ [Step AB-1] 병렬 RAG 검색 완료 - 총 ${allSearchResults.length}개 결과 발견 (${totalToolsFound}개 도구)`);
+
+    // searchData 구조 생성
+    let searchData: any = {
+      searchResults: allSearchResults,
+      searchQuality: {
+        toolsFound: allSearchResults.length,
+        infoCompleteness: allSearchResults.length >= 3 ? 'high' : 'medium',
+        latestYear: '2025'
+      },
+      searchSummary: `${priorityQueries.length}개 전략적 RAG 검색으로 ${allSearchResults.length}개 결과 발견`
+    };
+
+    let searchTokens = 0; // RAG는 토큰 미사용
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-1.5: 검색 결과 품질 검증 + Fallback
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // 불가능 케이스 체크
+    const isImpossible = searchData.impossibleCase === true;
+    if (isImpossible) {
+      console.log(`🚫 [Step AB-1.5] 불가능 케이스 감지: ${searchData.impossibleReason || '사유 없음'}`);
+      console.log('🔄 [Step AB-1.5] 대안 도구 검색으로 진행...');
+      // impossibleCase여도 대안 도구를 찾았다면 계속 진행
+    }
+
+    const toolsFound = searchData.searchResults?.length || 0;
+    const infoQuality = searchData.searchQuality?.infoCompleteness || 'low';
+    const isQualityGood = toolsFound >= 3 && (infoQuality === 'high' || infoQuality === 'medium');
+
+    console.log(`🔍 [Step AB-1.5] 검색 품질 체크: 도구 ${toolsFound}개, 완성도 ${infoQuality}`);
+
+    if (!isQualityGood) {
+      console.log('⚠️ [Step AB-1.5] 검색 품질 부족 - Fallback 검색 시도...');
+
+      try {
+        // Fallback: 명시적 RAG 호출 (searchToolInfo 사용)
+        console.log('🔄 [Fallback] searchToolInfo로 직접 검색 시작...');
+
+        // 기본 검색어: userInput의 일부 사용
+        let searchQuery = userInput.substring(0, 50);
+        if (isImpossible && searchData.impossibleReason) {
+          console.log('🎯 [Fallback] 불가능 케이스 감지 - 목적 기반 검색어 생성...');
+
+          // 플랫폼 추출 (instagram, twitter, naver 등)
+          const platformMatch = userInput.match(/(인스타그램|인스타|트위터|네이버|카카오톡|페이스북|유튜브|instagram|twitter|naver|kakao|facebook|youtube)/i);
+          const platform = platformMatch ? platformMatch[0] : '';
+
+          // 목적 추출 (followupAnswers.purpose 활용)
+          const purposeMap: Record<string, string> = {
+            '홍보': 'marketing brand awareness',
+            '마케팅': 'marketing engagement',
+            '분석': 'analytics monitoring',
+            '수집': 'data collection monitoring',
+            '알림': 'notification alert',
+            '효율': 'productivity efficiency',
+            '자동화': 'automation workflow',
+          };
+
+          let purposeKeywords = 'tools automation';
+          if (followupAnswers?.purpose) {
+            const purposeText = String(followupAnswers.purpose);
+            for (const [key, value] of Object.entries(purposeMap)) {
+              if (purposeText.includes(key)) {
+                purposeKeywords = value;
+                break;
+              }
+            }
+          }
+
+          searchQuery = `${platform} ${purposeKeywords}`.trim();
+          console.log(`🔍 [Fallback] 변환된 검색어: "${userInput}" → "${searchQuery}"`);
+        }
+
+        const fallbackPromises = [
+          searchToolInfo(`${searchQuery} free tools 2025`),
+          searchToolInfo(`${searchQuery} alternatives best 2025`),
+        ];
+
+        const fallbackResults = await Promise.all(fallbackPromises);
+
+        // Fallback 결과 통합 (RAGResult[] 타입)
+        const mergedResults: any[] = [];
+        fallbackResults.forEach((results) => {
+          // searchToolInfo 결과를 파싱 (RAGResult[] 반환)
+          if (results && results.length > 0) {
+            results.forEach(ragResult => {
+              if (ragResult.title || ragResult.content) {
+                mergedResults.push({
+                  toolName: ragResult.title || ragResult.content?.substring(0, 50) || '도구명 미상',
+                  pricing: '확인 필요',
+                  coverage: ragResult.content?.substring(0, 100) || 'Fallback 검색 결과',
+                  difficulty: '보통',
+                  lastUpdated: '2024-2025',
+                  pros: ['웹 검색 결과'],
+                  cons: ['상세 정보 부족'],
+                  url: ragResult.url || '',
+                });
+              }
+            });
+          }
+        });
+
+        if (mergedResults.length > 0) {
+          console.log(`✅ [Fallback] ${mergedResults.length}개 추가 도구 발견`);
+          searchData.searchResults = [
+            ...(searchData.searchResults || []),
+            ...mergedResults.slice(0, 3), // 최대 3개까지만 추가
+          ];
+          searchData.searchQuality = {
+            toolsFound: searchData.searchResults.length,
+            infoCompleteness: 'medium',
+            latestYear: '2024-2025',
+          };
+        } else {
+          console.log('⚠️ [Fallback] 추가 도구 발견 실패 - 기존 결과로 진행');
+        }
+      } catch (fallbackError) {
+        console.error('❌ [Fallback] 검색 실패:', fallbackError);
+        console.log('🔄 [Fallback] 기존 검색 결과로 진행');
+      }
+    } else {
+      console.log('✅ [Step AB-1.5] 검색 품질 양호 - 바로 진행');
+    }
+
+    console.log(`📊 [Step AB-1 최종] 총 ${searchData.searchResults?.length || 0}개 도구로 분석 진행`);
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-2: o3-mini로 최적 도구 선택 및 플로우 생성
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🧠 [Step AB-2] o3-mini로 최적 도구 선택 시작...');
+
+    const selectionPrompt = `🎯 **사용자 요청**: "${userInput}"
+
+📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
+
+🧠 **Step AB-0 추론 결과** (o3-mini의 초기 분석):
+${JSON.stringify(reasoningData, null, 2)}
+
+🔍 **Step AB-1 검색 결과** (전략적 검색으로 발견한 도구들):
+${JSON.stringify(searchData, null, 2)}
+
+🚫 **불가능 케이스 감지 여부**: ${searchData.impossibleCase === true ? `YES - ${searchData.impossibleReason}` : 'NO'}
+
+---
+
+${stepABBlueprint}
+
+---
+
+**임무**: 위의 정보를 종합하여 **최적의 도구 하나**를 선택하고 플로우를 생성하세요.
+- Step AB-0에서 이미 깊은 추론을 수행했으니, 그 인사이트를 활용하세요
+- Step AB-1에서 발견한 구체적인 도구 정보를 바탕으로 최종 결정하세요
+
+⚠️ **불가능 케이스 처리 (중요!):**
+- 만약 searchData.impossibleCase가 true라면:
+  1. searchResults에서 **대안 도구**를 선택하세요 (원래 방법이 아닌 대안)
+  2. title에 "⚠️ 원래 방법 불가 - 대안 제시" 포함
+  3. reasoning에 왜 불가능하고 왜 이 대안을 선택했는지 명시
+  4. **반드시 유효한 JSON 반환** (빈 응답 금지!)
+
+예시 (불가능 케이스):
+{
+  "title": "⚠️ Instagram 자동 좋아요 불가 - 수동 관리 도구 추천",
+  "subtitle": "API 제한으로 자동화 불가, 효율적인 수동 관리 방법 제시",
+  "steps": [
+    "1단계: Hootsuite로 해시태그 모니터링 대시보드 설정",
+    "2단계: 관련 게시물 필터링 및 저장",
+    "3단계: 일괄 관리 기능으로 효율적으로 좋아요",
+    "4단계: 분석 리포트로 효과 측정"
+  ],
+  "selectedTool": "Hootsuite (수동 관리 도구)",
+  "reasoning": "Instagram API는 자동 좋아요를 제한합니다. Hootsuite는 해시태그 모니터링 + 효율적인 수동 관리를 지원하여 동일 목적 달성 가능합니다."
+}
+
+**선택 기준 우선순위**:
+1. 사용자 제약조건 충족 (필수) - 무료/유료, 난이도 등
+2. 기능 커버리지 최대 (중요)
+3. 난이도 최소 (중요)
+4. 최신성 (보통) - 2024-2025 업데이트
+
+⚠️ **절대 금지**: 여러 옵션 나열! 최적 **하나만** 선택해서 단일 레시피 생성
+
+**출력 형식** (JSON):
+{
+  "title": "자동화 플로우 제목",
+  "subtitle": "간단한 설명",
+  "steps": [
+    "1단계: [선택한 도구명] 계정 생성 및 설정",
+    "2단계: [선택한 도구명] 키워드/조건 설정",
+    "3단계: 알림 연동 및 테스트",
+    "4단계: 최적화 및 모니터링"
+  ],
+  "selectedTool": "선택한 도구명 (예: Talkwalker Alerts)",
+  "reasoning": "이 도구를 선택한 구체적 이유: 무료이면서 X 커버리지가 80%로 Y보다 2배 우수"
+}
+
+**중요**:
+- steps 배열은 정확히 3-5개
+- 각 단계는 선택한 도구명과 구체적 작업 포함
+- 반드시 유효한 JSON만 반환 (빈 응답 절대 금지!)`;
+
+    const selectionResponse = await openai.chat.completions.create({
+      model: 'o3-mini', // 🧠 추론 모델로 최적 선택
+      messages: [
+        { role: 'user', content: selectionPrompt },
+      ],
+      max_completion_tokens: 2500, // 한국어 + 상세 설명 고려하여 증가 (1500 → 2500)
+      // 🚨 o3-mini는 temperature, response_format 지원 안 함
+    });
+
+    const selectionContent = selectionResponse.choices[0]?.message?.content;
+    if (!selectionContent) {
+      throw new Error('o3-mini 응답이 비어있습니다');
+    }
+
+    // 🔍 응답 잘림 감지
+    const isTruncated =
+      !selectionContent.includes('}') ||
+      selectionContent.trim().endsWith('...') ||
+      !selectionContent.includes('"reasoning"') ||
+      (selectionResponse.choices[0]?.finish_reason === 'length');
+
+    if (isTruncated) {
+      console.warn(`⚠️ [Step AB-2] 응답 잘림 감지 (finish_reason: ${selectionResponse.choices[0]?.finish_reason})`);
+      console.log('🔍 [Step AB-2] 잘린 응답:', selectionContent.substring(0, 500) + '...');
+      throw new Error('o3-mini 응답 잘림 - max_completion_tokens 부족');
+    }
+
+    // JSON 파싱 (o3-mini는 response_format 지원 안 하므로 수동 추출)
+    let flowData;
+    try {
+      // JSON 코드블록 제거 시도
+      let cleanContent = selectionContent.trim();
+      if (cleanContent.includes('```json')) {
+        const jsonStart = cleanContent.indexOf('```json') + 7;
+        const jsonEnd = cleanContent.indexOf('```', jsonStart);
+        if (jsonEnd === -1) {
+          console.warn('⚠️ [Step AB-2] JSON 코드블록 종료 태그 없음 - 잘림 가능성');
+          throw new Error('JSON 코드블록 미완성');
+        }
+        cleanContent = cleanContent.substring(jsonStart, jsonEnd).trim();
+      } else if (cleanContent.includes('```')) {
+        cleanContent = cleanContent.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+      }
+      flowData = JSON.parse(cleanContent);
+    } catch (parseError) {
+      console.error('❌ [Step AB-2] JSON 파싱 실패, 원본 응답:', selectionContent);
+      throw new Error('o3-mini JSON 파싱 실패');
+    }
+
+    const selectionTokens = selectionResponse.usage?.total_tokens || 0;
+    const selectionThinkingTokens = (selectionResponse.usage as any)?.completion_tokens_details?.reasoning_tokens || 0;
+    console.log(`✅ [Step AB-2] 도구 선택 완료 - ${selectionTokens} 토큰 (추론: ${selectionThinkingTokens})`);
+    console.log(`🎯 [Step AB-2] 선택된 도구: ${flowData.selectedTool || '미지정'}`);
+    console.log(`📊 [Step AB-2] 선택 이유: ${flowData.reasoning || '미지정'}`);
+
+    // 검증
+    if (!flowData.steps || !Array.isArray(flowData.steps) || flowData.steps.length === 0) {
+      throw new Error('플로우 단계가 없습니다');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-2.5: Reality Check (선택한 솔루션 검증)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🔍 [Step AB-2.5] Reality Check - 선택한 솔루션 검증 중...');
+
+    let realityCheckTokens = 0;
+    let solutionVerified = true;
+    let verificationWarning = '';
+
+    try {
+      // 플랫폼 추출 (Instagram, Twitter 등)
+      const platformMatch = userInput.match(/(인스타그램|인스타|트위터|네이버|카카오|페이스북|유튜브|instagram|twitter|naver|kakao|facebook|youtube)/gi);
+      const platform = platformMatch ? platformMatch[0] : '';
+
+      // 핵심 기능 추출
+      const actionMatch = userInput.match(/(좋아요|댓글|팔로우|메시지|DM|포스팅|자동|like|comment|follow|message|post|auto)/gi);
+      const actions = actionMatch ? actionMatch.slice(0, 2).join(' ') : '';
+
+      const verificationPrompt = `당신은 기술 실현 가능성 검증 전문가입니다.
+
+**선택된 솔루션:**
+- 도구: ${flowData.selectedTool || '미지정'}
+- 사용자 요청: "${userInput}"
+- 플랫폼: ${platform || '알 수 없음'}
+- 기능: ${actions || '자동화'}
+
+**검증 임무:**
+이 도구가 사용자가 원하는 기능을 2025년 현재 실제로 지원하는지 검증하세요.
+
+**검증 기준:**
+1. 플랫폼 API 제한이 있는가? (특히 Instagram, Twitter 등)
+2. 선택한 도구가 공식적으로 이 기능을 지원하는가?
+3. 최근(2024-2025) 실제 작동 사례가 있는가?
+
+**특히 주의:**
+- Instagram: 자동 좋아요, 자동 댓글, 자동 팔로우는 2016년부터 API 제한
+- Twitter: 자동 팔로우/언팔로우 제한, API v2 제약
+- 많은 플랫폼들이 자동화 봇을 제한함
+
+**출력 형식 (JSON):**
+{
+  "verified": true or false,
+  "confidence": 0-100 (숫자),
+  "issue": "발견된 문제 (없으면 빈 문자열)",
+  "evidence": "판단 근거",
+  "needsAlternative": true or false
+}
+
+**중요:** 확신이 없으면 verified: false로 설정하세요.`;
+
+      const verificationResponse = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: '당신은 기술 검증 전문가입니다. 실현 불가능한 것을 불가능하다고 명확히 지적하는 것이 당신의 역할입니다. 반드시 유효한 JSON만 반환하세요.'
+          },
+          { role: 'user', content: verificationPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      realityCheckTokens = verificationResponse.usage?.total_tokens || 0;
+      const verificationContent = verificationResponse.choices[0]?.message?.content;
+
+      if (verificationContent) {
+        const verification = JSON.parse(verificationContent);
+        console.log(`📊 [Step AB-2.5] 검증 결과: ${verification.verified ? '✅ 검증됨' : '❌ 문제 발견'} (신뢰도: ${verification.confidence}%)`);
+        console.log(`📝 [Step AB-2.5] 근거: ${verification.evidence || '없음'}`);
+
+        if (!verification.verified || verification.confidence < 60) {
+          solutionVerified = false;
+          verificationWarning = verification.issue || '선택한 솔루션이 실제로 작동하지 않을 수 있습니다.';
+
+          console.log(`⚠️ [Step AB-2.5] 경고: ${verificationWarning}`);
+
+          // 불가능 케이스로 전환
+          if (verification.needsAlternative) {
+            console.log('🔄 [Step AB-2.5] 대안 솔루션 필요 - title에 경고 추가');
+            flowData.title = `⚠️ ${flowData.title} (검증 필요)`;
+            flowData.subtitle = `${verificationWarning}\n\n${flowData.subtitle || ''}`;
+          }
+        } else {
+          console.log('✅ [Step AB-2.5] 검증 통과 - 솔루션 신뢰 가능');
+        }
+      }
+    } catch (verifyError) {
+      console.error('❌ [Step AB-2.5] 검증 실패:', verifyError);
+      console.log('🔄 [Step AB-2.5] 검증 실패 - 일단 진행 (경고 포함)');
+      verificationWarning = '⚠️ 솔루션 검증 실패 - 실제 사용 전 확인 필요';
+    }
+
+    const latency = Date.now() - startTime;
+    const totalTokens = reasoningTokens + searchTokens + selectionTokens + realityCheckTokens;
+
+    const flow = {
+      steps: flowData.steps,
+      title: flowData.title || '자동화 플로우',
+      subtitle: flowData.subtitle || '단계별 자동화 계획',
+    };
+
+    // RAG 메타데이터 생성 (Step C에서 사용)
+    const ragMetadata = {
+      searchPerformed: true,
+      selectedTool: flowData.selectedTool || '미지정',
+      reasoning: flowData.reasoning || '최적의 도구 선택됨',
+      ragSearches: 1,
+      ragSources: searchData.searchResults?.length || 0,
+      searchSummary: searchData.searchSummary || '',
+      solutionVerified, // Reality Check 결과
+      verificationWarning, // 검증 경고 메시지
+      methodValidation: {
+        originalMethods: flow.steps.length,
+        viableMethods: solutionVerified ? flow.steps.length : 0,
+        problematicMethods: solutionVerified ? 0 : flow.steps.length,
+        alternativesFound: 0,
+        finalMethods: flow.steps.length,
+      },
+    };
+
+    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (추론:${reasoningTokens} + 검색:${searchTokens} + 선택:${selectionTokens} + 검증:${realityCheckTokens}), ${latency}ms`);
+    console.log(`📋 [Step AB] 생성된 단계들: ${flow.steps.map((s: string, i: number) => `${i + 1}. ${s.substring(0, 30)}...`).join(' | ')}`);
+    if (!solutionVerified && verificationWarning) {
+      console.log(`⚠️ [Step AB] 검증 경고: ${verificationWarning}`);
+    }
+
+    return {
+      flow,
+      tokens: totalTokens,
+      latency,
+      model: 'o3-mini + RAG + gpt-4o-mini Reality Check', // 추론 + RAG 검색 + 검증
+      ragMetadata,
+      selectedTool: flowData.selectedTool || '미지정',
+      reasoning: flowData.reasoning || '최적의 도구 선택됨',
+    } as any;
+  } catch (error) {
+    console.error('❌ [Step AB] 플로우 생성 실패:', error);
+
+    // Fallback: 기본 플로우 생성
+    console.log('🔄 [Step AB] Fallback 플로우 생성 중...');
+    const fallbackFlow = createFallbackFlow(userInput, followupAnswers);
+    const latency = Date.now() - startTime;
+
+    console.log(`🛡️ [Step AB] Fallback 완료 - ${fallbackFlow.steps.length}개 기본 단계, ${latency}ms`);
+
+    return {
+      flow: fallbackFlow,
+      tokens: 0,
+      latency,
+      model: 'fallback',
+      ragMetadata: {
+        searchPerformed: false,
+        error: '플로우 생성 실패',
+        methodValidation: {
+          originalMethods: 0,
+          viableMethods: 0,
+          problematicMethods: 0,
+          alternativesFound: 0,
+          finalMethods: 0,
+        },
+      },
+      selectedTool: 'fallback',
+      reasoning: '기본 플로우 생성',
+    };
+  }
+}
+
+/**
+ * 🗑️ LEGACY: Step A (기존 빠른 플로우 생성)
+ * executeStepAB로 대체됨 - 삭제 예정
+ */
+async function executeStepA_LEGACY(
   userInput: string,
   followupAnswers: any,
   intentAnalysis?: any
@@ -235,43 +896,26 @@ function createFallbackFlow(userInput: string, followupAnswers: any): {
   title: string;
   subtitle: string;
 } {
-  // 사용자 입력에서 키워드 추출하여 적절한 기본 플로우 생성
-  const inputLower = userInput.toLowerCase();
-  
-  let steps: string[] = [];
-  let title = '자동화 플로우';
-  let subtitle = '기본 단계별 계획';
-  
-  if (inputLower.includes('분석') || inputLower.includes('데이터')) {
-    title = '데이터 분석 자동화';
-    subtitle = '데이터 수집부터 분석까지';
-    steps = [
-      '1단계: 데이터 소스 연결',
-      '2단계: 데이터 수집 자동화',
-      '3단계: 데이터 분석 및 처리',
-      '4단계: 결과 리포트 생성'
-    ];
-  } else if (inputLower.includes('알림') || inputLower.includes('모니터링')) {
-    title = '모니터링 및 알림 자동화';
-    subtitle = '실시간 감시 및 알림 시스템';
-    steps = [
-      '1단계: 모니터링 대상 설정',
-      '2단계: 알림 조건 구성',
-      '3단계: 알림 채널 연결',
-      '4단계: 테스트 및 활성화'
-    ];
-  } else {
-    // 기본 범용 플로우
-    title = '업무 자동화 플로우';
-    subtitle = '반복 작업 자동화';
-    steps = [
-      '1단계: 작업 대상 설정',
-      '2단계: 자동화 도구 연결',
-      '3단계: 워크플로우 구성',
-      '4단계: 테스트 및 실행'
-    ];
-  }
-  
+  // 🔧 사용자 요청을 직접 반영한 Fallback 생성 (하드코딩 최소화)
+  const inputTrimmed = userInput.trim();
+  const inputShort = inputTrimmed.length > 50 ? inputTrimmed.substring(0, 47) + '...' : inputTrimmed;
+
+  // 예산 제약 확인
+  const isFreeOnly = followupAnswers?.budget === '무료만' || followupAnswers?.constraints?.includes('무료만');
+  const budgetNote = isFreeOnly ? ' (무료 도구 활용)' : '';
+
+  // 사용자 요청 기반 제목 생성
+  const title = `${inputShort} 자동화`;
+  const subtitle = `요청하신 작업을 자동화하는 기본 플로우${budgetNote}`;
+
+  // 범용 4단계 플로우 (모든 자동화에 적용 가능)
+  const steps = [
+    `1단계: "${inputShort}" 작업에 필요한 도구 선택 및 계정 설정`,
+    `2단계: 자동화 트리거 및 조건 구성`,
+    `3단계: 실행 워크플로우 설정 및 테스트`,
+    `4단계: 모니터링 및 최적화`
+  ];
+
   return {
     steps,
     title,
@@ -426,156 +1070,230 @@ async function generateVerifiedSteps(
 
 /**
  * 🛡️ Fallback 현실성 분석 (시스템적 체크 실패 시)
+ * 🎯 AI 기반 동적 분석으로 업그레이드
  */
 async function fallbackFeasibilityAnalysis(userInput: string, followupAnswers: any) {
-  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, 간단한 키워드 체크 사용');
-  
+  console.warn('⚠️ [Fallback] 시스템적 현실성 체크 실패, AI 기반 목적 분석 시작');
+
+  // 🎯 AI 기반 상세 목적 분석 (어떤 플랫폼이든 동적으로 처리)
+  const purposeAnalysis = await analyzePurposeFromInput(userInput, followupAnswers);
+
+  // 🔍 quick check도 병행 (추가 정보)
   const quickCheck = quickFeasibilityCheck(userInput);
-  
-  // 기본 구조로 변환
+
+  // 기본 구조로 변환 (AI 분석 결과 우선 사용)
   return {
-    isRealistic: quickCheck.isRealistic ?? true,
-    feasibilityScore: quickCheck.feasibilityScore ?? 7,
-    impossibleElements: quickCheck.impossibleElements ?? [],
-    viableAlternatives: quickCheck.viableAlternatives ?? ['Google Apps Script', 'IFTTT'],
+    isRealistic: purposeAnalysis.viableAlternatives.length > 0,
+    feasibilityScore: purposeAnalysis.viableAlternatives.length > 0
+      ? (purposeAnalysis.impossibleElements.length > 0 ? 6 : 8)
+      : 3,
+    impossibleElements: purposeAnalysis.impossibleElements,
+    viableAlternatives: purposeAnalysis.viableAlternatives.length > 0
+      ? purposeAnalysis.viableAlternatives
+      : quickCheck.viableAlternatives ?? ['Google Apps Script', 'IFTTT'],
     costWarnings: [],
-    difficultyWarnings: [],
-    recommendedApproach: quickCheck.isRealistic ? '추천 도구로 직접 구현' : '단순한 대안으로 목적 달성'
+    difficultyWarnings: purposeAnalysis.impossibleElements.length > 0
+      ? [`원래 요청의 일부 기능은 불가능합니다: ${purposeAnalysis.impossibleElements.join(', ')}`]
+      : [],
+    recommendedApproach: purposeAnalysis.impossibleElements.length > 0
+      ? `${purposeAnalysis.mainGoal}를 위한 창의적 우회 방법 활용`
+      : '추천 도구로 직접 구현',
+    mainGoal: purposeAnalysis.mainGoal,  // 추가 정보
+    currentWorkflow: purposeAnalysis.currentWorkflow  // 🎯 현재 워크플로우 정보 추가
   };
 }
 
 /**
- * 🧠 사용자 입력에서 진짜 목적과 불가능한 요소들을 분석하는 함수 (폴백용)
- * 🎯 나(Claude)의 사고방식을 모방한 목적 중심 분석
+ * 🎯 불가능한 요소 빠른 체크 (복잡도 판단용)
  */
-function analyzePurposeFromInput(userInput: string, followupAnswers: any) {
+function quickCheckImpossible(userInput: string, followupAnswers: any): boolean {
   const inputLower = userInput.toLowerCase();
   const answersStr = JSON.stringify(followupAnswers || {}).toLowerCase();
-  
-  // 🎯 진짜 목적 추출 (더 정교하게)
-  let mainGoal = '';
-  
-  // 고객 지원/소통 관련
-  if (inputLower.includes('고객') || inputLower.includes('문의') || inputLower.includes('응답') || inputLower.includes('dm')) {
-    mainGoal = '고객 문의를 놓치지 않고 빠르게 응답하기';
+  const combined = inputLower + ' ' + answersStr;
+
+  // 🚨 알려진 불가능/어려운 플랫폼/요청 패턴들
+  const impossiblePatterns = [
+    // 한국 플랫폼
+    '카카오톡', 'kakao', '카톡',
+    '인스타그램', 'instagram', '인스타',
+    '네이버 카페', '네이버카페',
+    '페이스북', 'facebook',
+    '틱톡', 'tiktok',
+    '잡코리아', '사람인', 'saramin',
+
+    // 어려운 작업들
+    'dm 자동', '메시지 자동', 'api 연동',
+    '크롤링', 'crawling', '스크래핑', 'scraping',
+    '실시간 모니터링', 'real-time',
+
+    // 제한적 API
+    'twitter api', 'x api',
+    'linkedin api'
+  ];
+
+  const hasImpossibleElement = impossiblePatterns.some(pattern =>
+    combined.includes(pattern)
+  );
+
+  if (hasImpossibleElement) {
+    console.log('🚨 [복잡도 판단] 불가능 요소 감지 → o3-mini 깊은 추론 모드');
+  } else {
+    console.log('✅ [복잡도 판단] 일반 요청 → gpt-4o 빠른 처리 모드');
   }
-  // 데이터 수집/모니터링 관련
-  else if (inputLower.includes('수집') || inputLower.includes('모니터링') || inputLower.includes('감지') || inputLower.includes('새 글')) {
-    mainGoal = '중요한 정보를 놓치지 않고 실시간으로 파악하기';
-  }
-  // 업무 효율성 관련
-  else if (inputLower.includes('알림') || inputLower.includes('알려') || inputLower.includes('전송')) {
-    mainGoal = '중요한 상황을 팀에게 즉시 공유하기';
-  }
-  // 데이터 정리/분석 관련
-  else if (inputLower.includes('분류') || inputLower.includes('정리') || inputLower.includes('저장')) {
-    mainGoal = '데이터를 체계적으로 정리하고 관리하기';
-  }
-  else {
-    mainGoal = '반복적인 업무를 효율적으로 처리하기';
-  }
-  
-  // ⚠️ 불가능한 요소들 감지 (더 정교하게)
-  const impossibleElements = [];
-  const viableAlternatives = [];
-  
-  // 카카오톡 관련
-  if (inputLower.includes('카카오톡') || answersStr.includes('카카오톡')) {
-    impossibleElements.push('카카오톡 직접 API 연동');
-    if (mainGoal.includes('고객')) {
-      viableAlternatives.push('웹사이트 문의 폼 + 이메일 자동 응답');
-      viableAlternatives.push('채널톡 또는 Intercom 도입');
-    } else {
-      viableAlternatives.push('이메일 알림 + Google Forms');
-      viableAlternatives.push('Slack 또는 Discord 활용');
+
+  return hasImpossibleElement;
+}
+
+/**
+ * 🧠 AI 기반 사용자 목적 및 현실적 대안 분석 (시스템적 접근)
+ * 🎯 하드코딩 제거: 어떤 플랫폼/요청이든 동적으로 분석
+ * 🎯 창의적 접근: 사용자 워크플로우 내에서 비슷한 효과를 내는 대안 제시
+ * 🎯 복잡도 기반 모델 선택: 어려운 케이스는 o3-mini, 쉬운 케이스는 gpt-4o
+ */
+async function analyzePurposeFromInput(userInput: string, followupAnswers: any) {
+  console.log('🧠 [AI 목적분석] 시스템적 분석 시작...');
+
+  // 🎯 복잡도 판단: 불가능한 요소가 있는지 체크
+  const needsDeepReasoning = quickCheckImpossible(userInput, followupAnswers);
+
+  // 복잡한 케이스: o3-mini (깊은 추론 + 창의적 문제 해결)
+  // 간단한 케이스: gpt-4o (빠르고 저렴)
+  const selectedModel = needsDeepReasoning ? 'o3-mini' : 'gpt-4o-2024-11-20';
+
+  console.log(`🎯 [모델 선택] ${selectedModel} (복잡도: ${needsDeepReasoning ? '높음' : '낮음'})`);
+
+  const analysisPrompt = `당신은 사용자의 진짜 의도를 파악하고 현실적 대안을 제시하는 전문가입니다.
+
+🎯 **핵심 원칙**:
+1. **진짜 목적 파악**: 표면적 요청 너머의 실제 달성하고자 하는 목표
+2. **워크플로우 존중**: 사용자가 현재 사용 중인 플랫폼/도구를 바꾸라고 하지 말 것
+3. **창의적 우회**: 직접 불가능하면, 간접적으로 비슷한 효과를 내는 방법 찾기
+4. **실행 가능성**: 2025년 현재 개인이 실제로 구현 가능한 방법만 제시
+
+🚫 **금지사항**:
+- "다른 플랫폼 사용하세요" (예: 카카오톡 → Google Forms)
+- "불가능합니다" 만 말하고 끝내기
+- 단순한 도구 교체 제안
+
+✅ **올바른 접근**:
+- "카카오톡을 그대로 사용하되, X 방식으로 우회하면 비슷한 효과"
+- "인스타 DM 자동화는 불가능하지만, Y 방법으로 같은 목표 달성 가능"
+- 사용자의 현재 워크플로우를 최대한 유지하면서 자동화 추가
+
+📋 **분석 대상**:
+사용자 요청: "${userInput}"
+후속 답변: ${JSON.stringify(followupAnswers || {})}
+
+🎯 **분석 항목**:
+1. **mainGoal**: 사용자가 진짜로 달성하고 싶은 목표 (구체적으로)
+2. **currentWorkflow**: 사용자가 현재 사용 중인 플랫폼/도구 (바꾸면 안됨)
+3. **impossibleElements**: 기술적/법적으로 직접 불가능한 요소들
+4. **impossibleReasons**: 각 불가능 요소의 구체적인 이유 (2025년 기준)
+5. **creativeWorkarounds**: 현재 워크플로우 내에서 비슷한 효과를 내는 창의적 우회 방법들
+   - 형식: "구체적 방법 + 왜 비슷한 효과인지 설명"
+   - 예시: "카카오톡 알림톡 → 이메일 전환 설정 + Gmail 자동 응답 (고객은 카카오톡으로 받지만 내부는 자동화)"
+
+🎯 **창의적 우회 예시**:
+- 카카오톡 DM 자동화 (불가능) → 카카오톡 알림 → 이메일 전환 + Gmail 필터 자동화
+- 인스타 DM 감지 (불가능) → 인스타 DM → 특정 이메일 자동전송 + IFTTT 연동
+- 네이버 카페 API (불가능) → RSS 피드 + Google Apps Script 주기적 크롤링
+
+다음 JSON 형식으로 응답하세요:
+{
+  "mainGoal": "사용자의 진짜 목표 (구체적으로)",
+  "currentWorkflow": "현재 사용 중인 플랫폼/도구 (바꾸면 안됨)",
+  "impossibleElements": [
+    {
+      "element": "불가능한 요소",
+      "reason": "왜 불가능한지 (2025년 기준)"
     }
-  }
-  
-  // 인스타그램 관련
-  if (inputLower.includes('인스타그램') || inputLower.includes('instagram')) {
-    impossibleElements.push('인스타그램 DM 자동화');
-    if (mainGoal.includes('고객')) {
-      viableAlternatives.push('웹사이트 문의 폼 설정');
-      viableAlternatives.push('이메일 기반 고객 지원 시스템');
-      viableAlternatives.push('채널톡 또는 크리스프 도입');
-    } else {
-      viableAlternatives.push('이메일 수집 + 자동 처리');
-      viableAlternatives.push('Google Forms + 자동 알림');
+  ],
+  "creativeWorkarounds": [
+    {
+      "method": "구체적인 우회 방법",
+      "effect": "어떻게 비슷한 효과를 내는지",
+      "maintains_workflow": true/false,
+      "difficulty": "쉬움|보통|어려움"
     }
-  }
-  
-  // 네이버 카페 관련
-  if (inputLower.includes('네이버') && inputLower.includes('카페')) {
-    impossibleElements.push('네이버 카페 API 연동');
-    viableAlternatives.push('RSS 피드 모니터링 (공식 피드 활용)');
-    viableAlternatives.push('이메일 알림 설정');
-    viableAlternatives.push('Google Alerts 활용');
-  }
-  
-  // 소셜미디어 일반
-  if (inputLower.includes('페이스북') || inputLower.includes('facebook')) {
-    impossibleElements.push('개인 페이스북 API');
-    viableAlternatives.push('공식 비즈니스 도구 활용');
-    viableAlternatives.push('RSS 피드 기반 모니터링');
-  }
-  
-  // 유튜브 관련 (동적 확장 예시)
-  if (inputLower.includes('유튜브') || inputLower.includes('youtube')) {
-    if (inputLower.includes('댓글') || inputLower.includes('comment')) {
-      impossibleElements.push('유튜브 댓글 실시간 모니터링');
-      viableAlternatives.push('Google Alerts + 브랜드명 모니터링');
-      viableAlternatives.push('수동 댓글 확인 + 자동 알림 설정');
-      viableAlternatives.push('YouTube Data API (제한적) + 수동 검토');
-    } else {
-      impossibleElements.push('유튜브 댓글 자동 응답');
-      if (mainGoal.includes('고객')) {
-        viableAlternatives.push('웹사이트 문의 폼 + 유튜브 커뮤니티 탭 활용');
-        viableAlternatives.push('이메일 기반 고객 지원');
-      } else {
-        viableAlternatives.push('유튜브 RSS 피드 활용 (새 동영상 감지용)');
-        viableAlternatives.push('YouTube Data API (공식) 활용');
-      }
+  ],
+  "fallbackAlternatives": [
+    "최후의 수단으로 다른 도구 사용 (워크플로우 변경 필요)"
+  ]
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: selectedModel, // 🔥 복잡도 기반 동적 모델 선택 (o3-mini or gpt-4o)
+      messages: [
+        {
+          role: 'system',
+          content: `당신은 자동화 전문가입니다. 사용자의 진짜 의도를 파악하고,
+불가능해 보이는 요청도 창의적으로 우회하여 비슷한 효과를 낼 수 있는 방법을 찾습니다.
+중요: 사용자의 현재 워크플로우를 최대한 유지하면서 자동화를 추가하는 방식으로 접근하세요.
+
+특히 중요:
+- 단순히 "다른 도구 사용하세요"가 아닌, 현재 도구를 유지하면서 우회하는 창의적 방법
+- 2025년 현재 실제로 작동하는 방법만 제시
+- 초보자도 30분 내 설정 가능한 난이도
+
+${needsDeepReasoning ? '🧠 깊은 추론 모드: 불가능해 보이는 요청도 창의적으로 우회하는 방법을 단계별로 추론하세요.' : ''}`
+        },
+        { role: 'user', content: analysisPrompt }
+      ],
+      max_tokens: needsDeepReasoning ? 3000 : 2000, // o3-mini는 더 많은 토큰 허용
+      temperature: needsDeepReasoning ? 0.5 : 0.4, // 복잡한 케이스는 더 창의적으로
+      response_format: { type: 'json_object' }
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('AI 목적분석 응답 없음');
     }
+
+    const analysis = JSON.parse(content);
+    console.log(`✅ [AI 목적분석] ${selectedModel} 완료:`, {
+      mainGoal: analysis.mainGoal,
+      impossibleCount: analysis.impossibleElements?.length || 0,
+      workaroundCount: analysis.creativeWorkarounds?.length || 0,
+      usedDeepReasoning: needsDeepReasoning
+    });
+
+    // 🔄 기존 인터페이스와 호환되도록 변환
+    return {
+      mainGoal: analysis.mainGoal || '사용자 목적 자동화',
+      currentWorkflow: analysis.currentWorkflow || '',
+      impossibleElements: (analysis.impossibleElements || []).map((item: any) =>
+        typeof item === 'string' ? item : `${item.element} (${item.reason})`
+      ),
+      viableAlternatives: [
+        // 1순위: 창의적 우회 방법들 (워크플로우 유지)
+        ...(analysis.creativeWorkarounds || [])
+          .filter((w: any) => w.maintains_workflow)
+          .map((w: any) => `${w.method} - ${w.effect}`),
+        // 2순위: 창의적 우회 방법들 (워크플로우 일부 변경)
+        ...(analysis.creativeWorkarounds || [])
+          .filter((w: any) => !w.maintains_workflow)
+          .map((w: any) => `${w.method} - ${w.effect}`),
+        // 3순위: 최후의 수단 (다른 도구)
+        ...(analysis.fallbackAlternatives || [])
+      ].slice(0, 5) // 최대 5개
+    };
+
+  } catch (error) {
+    console.error('❌ [AI 목적분석] 실패:', error);
+
+    // 🛡️ Fallback: 매우 기본적인 분석만 수행
+    return {
+      mainGoal: '반복 업무 자동화',
+      currentWorkflow: '',
+      impossibleElements: ['일부 기능 직접 구현 불가능'],
+      viableAlternatives: [
+        'Google Apps Script + 스프레드시트 자동화',
+        'IFTTT 또는 Zapier 연동',
+        '반자동화 (일부 수동 + 일부 자동)'
+      ]
+    };
   }
-  
-  // 틱톡 관련 (새 플랫폼 추가)
-  if (inputLower.includes('틱톡') || inputLower.includes('tiktok')) {
-    impossibleElements.push('틱톡 댓글/DM 자동화');
-    viableAlternatives.push('Google Alerts + 브랜드 모니터링');
-    viableAlternatives.push('수동 모니터링 + 자동 알림 시스템');
-  }
-  
-  // 링크드인 관련 (B2B 특화)
-  if (inputLower.includes('링크드인') || inputLower.includes('linkedin')) {
-    impossibleElements.push('링크드인 개인 메시지 API');
-    if (mainGoal.includes('고객') || mainGoal.includes('영업')) {
-      viableAlternatives.push('웹사이트 B2B 문의 폼');
-      viableAlternatives.push('이메일 기반 영업 시스템');
-    } else {
-      viableAlternatives.push('링크드인 공식 Sales Navigator');
-      viableAlternatives.push('CRM 직접 연동');
-    }
-  }
-  
-  // 기본 대안이 없다면 목적에 맞는 범용 대안 추가
-  if (viableAlternatives.length === 0) {
-    if (mainGoal.includes('고객')) {
-      viableAlternatives.push('웹사이트 문의 폼 + 이메일 자동화');
-      viableAlternatives.push('Google Forms + Apps Script');
-    } else if (mainGoal.includes('모니터링')) {
-      viableAlternatives.push('RSS 피드 + IFTTT');
-      viableAlternatives.push('Google Alerts + 이메일 필터');
-    } else {
-      viableAlternatives.push('Gmail + Google Sheets 조합');
-      viableAlternatives.push('Zapier/Make.com 활용');
-    }
-  }
-  
-  return {
-    mainGoal,
-    impossibleElements,
-    viableAlternatives
-  };
 }
 
 /**
@@ -806,7 +1524,7 @@ async function performClaudeStyleValidation(
 - 일반적인 개발 제약사항과 보안 원칙  
 - 법적/윤리적 프레임워크
 
-🔍 **Tavily 최신 정보 (2024-2025 - 정책 변경 감지):**
+🔍 **GPT-4o 최신 정보 (2024-2025 - 정책 변경 감지):**
 - API 정책 변경사항 (특히 2023년 이후)
 - 새로운 제약사항이나 요구사항
 - 서비스 중단/변경 공지사항
@@ -1073,7 +1791,7 @@ async function generateSmartAlternatives(
     
     console.log(`🔍 [피어 서치] ${peerTools.length}개 도구 발견: ${peerTools.slice(0, 3).join(', ')}`);
     
-    // 🔎 2단계: Tavily RAG 폴백 검색 (피어 서치가 부족한 경우)
+    // 🔎 2단계: GPT-4o RAG 폴백 검색 (피어 서치가 부족한 경우)
     const { searchWithRAG } = await import('../services/rag');
     const ragResults = await searchWithRAG(`"${method.tool}" alternative tools 2025 realistic legal free options korean`, { maxResults: 3 });
     const ragContent = ragResults.map(r => `${r.title}: ${r.content.substring(0, 200)}`).join('\n');
@@ -1582,22 +2300,6 @@ async function generateTargetedRAGContext(
 }
 
 /**
- * 📊 2025년 기준 도구별 현재 상태 (알려진 정보)
- */
-function getCurrentToolStatus(tool: string): string {
-  const statusMap: Record<string, string> = {
-    'Google Apps Script': '2025년 정상 작동 중 - 새로운 V8 런타임 적용',
-    'Zapier': '2025년 정상 작동 중 - AI 기능 대폭 강화',
-    'Make.com': '2025년 정상 작동 중 - Integromat에서 완전 전환',
-    'Slack': '2025년 정상 작동 중 - 새로운 Workflow Builder 적용',
-    'Microsoft Power Automate': '2025년 정상 작동 중 - Copilot 통합',
-    'Gmail': '2025년 정상 작동 중 - Gmail API v1 유지'
-  };
-  
-  return statusMap[tool] || '2025년 상태 확인 필요';
-}
-
-/**
  * 📋 검증 결과 요약 생성
  */
 function generateValidationSummary(
@@ -1640,7 +2342,11 @@ function generateValidationSummary(
  * - 문제가 있는 단계는 현실적 대안으로 수정
  * - 검증된 플로우를 Step C로 전달
  */
-async function executeStepB(
+/**
+ * 🗑️ LEGACY: Step B (기존 플로우 검증)
+ * executeStepAB로 통합됨 - 삭제 예정
+ */
+async function executeStepB_LEGACY(
   flow: {steps: string[], title: string, subtitle: string},
   userInput: string,
   feasibilityAnalysis: any
@@ -1666,9 +2372,19 @@ async function executeStepB(
     const proposedMethods = extractProposedMethodsFromFlow(flow);
     console.log(`🎯 [Step B] 추출된 방법: ${proposedMethods.map(m => m.tool + ':' + m.action.substring(0, 30)).join(', ')}`);
 
-    // 2. 🔍 각 단계의 2025년 현재 실제 작동 여부 검증
+    // 🔧 중복 도구 제거 (같은 도구를 여러 번 검증하지 않음)
+    const uniqueTools = new Map<string, typeof proposedMethods[0]>();
+    proposedMethods.forEach(method => {
+      if (!uniqueTools.has(method.tool)) {
+        uniqueTools.set(method.tool, method);
+      }
+    });
+    const uniqueMethods = Array.from(uniqueTools.values());
+    console.log(`🔧 [Step B] 중복 제거: ${proposedMethods.length}개 → ${uniqueMethods.length}개 (${proposedMethods.length - uniqueMethods.length}개 중복 제거)`);
+
+    // 2. 🔍 각 단계의 2025년 현재 실제 작동 여부 검증 (유니크한 도구만)
     const methodValidationResults = await Promise.all(
-      proposedMethods.map(method => validateMethodCurrentStatus(method, userInput))
+      uniqueMethods.map(method => validateMethodCurrentStatus(method, userInput))
     );
 
     // 3. 🚨 문제 발견된 단계들에 대한 즉시 대안 탐색
@@ -1993,236 +2709,69 @@ function createFallbackCards(verifiedFlow: any): any[] {
 }
 
 /**
- * Step C: 검증된 플로우 기반 상세 가이드 생성 (논리적 구조)
- * - Step B에서 검증된 플로우를 받아서
- * - 각 단계별로 상세한 실행 가이드 생성
- * - 초보자도 따라할 수 있는 구체적 방법 제시
+ * 🧮 솔루션 복잡도 계산 (Step C 전략 선택용)
+ * 복잡도 점수 0.0 ~ 1.0 반환
  */
-async function executeStepC(
+function calculateSolutionComplexity(
   verifiedFlow: {steps: string[], title: string, subtitle: string},
-  userInput: string,
-  followupAnswers: any,
   ragMetadata: any,
-  feasibilityAnalysis: any
-): Promise<{
-  cards: any[];
-  tokens: number;
-  latency: number;
-  model: string;
-  wowMetadata: any;
-}> {
-  const startTime = Date.now();
-  console.log('🎨 [Step C] 검증된 플로우 기반 가이드 생성 시작...');
-  console.log(`📋 [Step C] 플로우: ${verifiedFlow.title} (${verifiedFlow.steps.length}개 단계)`);
-  
-  try {
-    // Blueprint 읽기
-    const blueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
-    
-    // 검증된 플로우 기반 가이드 생성 프롬프트
-    const systemPrompt = `${blueprint}
+  feasibilityAnalysis: any,
+  userInput: string,
+  followupAnswers: any
+): number {
+  let complexityScore = 0;
+  let factors = 0;
 
-## 🎯 검증된 플로우 정보:
-제목: ${verifiedFlow.title}
-설명: ${verifiedFlow.subtitle}
-단계 수: ${verifiedFlow.steps.length}개
-
-## 🔍 Step B 검증 결과:
-${ragMetadata.validationSummary || '검증 완료'}
-
-## 📚 RAG 컨텍스트:
-${ragMetadata.targetedRagContext || '관련 정보 없음'}`;
-
-    const userPrompt = `사용자 요청: "${userInput}"
-후속답변: ${JSON.stringify(followupAnswers || {})}
-
-🚨 **현실성 분석 결과 (절대 준수!):**
-✅ 진짜 목적: ${feasibilityAnalysis.mainGoal}
-📊 실행 가능성: ${feasibilityAnalysis.feasibilityScore}/10
-❌ 절대 금지 요소: ${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'}
-🤖 LLM 활용 필수: ${feasibilityAnalysis.llmOpportunities?.join(', ') || '없음'}
-✅ 현실적 대안만: ${feasibilityAnalysis.viableAlternatives?.join(', ') || '기본 자동화'}
-🎯 권장 접근법: ${feasibilityAnalysis.recommendedApproach}
-⚠️ 주의사항: ${feasibilityAnalysis.warnings?.join(', ') || '없음'}
-
-검증된 플로우 단계들:
-${verifiedFlow.steps.map((step, i) => `${i+1}. ${step}`).join('\n')}
-
-🚨 **현실성 강제 적용 규칙**:
-1. 불가능 요소(${feasibilityAnalysis.impossibleElements?.join(', ') || '없음'})는 절대 언급 금지
-2. LLM 활용 기회(${feasibilityAnalysis.llmOpportunities?.join(', ') || '없음'})는 적극 활용
-3. 권장 접근법(${feasibilityAnalysis.recommendedApproach})에 맞는 도구만 사용
-4. 현실적 대안(${feasibilityAnalysis.viableAlternatives?.join(', ') || '기본 자동화'})으로만 구성
-
-위 현실성 분석을 절대적으로 준수하여 초보자도 따라할 수 있는 상세한 실행 가이드를 생성하세요.
-
-🚨🚨🚨 **CRITICAL: 각 단계별 Guide 카드 개별 생성 (필수!)**
-
-JSON 형식으로 응답하세요:
-{
-  "cards": [
-    {
-      "type": "flow",
-      "title": "${verifiedFlow.title}",
-      "steps": [${verifiedFlow.steps.map(step => `"${step}"`).join(', ')}],
-      "id": "flow_main"
-    },
-${verifiedFlow.steps.map((step, i) => `    {
-      "type": "guide",
-      "stepId": "${i + 1}",
-      "title": "${step}",
-      "subtitle": "${step} 상세 실행 방법",
-      "basicConcept": "${step.replace(/^\d+단계:\s*/, '')}가 필요한 이유와 목표",
-      "automationLevel": "반자동",
-      "detailedSteps": [
-        {
-          "number": 1,
-          "title": "${step.replace(/^\d+단계:\s*/, '')} 시작하기",
-          "description": "${step.replace(/^\d+단계:\s*/, '')}를 위한 구체적인 첫 번째 실행 방법 (정확한 사이트 주소, 버튼명, 입력값 포함)",
-          "expectedScreen": "이 작업 후 화면에 나타날 구체적 요소들",
-          "checkpoint": "이 단계가 성공했는지 확인하는 방법"
-        },
-        {
-          "number": 2,
-          "title": "${step.replace(/^\d+단계:\s*/, '')} 완료하기",
-          "description": "앞 작업에서 이어지는 다음 구체적 실행 방법",
-          "expectedScreen": "다음에 나타날 화면 요소들",
-          "checkpoint": "이 단계 완료 확인 방법"
-        }
-      ],
-      "commonMistakes": ["${step.replace(/^\d+단계:\s*/, '')} 시 흔한 실수들"],
-      "practicalTips": ["${step.replace(/^\d+단계:\s*/, '')} 실행 시 유용한 팁들"],
-      "id": "guide_step_${i + 1}"
-    }`).join(',\n')}
-  ]
-}
-
-⚠️ **절대 금지**: "작업을 수행합니다", "공식 문서를 참조하세요" 같은 fallback 내용
-✅ **필수**: 각 단계마다 구체적인 사이트 주소, 버튼명, 입력값까지 명시`;
-
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4.1', // 🔥 최신 모델 복원 - 1M context로 현실성 판단 강화
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 32000, // 🔥 GPT-4.1 최대 출력 토큰 복원 - 완전한 가이드 생성
-      temperature: 0.1, // 🔥 JSON 안정성을 위해 더 낮은 온도  
-      response_format: { type: 'json_object' },
-      // 🛡️ JSON 안정성 강화 설정
-      top_p: 0.8, // 더 집중된 출력
-      frequency_penalty: 0.2, // 반복 방지 강화
-      presence_penalty: 0.1 // 일관성 향상
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Step C 응답이 비어있습니다');
-    }
-
-    // 🛡️ JSON 파싱 전 안전성 검사
-    console.log(`📝 [Step C] GPT 응답 길이: ${content.length}자`);
-    console.log(`📝 [Step C] 응답 첫 100자: ${content.substring(0, 100)}`);
-    console.log(`📝 [Step C] 응답 마지막 100자: ${content.substring(content.length - 100)}`);
-    
-    // 🔧 JSON 파싱 및 복구 시도
-    let cards: any[] = [];
-    try {
-      const parsedResult = JSON.parse(content);
-      cards = extractCardsFromParsedResult(parsedResult, verifiedFlow);
-      console.log('✅ [Step C] JSON 파싱 성공');
-    } catch (parseError) {
-      console.error('❌ [Step C] JSON 파싱 실패:', parseError);
-      console.log('🔧 [Step C] JSON 복구 시도...');
-      
-      // JSON 복구 시도 1: 불완전한 JSON 감지 및 수정
-      try {
-        let fixedContent = content.trim();
-        
-        // 강화된 JSON 문제들 수정
-        if (!fixedContent.endsWith('}') && !fixedContent.endsWith(']}')) {
-          console.log('🔧 [JSON 복구] 불완전한 JSON 끝부분 감지');
-          
-          // 다양한 미완성 패턴 처리
-          if (fixedContent.includes('"detailedSteps":[') && !fixedContent.includes(']}')) {
-            fixedContent += ']}';
-            console.log('🔧 [JSON 복구] detailedSteps 배열 닫기 시도');
-          } else if (fixedContent.includes('"codeBlocks":[') && !fixedContent.includes(']}')) {
-            fixedContent += ']}';
-            console.log('🔧 [JSON 복구] codeBlocks 배열 닫기 시도');
-          } else if (fixedContent.includes('"practicalTips":[') && !fixedContent.includes(']}')) {
-            fixedContent += ']}';
-            console.log('🔧 [JSON 복구] practicalTips 배열 닫기 시도');
-          } else if (!fixedContent.endsWith('}')) {
-            // 배열 중간에 끊어진 경우 감지
-            const openBraces = (fixedContent.match(/\{/g) || []).length;
-            const closeBraces = (fixedContent.match(/\}/g) || []).length;
-            const missingBraces = openBraces - closeBraces;
-            
-            for (let i = 0; i < missingBraces; i++) {
-              fixedContent += '}';
-            }
-            console.log(`🔧 [JSON 복구] ${missingBraces}개 객체 닫기 시도`);
-          }
-        }
-        
-        // 마지막 콤마 제거
-        fixedContent = fixedContent.replace(/,(\s*[}\]])/g, '$1');
-        
-        const parsedResult = JSON.parse(fixedContent);
-        cards = extractCardsFromParsedResult(parsedResult, verifiedFlow);
-        console.log('✅ [Step C] JSON 복구 성공!');
-        
-      } catch (recoveryError) {
-        console.error('❌ [Step C] JSON 복구 실패:', recoveryError);
-        
-        // 최종 fallback: fallback cards 생성
-        console.log('🔧 [Step C] 최종 fallback cards 생성...');
-        cards = createFallbackCards(verifiedFlow);
-        console.log('✅ [Step C] fallback cards 생성 완료');
-      }
-    }
-    const latency = Date.now() - startTime;
-    const totalTokens = response.usage?.total_tokens || 0;
-
-    console.log(`✅ [Step C] 카드 생성 완료 - ${cards.length}개 카드, ${totalTokens} 토큰, ${latency}ms`);
-    console.log(`🔍 [Step C] 생성된 카드 타입들:`, cards.map(c => c.type));
-
-    return {
-      cards,
-      tokens: totalTokens,
-      latency,
-      model: 'gpt-4o-2024-11-20',
-      wowMetadata: {
-        stepCount: verifiedFlow.steps.length,
-        cardsCount: cards.length,
-        detailLevel: 'comprehensive',
-        userFriendly: true
-      }
-    };
-
-  } catch (error) {
-    console.error('❌ [Step C] 가이드 생성 실패:', error);
-    
-    // 실패 시 기본 cards 생성
-    const fallbackCards = createFallbackCards(verifiedFlow);
-    const latency = Date.now() - startTime;
-    
-    return {
-      cards: fallbackCards,
-      tokens: 0,
-      latency,
-      model: 'fallback-cards',
-      wowMetadata: {
-        stepCount: verifiedFlow.steps.length,
-        cardsCount: fallbackCards.length,
-        detailLevel: 'basic',
-        userFriendly: false
-      }
-    };
+  // 1️⃣ 단계 수 복잡도 (0.0 ~ 0.3)
+  const stepCount = verifiedFlow.steps.length;
+  if (stepCount <= 3) {
+    complexityScore += 0.0;  // 간단
+  } else if (stepCount <= 5) {
+    complexityScore += 0.15;  // 보통
+  } else {
+    complexityScore += 0.3;   // 복잡
   }
-}
+  factors++;
 
+  // 2️⃣ 불가능한 요소 복잡도 (0.0 ~ 0.25)
+  const impossibleCount = feasibilityAnalysis.impossibleElements?.length || 0;
+  if (impossibleCount > 0) {
+    complexityScore += Math.min(impossibleCount * 0.1, 0.25);  // 대안 찾기 어려움
+  }
+  factors++;
+
+  // 3️⃣ RAG 검증 복잡도 (0.0 ~ 0.2)
+  const ragIssues = ragMetadata.methodValidation?.problematicMethods || 0;
+  if (ragIssues > 0) {
+    complexityScore += Math.min(ragIssues * 0.1, 0.2);  // 검증 실패 많음 = 복잡
+  }
+  factors++;
+
+  // 4️⃣ 사용자 요청 길이 복잡도 (0.0 ~ 0.15)
+  const requestLength = userInput.length + JSON.stringify(followupAnswers || {}).length;
+  if (requestLength > 500) {
+    complexityScore += 0.15;  // 상세한 요구사항
+  } else if (requestLength > 200) {
+    complexityScore += 0.075;  // 보통
+  }
+  factors++;
+
+  // 5️⃣ RAG 참조 자료 복잡도 (0.0 ~ 0.1)
+  const ragContextLength = ragMetadata.ragContext?.length || 0;
+  if (ragContextLength > 3000) {
+    complexityScore += 0.1;  // 많은 참조 자료 = 상세 가이드 필요
+  } else if (ragContextLength > 1000) {
+    complexityScore += 0.05;
+  }
+  factors++;
+
+  // 정규화 (최대 1.0)
+  const normalizedScore = Math.min(complexityScore, 1.0);
+
+  console.log(`🧮 [복잡도 계산] 점수: ${(normalizedScore * 100).toFixed(1)}% (단계:${stepCount}, 불가능:${impossibleCount}, RAG이슈:${ragIssues})`);
+
+  return normalizedScore;
+}
 /**
  * 🛡️ Fallback 가이드 생성 (Step C 실패 시)
  */
@@ -2274,69 +2823,59 @@ export async function generate3StepAutomation(
     console.log(`📝 [3-Step] 사용자 입력: ${userInput}`);
     console.log(`📋 [3-Step] 후속 답변: ${JSON.stringify(followupAnswers)}`);
 
-    // 🧠 Step 0: 동적 인텐트 분석 (서버용으로 수정 완료!)
-    console.log('🧠 [Intent] 사용자 의도 분석 시작...');
-    const intentAnalysis = await analyzeUserIntent(userInput, followupAnswers);
-    console.log('🎯 [Intent] 분석 완료:', intentAnalysis);
+    // 🗑️ Phase 1: 레거시 Step 0 (인텐트 분석, 위험 패턴 감지) 제거
+    // - analyzeUserIntent, generateContextualCreativity, generateDynamicTemplate 미사용
+    // - quickDangerCheck 미사용
 
-    // 🎨 맞춤형 창의적 솔루션 생성
-    const contextualCreativity = generateContextualCreativity(
-      userInput,
-      followupAnswers,
-      intentAnalysis
-    );
-    console.log('💡 [Creativity] 맞춤형 창의성 생성:', contextualCreativity);
-
-    // 동적 템플릿 생성
-    const dynamicTemplate = generateDynamicTemplate(intentAnalysis);
-    console.log('🎨 [Template] 동적 템플릿 생성 완료');
-
-    // 🛡️ 조기 위험 패턴 감지
-    console.log('🛡️ [조기 감지] 위험 패턴 체크 시작...');
-    const dangerCheck = quickDangerCheck(userInput);
-    if (dangerCheck.hasDanger) {
-      console.warn(`⚠️ [조기 감지] ${dangerCheck.warnings.length}개 위험 패턴 발견:`);
-      dangerCheck.warnings.forEach(warning => console.warn(`  - ${warning}`));
-      console.log('💡 [조기 감지] 권장 대안:');
-      dangerCheck.quickAlternatives.forEach(alt => console.log(`  - ${alt}`));
-    }
-
-    // 🚀 Step A: 빠른 플로우 생성 (논리적 구조)
-    console.log('🚀 [Step A] 빠른 플로우 생성 시작...');
-    const stepAResult = await executeStepA(userInput, followupAnswers, intentAnalysis);
-    metrics.stagesCompleted.push('A-flow');
-    metrics.modelsUsed.push(stepAResult.model);
-    metrics.totalTokens += stepAResult.tokens;
+    // 🆕 Step AB: RAG 기반 최적 플로우 생성 (Step A + B 통합)
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🔍 [PROGRESS] Step AB 시작: RAG로 최신 도구 조사 + 플로우 생성 중...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    const stepABResult = await executeStepAB(userInput, followupAnswers);
+    metrics.stagesCompleted.push('AB-research-and-flow');
+    metrics.modelsUsed.push(stepABResult.model);
+    metrics.totalTokens += stepABResult.tokens;
+    metrics.ragSearches = stepABResult.ragMetadata.ragSearches || 0;
+    metrics.ragSources = stepABResult.ragMetadata.ragSources || 0;
     metrics.costBreakdown.stepA = {
-      tokens: stepAResult.tokens,
-      model: stepAResult.model,
-      cost: calculateCost(stepAResult.tokens, stepAResult.model),
+      tokens: stepABResult.tokens,
+      model: stepABResult.model,
+      cost: calculateCost(stepABResult.tokens, stepABResult.model),
     };
-    console.log(`✅ [Step A] 플로우 생성 완료: ${stepAResult.flow.title} (${stepAResult.flow.steps.length}개 단계)`);
-
-    // 🔍 Step B: 플로우 검증 및 수정 (논리적 구조)
-    console.log('🔍 [Step B] 플로우 검증 및 수정 시작...');
-    const stepBResult = await executeStepB(stepAResult.flow, userInput, stepAResult.feasibilityAnalysis);
-    metrics.stagesCompleted.push('B-verification');
-    metrics.totalTokens += stepBResult.tokens;
-    metrics.ragSearches = stepBResult.ragMetadata.ragSearches || 0;
-    metrics.ragSources = stepBResult.ragMetadata.ragSources || 0;
-    metrics.urlsVerified = stepBResult.ragMetadata.urlsVerified || 0;
     metrics.costBreakdown.stepB = {
-      tokens: stepBResult.tokens,
+      tokens: 0, // Step AB에 통합됨
       ragCalls: metrics.ragSearches,
-      cost: calculateCost(stepBResult.tokens, stepBResult.model) + metrics.ragSearches * 0.001,
+      cost: metrics.ragSearches * 0.001,
     };
-    console.log(`✅ [Step B] 플로우 검증 완료: ${stepBResult.verifiedFlow.steps.length}개 검증된 단계`);
+    console.log(`✅ [Step AB] 플로우 생성 완료: ${stepABResult.flow.title} (${stepABResult.flow.steps.length}개 단계)`);
+    console.log(`🎯 [Step AB] 선택된 도구: ${stepABResult.selectedTool}`);
+    console.log(`📊 [Step AB] 선택 이유: ${stepABResult.reasoning}`);
 
-    // 🎨 Step C: 검증된 플로우 기반 가이드 생성 (논리적 구조)
-    console.log('🎨 [Step C] 상세 가이드 생성 시작...');
-    const stepCResult = await executeStepC(
-      stepBResult.verifiedFlow,
+    // 🧮 Step C 전략 선택: 복잡도 계산 (메트릭용)
+    const complexity = calculateSolutionComplexity(
+      stepABResult.flow,
+      stepABResult.ragMetadata,
+      {}, // feasibilityAnalysis는 executeStepAB 내부에서 처리
+      userInput,
+      followupAnswers
+    );
+
+    // 🎨 Step C: 단순 상세 가이드 작성 (Skeleton 제거)
+    console.log('');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🎨 [PROGRESS] Step C 시작: 상세 실행 가이드 작성 중...');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    // 🆕 Skeleton 제거, Detail만 (gpt-4.1-mini)
+    console.log(`✨ [Step C] Direct Detail 전략 (복잡도: ${(complexity * 100).toFixed(1)}% - 참고용)`);
+    console.log(`🎯 [모델] gpt-4.1-mini (상세 가이드 작성 - Skeleton 불필요, 비용 효율)`);
+
+    const stepCResult = await executeStepC_SimpleDetail(
+      stepABResult.flow, // flow 객체 직접 전달 (Step AB-2에서 생성한 것)
       userInput,
       followupAnswers,
-      stepBResult.ragMetadata,
-      stepAResult.feasibilityAnalysis
+      stepABResult.ragMetadata,
+      overallStartTime  // startTime 전달
     );
     metrics.stagesCompleted.push('C-guide');
     metrics.modelsUsed.push(stepCResult.model);
@@ -2351,51 +2890,10 @@ export async function generate3StepAutomation(
     // 🔍 결과 검증 시스템
     console.log('🔍 [품질 검증] 결과 검증 시작...');
     const validationResult = await validateAutomationResult(stepCResult.cards, userInput, followupAnswers);
-    
-    // 🧠 맥락 기반 실패 패턴 매칭
-    console.log('🧠 [패턴 매칭] 스마트 실패 패턴 분석 시작...');
-    const guideCard = stepCResult.cards?.find(card => card.type === 'guide');
-    const proposedSolution = guideCard ? JSON.stringify(guideCard.detailedSteps) : '';
-    const contextualMatches = await findContextualPatterns(userInput, proposedSolution, followupAnswers);
-    
-    if (contextualMatches.length > 0) {
-      console.warn(`🚨 [패턴 매칭] ${contextualMatches.length}개 위험 패턴 발견:`);
-      contextualMatches.forEach(match => {
-        console.warn(`  - ${match.pattern.id}: ${match.pattern.reason} (매칭도: ${Math.round(match.matchScore * 100)}%)`);
-        console.warn(`    감지 이유: ${match.matchReasons.join(', ')}`);
-        console.warn(`    대안: ${match.pattern.alternatives.slice(0, 2).join(', ')}`);
-      });
-      
-      // 🚀 실시간 학습: 실패 케이스 저장 (치명적이거나 검증 실패 시)
-      const shouldLearn = contextualMatches.length > 0 || !validationResult.isValid;
-      if (shouldLearn) {
-        const { saveFailureCase } = await import('./failure-pattern-storage');
-        try {
-          const savedCaseId = await saveFailureCase(
-            userInput,
-            proposedSolution,
-            contextualMatches,
-            validationResult.qualityScore,
-            contextualMatches.flatMap(m => m.pattern.alternatives).slice(0, 5), // 최대 5개 대안
-            followupAnswers?.domain || 'general'
-          );
-          
-          if (savedCaseId) {
-            console.log(`📚 [실시간 학습] 실패 케이스 저장 완료: ${savedCaseId}`);
-            
-            // 🎯 학습 통계 로깅 (5의 배수 케이스마다)
-            if (Math.random() < 0.2) { // 20% 확률로 통계 출력
-              const { getLearningStats } = await import('./failure-pattern-storage');
-              const stats = await getLearningStats();
-              console.log(`📊 [학습 통계] 총 ${stats.totalCases}건, 동적 패턴 ${stats.patternsLearned}개, 평균 신뢰도 ${Math.round(stats.averageConfidence * 100)}%`);
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ [실시간 학습] 학습 저장 실패:', error);
-        }
-      }
-    }
-    
+
+    // 🗑️ Phase 1: 레거시 패턴 매칭 및 실시간 학습 제거
+    // - findContextualPatterns, saveFailureCase, getLearningStats 미사용
+
     if (!validationResult.isValid) {
       console.warn(`⚠️ [품질 검증] 검증 실패: ${validationResult.issues.join(', ')}`);
       // 검증 실패 시 개선된 결과 생성 시도
@@ -2425,7 +2923,7 @@ export async function generate3StepAutomation(
         type: 'guide',
         title: '📋 상세 실행 가이드',
         subtitle: '단계별 자동화 구현',
-        detailedSteps: stepBResult.verifiedFlow.steps.map((step, index) => ({
+        detailedSteps: stepABResult.flow.steps.map((step: string, index: number) => ({
           title: step,
           description: `${step}에 대한 상세 실행 가이드입니다.`,
           content: '구체적인 실행 방법은 각 도구의 공식 문서를 참조하시기 바랍니다.',
@@ -2446,12 +2944,16 @@ export async function generate3StepAutomation(
       }
     ];
 
+    // 🧪 Phase 1: complexity를 metrics에 추가 (데이터 수집용)
+    (metrics as any).complexity = complexity;
+
     console.log(`✅ [3-Step] 논리적 구조 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.totalLatencyMs}ms`);
-    console.log(`📊 [3-Step] 플로우: ${stepBResult.verifiedFlow.steps.length}개 단계, 카드: ${finalCards.length}개`);
+    console.log(`📊 [3-Step] 플로우: ${stepABResult.flow.steps.length}개 단계, 카드: ${finalCards.length}개`);
     console.log(`🔍 [3-Step] 생성된 카드 타입들: ${finalCards.map(c => c.type).join(', ')}`);
     console.log(`💰 [3-Step] 총 비용: $${totalCost.toFixed(4)}`);
     console.log(`🎯 [3-Step] 완료된 단계: ${metrics.stagesCompleted.join(' → ')}`);
     console.log(`🤖 [3-Step] 사용된 모델: ${Array.from(new Set(metrics.modelsUsed)).join(', ')}`);
+    console.log(`🧪 [Phase 1] 복잡도: ${(complexity * 100).toFixed(1)}% (데이터 수집)`);
 
     return {
       cards: finalCards,
@@ -2547,8 +3049,222 @@ ${brokenContent.substring(0, 2000)}...
   return getFallbackCards('복구 실패');
 }
 
-// 🔧 2-Pass Step C 전략 (품질 우선)
-async function execute2PassStepC(
+/**
+ * 🆕 Step C: 단순 상세 가이드 생성 (Skeleton 제거)
+ * - Step AB-2에서 이미 플로우 생성 완료
+ * - gpt-4o 한 번만 호출하여 상세 가이드 작성
+ * - Skeleton 단계 불필요 (중복 제거)
+ */
+async function executeStepC_SimpleDetail(
+  flow: { steps: string[]; title: string; subtitle: string },
+  userInput: string,
+  followupAnswers: any,
+  ragMetadata: any,
+  startTime: number
+): Promise<{
+  cards: any[];
+  tokens: number;
+  latency: number;
+  model: string;
+  wowMetadata: any;
+}> {
+  console.log('✨ [Step C] 상세 가이드 생성 시작 (Skeleton 없이 Direct Detail)...');
+
+  try {
+    // 1. 블루프린트 읽기
+    const stepCBlueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
+    console.log('✅ [Step C] 블루프린트 로드 완료');
+
+    // 2. 프롬프트 구성
+    const detailPrompt = `🎯 **사용자 요청**: "${userInput}"
+
+📋 **후속 답변**: ${JSON.stringify(followupAnswers || {}, null, 2)}
+
+🔍 **선택된 도구** (Step AB-2):
+- 도구: ${ragMetadata.selectedTool || '미지정'}
+- 선택 이유: ${ragMetadata.reasoning || '최적 도구 선택'}
+
+📋 **생성된 플로우** (Step AB-2):
+제목: ${flow.title}
+${flow.steps.map((step: string, i: number) => `${i + 1}. ${step}`).join('\n')}
+
+---
+
+${stepCBlueprint}
+
+---
+
+🚨🚨🚨 **매우 중요: 초등학생도 따라할 수 있는 수준의 상세함** 🚨🚨🚨
+
+**임무**: 위 플로우의 각 단계별 **극도로 상세한** 가이드를 작성하세요.
+
+**상세함의 기준**:
+1. 📸 **스크린샷 찍듯이**: "왼쪽 상단에 있는 파란색 '새 프로젝트' 버튼 클릭" 수준
+2. 🧒 **초등학생 이해 수준**: 전문 용어 최소화, 모든 단계를 쪼개서 설명
+3. ✋ **손을 잡고 가듯이**: "이제 마우스를 움직여서...", "여기에 다음 내용을 입력하세요..." 수준
+4. 🎯 **그대로만 하면 완성**: 추가 검색이나 생각 없이 따라만 하면 100% 완성되는 수준
+5. 📝 **복사-붙여넣기 완전한 코드**: 코드는 실행 가능한 완전한 형태로 제공
+
+**각 detailedSteps는**:
+- 최소 7-10개 이상의 매우 세부적인 단계로 구성
+- 각 단계마다 정확한 클릭 위치, 입력값, 예상 화면 명시
+- "확인" 대신 "오른쪽 아래 파란색 '확인' 버튼 클릭" 수준으로 구체화
+- 코드가 필요하면 codeBlocks 배열에 완전한 실행 가능 코드 포함
+- commonMistakes는 최소 5개 이상, practicalTips는 최소 5개 이상
+
+**블루프린트의 예시를 참고하되, 훨씬 더 상세하게 작성하세요!**
+
+**생성할 카드**:
+1. **guide 카드** (각 단계마다 1개씩, 총 ${flow.steps.length}개)
+   - stepId: "1", "2", "3", ... (문자열)
+   - detailedSteps: 해당 단계의 구체적 실행 방법 (3-5개 하위 단계)
+   - commonMistakes: 자주 하는 실수 2-3개
+   - tips: 실용적인 팁 2-3개
+
+2. **faq 카드** (1개)
+   - 실전 궁금증 3-4개 (도구 설명 X, 실제 사용 팁 O)
+
+3. **needs_analysis 카드** (1개)
+   - surfaceRequest: 사용자 표면 요청
+   - realNeed: 진짜 니즈
+   - recommendedLevel: 자동화 수준
+
+**출력 형식** (JSON):
+{
+  "cards": [
+    {
+      "type": "guide",
+      "stepId": "1",
+      "title": "${flow.steps[0]?.substring(0, 50) || '1단계'}",
+      "subtitle": "상세 실행 가이드",
+      "detailedSteps": [
+        {
+          "number": 1,
+          "title": "구체적 작업",
+          "description": "상세 설명",
+          "expectedScreen": "예상 화면",
+          "checkpoint": "확인 포인트"
+        }
+      ],
+      "commonMistakes": ["실수1", "실수2"],
+      "tips": ["팁1", "팁2"]
+    },
+    ... (${flow.steps.length}개의 guide 카드)
+    {
+      "type": "faq",
+      "title": "❓ 자주 묻는 질문",
+      "items": [
+        {"question": "질문", "answer": "답변"}
+      ]
+    },
+    {
+      "type": "needs_analysis",
+      "title": "🎯 자동화 분석",
+      "surfaceRequest": "${userInput}",
+      "realNeed": "실제 니즈 분석",
+      "recommendedLevel": "자동화 수준"
+    }
+  ]
+}
+
+**중요**:
+- guide 카드는 정확히 ${flow.steps.length}개 생성
+- 각 guide의 stepId는 "1", "2", "3", ... (숫자 아님, 문자열!)
+- FAQ는 도구 설명이 아닌 실용적 팁`;
+
+    // 3. gpt-4o 한 번만 호출 (더 상세한 가이드를 위해 강력한 모델 사용)
+    console.log('🎨 [Step C] gpt-4o로 상세 가이드 생성 중...');
+    const detailResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-2024-11-20', // 🎯 더 상세하고 고품질의 가이드 생성을 위해 강력한 모델 사용
+      messages: [
+        { role: 'system', content: '당신은 초보자도 따라할 수 있는 상세 가이드를 작성하는 전문가입니다. 초등학생도 이해할 수 있는 수준으로, 스크린샷을 찍듯이 하나하나 설명하고, 그대로만 하면 완성될 수 있도록 매우 상세하게 작성하세요.' },
+        { role: 'user', content: detailPrompt },
+      ],
+      max_tokens: 12000, // 🔥 매우 상세한 가이드를 위해 토큰 대폭 증가 (4000 → 12000)
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    });
+
+    const detailContent = detailResponse.choices[0]?.message?.content;
+    if (!detailContent) {
+      throw new Error('gpt-4o 응답이 비어있습니다');
+    }
+
+    const detailData = JSON.parse(detailContent);
+    const detailTokens = detailResponse.usage?.total_tokens || 0;
+    const latency = Date.now() - startTime;
+
+    console.log(`✅ [Step C] 상세 가이드 생성 완료 - ${detailData.cards?.length || 0}개 카드, ${detailTokens} 토큰, ${latency}ms`);
+
+    // Flow 카드 추가 (프론트엔드용)
+    const finalCards = [
+      {
+        type: 'flow',
+        title: flow.title,
+        subtitle: flow.subtitle,
+        steps: flow.steps,
+        id: `flow_${Date.now()}`,
+        status: 'completed',
+      },
+      ...(detailData.cards || []),
+    ];
+
+    return {
+      cards: finalCards,
+      tokens: detailTokens,
+      latency,
+      model: 'gpt-4o-2024-11-20',
+      wowMetadata: {
+        strategy: 'simple-detail',
+        selectedTool: ragMetadata.selectedTool,
+        reasoning: ragMetadata.reasoning,
+      },
+    };
+  } catch (error) {
+    console.error('❌ [Step C] 상세 가이드 생성 실패:', error);
+
+    // Fallback: 기본 가이드 생성
+    const fallbackCards = [
+      {
+        type: 'flow',
+        title: flow.title,
+        subtitle: flow.subtitle,
+        steps: flow.steps,
+        id: `flow_${Date.now()}`,
+      },
+      {
+        type: 'guide',
+        stepId: "1",
+        title: flow.steps[0] || '1단계',
+        subtitle: '기본 가이드',
+        detailedSteps: [
+          {
+            number: 1,
+            title: flow.steps[0] || '작업 수행',
+            description: '단계별로 진행하세요.',
+            expectedScreen: '작업 화면',
+            checkpoint: '완료 확인',
+          },
+        ],
+        id: `guide_${Date.now()}`,
+      },
+    ];
+
+    const latency = Date.now() - startTime;
+
+    return {
+      cards: fallbackCards,
+      tokens: 0,
+      latency,
+      model: 'fallback',
+      wowMetadata: { strategy: 'fallback', error: String(error) },
+    };
+  }
+}
+
+// 🔧 🗑️ LEGACY: 2-Pass Step C 전략 (Skeleton + Detail)
+// executeStepC_SimpleDetail로 대체됨 - 삭제 예정
+async function execute2PassStepC_LEGACY(
   verifiedCards: any[],
   userInput: string,
   followupAnswers: any,
@@ -2604,26 +3320,46 @@ async function execute2PassStepC(
 - Drive API, Webhook, 트리거 등 구체적 기능명
 - 현재 요청에서 언급된 구글 드라이브, 계약서, 요약, 슬랙 키워드 활용
 
+🚨🚨🚨 **CRITICAL: Flow-Guide 완전 매핑 규칙 (절대 필수!)**
+IF (flow.steps.length == N) THEN generate EXACTLY N guide cards with stepId="1", "2", ..., "N"
+
+예시: Flow에 4단계 → 반드시 4개 guide 카드 (stepId: "1", "2", "3", "4")
+예시: Flow에 5단계 → 반드시 5개 guide 카드 (stepId: "1", "2", "3", "4", "5")
+
 🚨 **Skeleton JSON 필수 형식**:
 
 {
   "cards": [
     {
-      "type": "flow", 
+      "type": "flow",
       "title": "🚀 자동화 플로우",
       "steps": [
-        "여기에 실제 요청에 맞는 구체적 단계 배열을 반드시 작성"
+        "1단계: [실제 도구명] [구체적 작업]",
+        "2단계: [실제 도구명] [구체적 작업]",
+        "3단계: [실제 도구명] [구체적 작업]"
       ],
       "contentId": "flow_1",
       "status": "skeleton"
     },
     {
-      "type": "guide", 
-      "title": "📋 상세 실행 가이드",
-      "steps": [
-        "Flow와 동일한 단계 배열 작성"
-      ],
-      "contentId": "guide_1", 
+      "type": "guide",
+      "stepId": "1",
+      "title": "1단계 상세 가이드",
+      "contentId": "guide_1",
+      "status": "skeleton"
+    },
+    {
+      "type": "guide",
+      "stepId": "2",
+      "title": "2단계 상세 가이드",
+      "contentId": "guide_2",
+      "status": "skeleton"
+    },
+    {
+      "type": "guide",
+      "stepId": "3",
+      "title": "3단계 상세 가이드",
+      "contentId": "guide_3",
       "status": "skeleton"
     },
     {
@@ -2635,21 +3371,25 @@ async function execute2PassStepC(
     {
       "type": "faq",
       "title": "❓ 자주 묻는 질문",
-      "contentId": "faq_1", 
+      "contentId": "faq_1",
       "status": "skeleton"
     }
   ]
-}`;
+}
+
+⚠️ **중요**: 위 예시는 3단계 Flow입니다. 실제로 생성하는 Flow 단계 수에 맞춰 정확히 그 개수만큼 guide 카드를 생성하세요!`;
 
   const skeletonResponse = await openai.chat.completions.create({
-    model: 'gpt-4o', // 🚨 Skeleton도 4o로! mini가 지시를 제대로 안 따름
+    model: 'o1-mini', // 🧪 Phase 1: 추론 모델로 플로우 설계 품질 향상
     messages: [
-      { role: 'system', content: '자동화 레시피 설계 전문가입니다. 사용자의 요청을 분석하여 실제 완성 가능한 구체적 단계들을 설계하세요. Flow와 Guide 카드의 steps 배열에는 "1단계: [도구명] [구체적 작업]" 형식으로 실제 도구명과 구체적 작업이 포함된 단계를 반드시 작성하세요. 추상적 제목(도구 설정, 자동화 설정 등) 절대 금지!' },
-      { role: 'user', content: skeletonPrompt },
+      { role: 'user', content: `당신은 자동화 레시피 설계 전문가입니다. 사용자의 요청을 분석하여 실제 완성 가능한 구체적 단계들을 설계하세요.
+
+Flow와 Guide 카드의 steps 배열에는 "1단계: [도구명] [구체적 작업]" 형식으로 실제 도구명과 구체적 작업이 포함된 단계를 반드시 작성하세요. 추상적 제목(도구 설정, 자동화 설정 등) 절대 금지!
+
+${skeletonPrompt}` },
     ],
-    max_tokens: 1200, // 🚨 토큰 증가: 구체적인 단계 생성 필요
-    temperature: 0.1, // 🚨 더 결정적으로
-    response_format: { type: 'json_object' },
+    max_completion_tokens: 2500, // 🔥 o1-mini는 max_completion_tokens 사용 (max_tokens 아님!)
+    // 🚨 o1-mini는 temperature, response_format 지원 안 함
   });
 
   const skeletonContent = skeletonResponse.choices[0]?.message?.content;
@@ -2701,19 +3441,59 @@ async function execute2PassStepC(
     guideCard.steps = finalSteps; // 🎯 핵심: Guide도 동일한 steps 보유
     console.log(`✅ [동기화] Guide 카드에 ${finalSteps.length}개 단계 동기화 완료`);
   }
-  
+
+  // 🚨 4️⃣ Guide 카드들에 stepId 강제 추가 (GPT가 빼먹는 경우 대비)
+  let stepIdCounter = 1;
+  skeletonCards.forEach((card, idx) => {
+    if (card.type === 'guide') {
+      if (!card.stepId) {
+        card.stepId = stepIdCounter.toString();
+        console.log(`🔧 [stepId 보정] Guide 카드 ${idx + 1}에 stepId="${stepIdCounter}" 추가`);
+      }
+      stepIdCounter++;
+    }
+  });
+
   console.log(`✅ [Step C-1] Skeleton 완료 - ${skeletonCards.length}개 카드`);
 
   // 2️⃣ Pass 2: 각 카드별 상세 내용 생성 (품질 우선, 제한 없음)
   console.log('🎨 [Step C-2] Pass 2: 상세 내용 생성...');
-  
+
   // 🚨 Blueprint 로드 (근본 해결!)
   const blueprint = await BlueprintReader.read('orchestrator/step_c_wow.md');
-  
-  const enrichedCards = [];
-  let totalPass2Tokens = 0;
 
-  for (const skeletonCard of skeletonCards) {
+  // 🎯 순차 카드 생성 함수 (맥락 연결)
+  async function enrichCardWithDetails(skeletonCard: any, previousSteps: any[] = []) {
+    // 🔗 이전 단계들의 구체적 내용 추출 (맥락 연결)
+    const previousContext = previousSteps.length > 0
+      ? `\n\n📋 **이전 단계들의 구체적 결과** (반드시 참조!):\n${previousSteps.map((step, idx) => {
+          const stepNum = idx + 1;
+          const stepTitle = step.title || `${stepNum}단계`;
+
+          // 🎯 이전 단계의 전체 상세 내용을 그대로 전달 (GPT가 맥락 파악)
+          let stepFullContent = '';
+
+          if (step.detailedSteps && Array.isArray(step.detailedSteps)) {
+            stepFullContent = step.detailedSteps.map((d: any, i: number) => {
+              const parts = [];
+              parts.push(`  ${i + 1}) ${d.title || d.stepTitle || '제목 없음'}`);
+              if (d.description) parts.push(`     내용: ${d.description}`);
+              if (d.expectedScreen) parts.push(`     결과: ${d.expectedScreen}`);
+              if (d.checkpoint) parts.push(`     확인: ${d.checkpoint}`);
+              return parts.join('\n');
+            }).join('\n\n');
+          } else if (step.description) {
+            stepFullContent = `  ${step.description}`;
+          } else {
+            stepFullContent = '  (상세 내용 없음)';
+          }
+
+          return `[${stepNum}단계] ${stepTitle}\n${stepFullContent}`;
+        }).join('\n\n')}\n\n⚠️ **중요**: 위 이전 단계들에서 생성/설정된 모든 구체적인 값들(이름, URL, 설정값, 구조 등)을 정확히 참조하여 이어지는 가이드를 작성하세요!
+예: 이전 단계에서 "매출분석_2025" 파일을 만들었다면, 이번 단계에서도 정확히 "매출분석_2025"를 참조
+예: 이전 단계에서 "Zapier 워크플로우: 주문알림봇"을 만들었다면, 이번 단계에서도 정확히 "주문알림봇" 워크플로우를 참조`
+      : '';
+
     const detailPrompt = `${blueprint}
 
 === 현재 작업 ===
@@ -2728,36 +3508,57 @@ async function execute2PassStepC(
 - 단 하나의 최적 솔루션만 제시
 - 선택한 도구로 처음부터 끝까지 일관된 가이드 (적절한 단계 수로)
 
-🎯 **Pass 1에서 확정된 단계들**: 
+🎯 **Pass 1에서 확정된 단계들**:
 ${skeletonCard.steps ? skeletonCard.steps.map((step: any, i: number) => `${i+1}. ${step}`).join('\n') : '단계 정보 없음'}
 
-⚠️ **중요**: 위 단계들과 100% 일치하는 솔루션으로만 상세 내용을 생성하세요!
+⚠️ **중요**: 위 단계들과 100% 일치하는 솔루션으로만 상세 내용을 생성하세요!${previousContext}
 
 ${skeletonCard.type === 'guide' ? `
 🎯 **GUIDE 카드 JSON 응답 형식 (필수 준수!):**
 
-현재 작업: "${userInput}"
+${skeletonCard.stepId ? `
+⚠️ 이 가이드는 stepId="${skeletonCard.stepId}"인 단일 단계 가이드입니다.
+전체 플로우가 아닌, 이 단계에 대한 상세 설명만 작성하세요.
 
 다음 JSON 형식으로만 응답하세요:
+{
+  "basicConcept": "이 단계가 필요한 이유와 목표를 간단히 설명",
+  "automationLevel": "자동/반자동/수동",
+  "detailedSteps": [
+    {
+      "number": 1,
+      "title": "${skeletonCard.title} 시작하기",
+      "description": "이 단계를 수행하기 위한 구체적인 첫 번째 작업 (정확한 사이트 주소, 버튼명, 입력값 포함)",
+      "expectedScreen": "이 작업 후 화면에 나타날 구체적 요소들",
+      "checkpoint": "이 단계가 성공했는지 확인하는 방법"
+    },
+    {
+      "number": 2,
+      "title": "${skeletonCard.title} 완료하기",
+      "description": "앞 작업에서 이어지는 다음 구체적 실행 방법",
+      "expectedScreen": "다음에 나타날 화면 요소들",
+      "checkpoint": "이 단계 완료 확인 방법"
+    }
+  ],
+  "commonMistakes": ["이 단계에서 흔히 발생하는 실수들"],
+  "practicalTips": ["이 단계 실행 시 유용한 팁들"]
+}
+` : `
+⚠️ 이 가이드는 전체 플로우 가이드입니다 (stepId 없음).
 
+다음 JSON 형식으로만 응답하세요:
 {
   "detailedSteps": [
     {
       "number": 1,
       "title": "1단계: [구체적 도구명] [구체적 작업명]",
-      "description": "이 단계에서 수행할 구체적인 작업 내용을 상세히 설명합니다. 초보자도 따라할 수 있도록 단계별로 설명하세요.",
+      "description": "이 단계에서 수행할 구체적인 작업 내용을 상세히 설명합니다.",
       "expectedScreen": "이 단계 완료 후 사용자가 확인할 수 있는 구체적인 화면이나 결과물",
       "checkpoint": "이 단계가 정상적으로 완료되었는지 확인하는 방법"
-    },
-    {
-      "number": 2,
-      "title": "2단계: [구체적 도구명] [구체적 작업명]",
-      "description": "구체적인 설명...",
-      "expectedScreen": "구체적인 결과 화면...",
-      "checkpoint": "구체적인 확인 방법..."
     }
   ]
 }
+`}
 
 ⚠️ 절대 금지: "도구 설정", "자동화 설정" 같은 추상적 제목
 ⚠️ 필수: 실제 도구명과 구체적 작업명 포함
@@ -2765,7 +3566,7 @@ ${skeletonCard.type === 'guide' ? `
 ` : `
 🎯 **${optimalTools[0] || 'Google Apps Script'}를 사용한 완전한 단일 솔루션** 생성:
 - 1단계: 계정 생성/준비
-- 2단계: API/연결 설정  
+- 2단계: API/연결 설정
 - 3단계: 코드 작성/배포
 - 4단계: 테스트 및 검증
 - 5단계: 자동화 활성화
@@ -2774,9 +3575,9 @@ ${skeletonCard.type === 'guide' ? `
 초보자도 따라할 수 있는 완벽한 품질로 작성하세요.`;
 
     const detailResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-2024-11-20', // 품질 우선
+      model: 'gpt-4.1-mini', // 🧪 Phase 1: 비용 효율 + 고성능 (gpt-4.1의 1/5 가격, ~99% 성능)
       messages: [
-        { role: 'system', content: skeletonCard.type === 'guide' 
+        { role: 'system', content: skeletonCard.type === 'guide'
           ? `당신은 실행 가이드 전문가입니다. 반드시 JSON 형식으로만 응답하세요.
 
 다음 JSON 형식을 정확히 따라 응답하세요:
@@ -2801,13 +3602,13 @@ ${skeletonCard.type === 'guide' ? `
           : `${skeletonCard.type} 카드 전문가입니다. 초보자도 따라할 수 있는 완벽한 가이드를 작성하세요.` },
         { role: 'user', content: detailPrompt },
       ],
-              max_tokens: skeletonCard.type === 'guide' ? 8000 : 4000, // 🔥 토큰 대폭 증가: Guide 8K, 기타 4K
+      max_tokens: skeletonCard.type === 'guide' ? 8000 : 4000, // 🔥 토큰 대폭 증가: Guide 8K, 기타 4K
       temperature: 0.4,
       ...(skeletonCard.type === 'guide' ? { response_format: { type: 'json_object' } } : {}),
     });
 
     const detailContent = detailResponse.choices[0]?.message?.content;
-    totalPass2Tokens += detailResponse.usage?.total_tokens || 0;
+    const tokens = detailResponse.usage?.total_tokens || 0;
 
     // 카드에 상세 내용 추가
     const enrichedCard = {
@@ -2819,14 +3620,14 @@ ${skeletonCard.type === 'guide' ? `
     // 카드 타입별 특별 처리 (패턴 매칭 한계 인정 → JSON 응답 강제)
     if (skeletonCard.type === 'guide' && detailContent) {
       enrichedCard.codeBlocks = extractCodeBlocks(detailContent);
-      
+
       // 🎯 GPT가 생성한 실제 상세 내용을 우선 사용
       console.log(`🔍 [Guide Content] GPT 생성 내용 길이: ${detailContent?.length || 0}자`);
-      
+
       if (detailContent && detailContent.length > 1000) {
         // GPT가 실제로 상세 내용을 생성했으면 이를 파싱해서 사용
         console.log('🎯 [Guide 처리] GPT 생성 상세 내용 파싱 시도');
-        
+
         // 🎯 JSON 응답 우선 시도
         try {
           const jsonMatch = detailContent.match(/\{[\s\S]*"detailedSteps"[\s\S]*\}/);
@@ -2835,6 +3636,16 @@ ${skeletonCard.type === 'guide' ? `
             const jsonContent = JSON.parse(jsonMatch[0]);
             if (jsonContent.detailedSteps && Array.isArray(jsonContent.detailedSteps)) {
               enrichedCard.detailedSteps = jsonContent.detailedSteps;
+
+              // stepId가 있는 가이드의 경우 추가 필드도 추출
+              if (skeletonCard.stepId) {
+                if (jsonContent.basicConcept) enrichedCard.basicConcept = jsonContent.basicConcept;
+                if (jsonContent.automationLevel) enrichedCard.automationLevel = jsonContent.automationLevel;
+                if (jsonContent.commonMistakes) enrichedCard.commonMistakes = jsonContent.commonMistakes;
+                if (jsonContent.practicalTips) enrichedCard.practicalTips = jsonContent.practicalTips;
+                console.log(`✅ [JSON 파싱] stepId="${skeletonCard.stepId}" 가이드에서 추가 필드 추출 완료`);
+              }
+
               console.log(`✅ [JSON 파싱] JSON에서 ${enrichedCard.detailedSteps.length}개 단계 추출 성공`);
             } else {
               throw new Error('detailedSteps 배열이 없음');
@@ -2846,7 +3657,7 @@ ${skeletonCard.type === 'guide' ? `
           console.log('⚠️ [JSON 파싱] 실패 - 마크다운 파싱으로 fallback:', jsonError instanceof Error ? jsonError.message : String(jsonError));
           enrichedCard.detailedSteps = extractDetailedSteps(detailContent);
         }
-        
+
         // JSON 파싱이 실패했을 경우에만 Skeleton 사용
         if (!enrichedCard.detailedSteps || enrichedCard.detailedSteps.length === 0) {
           console.log('⚠️ [Guide 처리] JSON 파싱 실패 - Skeleton 사용');
@@ -2860,7 +3671,7 @@ ${skeletonCard.type === 'guide' ? `
         } else {
           console.log(`✅ [Guide 처리] JSON 파싱 성공 - GPT 생성 ${enrichedCard.detailedSteps.length}개 단계 사용`);
         }
-        
+
         console.log(`✅ [Guide 처리] 최종 ${enrichedCard.detailedSteps.length}개 단계 완성`);
       } else {
         // detailContent가 부족하면 Skeleton 단계 사용
@@ -2884,7 +3695,7 @@ ${skeletonCard.type === 'guide' ? `
       console.log('🔍 [FAQ 처리] detailContent 길이:', detailContent.length);
       enrichedCard.items = extractFAQItems(detailContent);
       console.log('🔍 [FAQ 처리] enrichedCard.items:', enrichedCard.items?.length || 0, '개');
-      
+
       // 🛡️ Safety Net: FAQ 추출 실패 시 skeletonCard.content에서 재시도
       if (!enrichedCard.items || enrichedCard.items.length === 0) {
         console.log('⚠️ [FAQ Safety Net] detailContent에서 추출 실패, skeletonCard.content에서 재시도');
@@ -2895,8 +3706,104 @@ ${skeletonCard.type === 'guide' ? `
       }
     }
 
-    enrichedCards.push(enrichedCard);
+    return { enrichedCard, tokens };
   }
+
+  // 🔄 순차적으로 모든 카드 enrichment 실행 (맥락 연결)
+  console.log(`🔄 [순차 생성] ${skeletonCards.length}개 카드를 순차적으로 생성합니다 (이전 단계 맥락 전달)...`);
+  let enrichedCards: any[] = [];
+  let totalPass2Tokens = 0;
+  const completedGuideSteps: any[] = []; // guide 카드만 저장 (맥락 전달용)
+
+  for (let index = 0; index < skeletonCards.length; index++) {
+    const card = skeletonCards[index];
+    console.log(`📤 [순차 ${index + 1}/${skeletonCards.length}] ${card.type} 카드 생성 시작${completedGuideSteps.length > 0 ? ` (${completedGuideSteps.length}개 이전 단계 참조)` : ''}`);
+
+    // 이전에 완성된 guide 카드들을 컨텍스트로 전달
+    const result = await enrichCardWithDetails(card, completedGuideSteps);
+
+    enrichedCards.push(result.enrichedCard);
+    totalPass2Tokens += result.tokens;
+
+    // guide 카드인 경우에만 completedGuideSteps에 추가
+    if (result.enrichedCard.type === 'guide' && result.enrichedCard.detailedSteps) {
+      completedGuideSteps.push(result.enrichedCard);
+      console.log(`✅ [맥락 저장] ${result.enrichedCard.title || 'Guide'} 카드 완료 → 다음 단계 생성 시 참조됨`);
+    }
+  }
+
+  console.log(`✅ [순차 생성] 완료! ${enrichedCards.length}개 카드가 맥락을 이어받아 완성되었습니다`);
+
+  // 🧹 카드 타입별로 불필요한 content 필드 제거 (인터페이스 정합성 유지)
+  enrichedCards = enrichedCards.map(card => {
+    // flow, faq, expansion, dashboard, guide 등은 content 필드가 인터페이스에 없음
+    const noContentTypes = ['flow', 'faq', 'expansion', 'dashboard', 'impact-bar', 'code', 'share', 'guide'];
+
+    if (noContentTypes.includes(card.type)) {
+      const { content, ...cleanCard } = card;
+      if (content) {
+        console.log(`🧹 [정리] ${card.type} 카드에서 불필요한 content 필드 제거`);
+      }
+      return cleanCard;
+    }
+
+    return card;
+  });
+
+  // 🔍 프론트엔드 파싱을 위한 데이터 구조 검증
+  console.log('🔍 [데이터 검증] 프론트엔드 파싱 가능 여부 확인...');
+  enrichedCards.forEach((card, idx) => {
+    if (card.type === 'guide') {
+      // guide 카드는 detailedSteps가 필수
+      if (!card.detailedSteps || !Array.isArray(card.detailedSteps)) {
+        console.warn(`⚠️ [검증 실패] Guide 카드 ${idx + 1}: detailedSteps가 없거나 배열이 아님`);
+        card.detailedSteps = [];
+      } else {
+        // 각 step이 객체인지, 필수 필드가 있는지 확인
+        card.detailedSteps = card.detailedSteps.map((step: any, stepIdx: number) => {
+          if (!step || typeof step !== 'object') {
+            console.warn(`⚠️ [검증 실패] Guide 카드 ${idx + 1}, Step ${stepIdx + 1}: step이 객체가 아님`);
+            return {
+              number: stepIdx + 1,
+              title: `${stepIdx + 1}단계`,
+              description: '상세 내용을 확인할 수 없습니다.',
+            };
+          }
+
+          // 필수 필드 검증 및 보정
+          const validatedStep = {
+            number: step.number || stepIdx + 1,
+            title: step.title || step.stepTitle || `${stepIdx + 1}단계`,
+            description: step.description || step.details || '상세 내용이 누락되었습니다.',
+            expectedScreen: step.expectedScreen || step.expected || '',
+            checkpoint: step.checkpoint || step.checkPoint || '',
+          };
+
+          // 빈 description 처리
+          if (!validatedStep.description || validatedStep.description.trim() === '') {
+            console.warn(`⚠️ [검증 경고] Guide 카드 ${idx + 1}, Step ${stepIdx + 1}: description이 비어있음`);
+            validatedStep.description = `${validatedStep.title}에 대한 상세 안내를 확인하세요.`;
+          }
+
+          return validatedStep;
+        });
+
+        console.log(`✅ [검증 완료] Guide 카드 ${idx + 1}: ${card.detailedSteps.length}개 단계 검증 완료`);
+
+        // 🔍 실제 데이터 구조 샘플 로깅 (디버깅용)
+        if (card.detailedSteps.length > 0) {
+          const sampleStep = card.detailedSteps[0];
+          console.log(`📋 [샘플 데이터] Guide 카드 ${idx + 1}, 첫 번째 단계:`, {
+            number: sampleStep.number,
+            title: sampleStep.title?.substring(0, 50),
+            description: sampleStep.description?.substring(0, 100),
+            hasExpectedScreen: !!sampleStep.expectedScreen,
+            hasCheckpoint: !!sampleStep.checkpoint,
+          });
+        }
+      }
+    }
+  });
 
   const totalTokens = (skeletonResponse.usage?.total_tokens || 0) + totalPass2Tokens;
   const latency = Date.now() - startTime;
@@ -3533,38 +4440,6 @@ function findLastCompleteJson(content: string): number {
   return lastCompleteIndex;
 }
 
-function extractToolsFromCards(cards: any[]): string[] {
-  const tools = new Set<string>();
-
-  cards.forEach(card => {
-    if (card.type === 'flow' && card.steps) {
-      card.steps.forEach((step: any) => {
-        if (step.tool) tools.add(step.tool);
-        if (step.toolRecommendation?.primary) tools.add(step.toolRecommendation.primary);
-      });
-    }
-  });
-
-  return Array.from(tools);
-}
-
-function extractURLsFromCards(cards: any[]): string[] {
-  const urls = new Set<string>();
-  const urlRegex = /https?:\/\/[^\s\)]+/g;
-
-  const searchInObject = (obj: any) => {
-    if (typeof obj === 'string') {
-      const matches = obj.match(urlRegex);
-      if (matches) matches.forEach(url => urls.add(url));
-    } else if (typeof obj === 'object' && obj !== null) {
-      Object.values(obj).forEach(searchInObject);
-    }
-  };
-
-  cards.forEach(searchInObject);
-  return Array.from(urls);
-}
-
 function calculateCost(tokens: number, model: string): number {
   // OpenAI 실제 가격 ($/1M tokens)를 토큰당 가격으로 변환
   const costs = {
@@ -3576,51 +4451,6 @@ function calculateCost(tokens: number, model: string): number {
 
   return tokens * (costs[model as keyof typeof costs] || 2.50 / 1000000);
 }
-
-function countPersonalizationElements(cards: any[], followupAnswers: any): number {
-  // 후속답변 기반 개인화 요소 개수 계산
-  let count = 0;
-  const answersStr = JSON.stringify(followupAnswers).toLowerCase();
-  const cardsStr = JSON.stringify(cards).toLowerCase();
-
-  Object.keys(followupAnswers || {}).forEach(key => {
-    if (cardsStr.includes(followupAnswers[key]?.toLowerCase?.())) {
-      count++;
-    }
-  });
-
-  return count;
-}
-
-function countActionableSteps(cards: any[]): number {
-  // 실행 가능한 단계 개수 계산
-  let count = 0;
-
-  cards.forEach(card => {
-    if (card.type === 'flow' && card.steps) {
-      count += card.steps.length;
-    }
-    if (card.type === 'guide' && card.content?.detailedSteps) {
-      count += card.content.detailedSteps.length;
-    }
-  });
-
-  return count;
-}
-
-function calculateCreativityScore(cards: any[]): number {
-  // 창의성 점수 계산 (기본 구현)
-  let score = 0;
-
-  cards.forEach(card => {
-    if (card.type === 'expansion') score += 2;
-    if (card.title?.includes('🚀') || card.title?.includes('💡')) score += 1;
-    if (card.content && typeof card.content === 'object') score += 1;
-  });
-
-  return Math.min((score / cards.length) * 10, 10); // 0-10 점수
-}
-
 function getFallbackCards(userInput: string): any[] {
   return [
     {

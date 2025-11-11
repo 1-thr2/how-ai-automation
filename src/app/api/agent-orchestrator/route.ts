@@ -34,9 +34,9 @@ export async function POST(req: Request) {
     try {
       const ragHealth = await checkRAGHealth();
       console.log('🏥 [RAG] 헬스체크:', ragHealth);
-      
-      if (!ragHealth.tavilyAvailable) {
-        console.log('⚠️ [RAG] Tavily 사용 불가, 기본 모드로 진행');
+
+      if (!ragHealth.gptAvailable) {
+        console.log('⚠️ [RAG] GPT-4o 사용 불가, 기본 모드로 진행');
       }
     } catch (ragError) {
       console.log('⚠️ [RAG] 헬스체크 실패, 기본 모드로 진행:', ragError);
@@ -78,6 +78,18 @@ export async function POST(req: Request) {
         processingTime: processingTime,
         approach: '3단계_리팩토링_시스템_v2',
         version: '2.0.0',
+        // 🧪 Phase 1 실험 정보
+        experiment: {
+          phase: 'phase1',
+          description: '2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1-mini (Detail)',
+          startDate: '2025-11-10',
+          evaluationPeriod: '2주',
+          metrics: {
+            complexity: (metrics as any).complexity || 0,  // 복잡도 점수
+            modelsUsed: metrics.modelsUsed,  // 사용된 모델들
+            strategy: '2-Pass (항상)'
+          }
+        },
         stages: {
           stepA: `${metrics.costBreakdown.stepA.model} (카드 초안)`,
           stepB: `RAG 검증 (${metrics.ragSearches}회 검색)`,
