@@ -213,88 +213,39 @@ ${JSON.stringify(followupAnswers, null, 2)}
       console.log(`  ${idx + 1}. [${sq.priority}] "${sq.query}" - ${sq.purpose}`);
     });
 
-    // 각 쿼리마다 병렬로 검색 실행
+    // 각 쿼리마다 병렬로 RAG 검색 실행
     const searchPromises = priorityQueries.map(async (sq: any, idx: number) => {
-      const searchPrompt = `🔍 **검색 쿼리**: "${sq.query}"
-🎯 **검색 목적**: ${sq.purpose}
-📝 **사용자 원문**: "${userInput}"
-
-**임무**: 위 쿼리로 웹 검색하여 2025년 최신 도구/방법을 찾으세요.
-
-**반드시 수집할 정보**:
-- toolName: 도구 이름
-- pricing: 무료/유료/프리미엄 (구체적으로)
-- coverage: 기능 범위 설명
-- difficulty: 쉬움/보통/어려움
-- lastUpdated: 2024 or 2025
-- pros: 장점 2-3개
-- cons: 단점 1-2개
-- url: 공식 웹사이트 (optional)
-
-**출력 형식** (유효한 JSON만 반환):
-{
-  "searchResults": [
-    {
-      "toolName": "도구명",
-      "pricing": "무료/유료",
-      "coverage": "기능 설명",
-      "difficulty": "쉬움/보통/어려움",
-      "lastUpdated": "2025",
-      "pros": ["장점1", "장점2"],
-      "cons": ["단점1"],
-      "url": "https://..."
-    }
-  ],
-  "searchSummary": "간단한 요약 (1-2문장)"
-}
-
-🚨 **중요**: 반드시 유효한 JSON만 반환하세요 (다른 텍스트 절대 금지)`;
-
       try {
-        console.log(`  🔄 [${idx + 1}/${priorityQueries.length}] 검색 중: "${sq.query}"...`);
+        console.log(`  🔄 [${idx + 1}/${priorityQueries.length}] RAG 검색 중: "${sq.query}"...`);
 
-        const response = await openai.chat.completions.create({
-          model: 'gpt-4o-mini-search-preview',
-          messages: [
-            {
-              role: 'system',
-              content: '당신은 최신 도구를 조사하는 리서처입니다. 웹 검색으로 2025년 정보를 찾으세요. 반드시 유효한 JSON만 반환하세요.'
-            },
-            { role: 'user', content: searchPrompt },
-          ],
-          max_completion_tokens: 1500,
-        });
+        // RAG 검색 실행
+        const ragResults = await searchToolInfo(sq.query);
 
-        const content = response.choices[0]?.message?.content || '{}';
-
-        // 마크다운 코드 블록 제거
-        let jsonContent = content.trim();
-        if (jsonContent.startsWith('```')) {
-          jsonContent = jsonContent
-            .replace(/^```(?:json)?\n?/, '')
-            .replace(/\n?```$/, '')
-            .trim();
+        if (!ragResults || ragResults.length === 0) {
+          console.log(`  ⚠️ [${idx + 1}/${priorityQueries.length}] 검색 결과 없음`);
+          return {
+            query: sq.query,
+            purpose: sq.purpose,
+            ragResults: [],
+            toolsFound: 0
+          };
         }
 
-        const parsed = JSON.parse(jsonContent);
-        const tokensUsed = response.usage?.total_tokens || 0;
-        const toolsFound = parsed.searchResults?.length || 0;
-
-        console.log(`  ✅ [${idx + 1}/${priorityQueries.length}] 완료: ${toolsFound}개 도구 발견, ${tokensUsed} 토큰`);
+        console.log(`  ✅ [${idx + 1}/${priorityQueries.length}] 완료: ${ragResults.length}개 결과 발견`);
 
         return {
           query: sq.query,
           purpose: sq.purpose,
-          data: parsed,
-          tokens: tokensUsed
+          ragResults,
+          toolsFound: ragResults.length
         };
       } catch (error) {
         console.error(`  ❌ [${idx + 1}/${priorityQueries.length}] 검색 실패:`, error);
         return {
           query: sq.query,
           purpose: sq.purpose,
-          data: { searchResults: [], searchSummary: '검색 실패' },
-          tokens: 0
+          ragResults: [],
+          toolsFound: 0
         };
       }
     });
@@ -302,18 +253,30 @@ ${JSON.stringify(followupAnswers, null, 2)}
     // 모든 검색 완료 대기
     const searchResultsArray = await Promise.all(searchPromises);
 
-    // 검색 결과 통합
+    // RAG 결과를 searchResults 형식으로 변환
     const allSearchResults: any[] = [];
-    let totalSearchTokens = 0;
+    let totalToolsFound = 0;
 
     searchResultsArray.forEach((result) => {
-      totalSearchTokens += result.tokens;
-      if (result.data.searchResults && result.data.searchResults.length > 0) {
-        allSearchResults.push(...result.data.searchResults);
+      totalToolsFound += result.toolsFound;
+      if (result.ragResults && result.ragResults.length > 0) {
+        result.ragResults.forEach((ragResult: any) => {
+          allSearchResults.push({
+            toolName: ragResult.title || '도구명 미상',
+            pricing: '확인 필요',
+            coverage: ragResult.content?.substring(0, 150) || 'RAG 검색 결과',
+            difficulty: '보통',
+            lastUpdated: '2024-2025',
+            pros: ['검색 결과에서 발견'],
+            cons: ['상세 정보 확인 필요'],
+            url: ragResult.url || '',
+            source: ragResult, // 원본 RAG 데이터 보존
+          });
+        });
       }
     });
 
-    console.log(`✅ [Step AB-1] 병렬 검색 완료 - 총 ${allSearchResults.length}개 도구 발견, ${totalSearchTokens} 토큰`);
+    console.log(`✅ [Step AB-1] 병렬 RAG 검색 완료 - 총 ${allSearchResults.length}개 결과 발견 (${totalToolsFound}개 도구)`);
 
     // searchData 구조 생성
     let searchData: any = {
@@ -323,10 +286,10 @@ ${JSON.stringify(followupAnswers, null, 2)}
         infoCompleteness: allSearchResults.length >= 3 ? 'high' : 'medium',
         latestYear: '2025'
       },
-      searchSummary: `${priorityQueries.length}개 전략적 검색으로 ${allSearchResults.length}개 도구 발견`
+      searchSummary: `${priorityQueries.length}개 전략적 RAG 검색으로 ${allSearchResults.length}개 결과 발견`
     };
 
-    let searchTokens = totalSearchTokens;
+    let searchTokens = 0; // RAG는 토큰 미사용
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // Step AB-1.5: 검색 결과 품질 검증 + Fallback
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -575,8 +538,102 @@ ${stepABBlueprint}
       throw new Error('플로우 단계가 없습니다');
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Step AB-2.5: Reality Check (선택한 솔루션 검증)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    console.log('🔍 [Step AB-2.5] Reality Check - 선택한 솔루션 검증 중...');
+
+    let realityCheckTokens = 0;
+    let solutionVerified = true;
+    let verificationWarning = '';
+
+    try {
+      // 플랫폼 추출 (Instagram, Twitter 등)
+      const platformMatch = userInput.match(/(인스타그램|인스타|트위터|네이버|카카오|페이스북|유튜브|instagram|twitter|naver|kakao|facebook|youtube)/gi);
+      const platform = platformMatch ? platformMatch[0] : '';
+
+      // 핵심 기능 추출
+      const actionMatch = userInput.match(/(좋아요|댓글|팔로우|메시지|DM|포스팅|자동|like|comment|follow|message|post|auto)/gi);
+      const actions = actionMatch ? actionMatch.slice(0, 2).join(' ') : '';
+
+      const verificationPrompt = `당신은 기술 실현 가능성 검증 전문가입니다.
+
+**선택된 솔루션:**
+- 도구: ${flowData.selectedTool || '미지정'}
+- 사용자 요청: "${userInput}"
+- 플랫폼: ${platform || '알 수 없음'}
+- 기능: ${actions || '자동화'}
+
+**검증 임무:**
+이 도구가 사용자가 원하는 기능을 2025년 현재 실제로 지원하는지 검증하세요.
+
+**검증 기준:**
+1. 플랫폼 API 제한이 있는가? (특히 Instagram, Twitter 등)
+2. 선택한 도구가 공식적으로 이 기능을 지원하는가?
+3. 최근(2024-2025) 실제 작동 사례가 있는가?
+
+**특히 주의:**
+- Instagram: 자동 좋아요, 자동 댓글, 자동 팔로우는 2016년부터 API 제한
+- Twitter: 자동 팔로우/언팔로우 제한, API v2 제약
+- 많은 플랫폼들이 자동화 봇을 제한함
+
+**출력 형식 (JSON):**
+{
+  "verified": true or false,
+  "confidence": 0-100 (숫자),
+  "issue": "발견된 문제 (없으면 빈 문자열)",
+  "evidence": "판단 근거",
+  "needsAlternative": true or false
+}
+
+**중요:** 확신이 없으면 verified: false로 설정하세요.`;
+
+      const verificationResponse = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: '당신은 기술 검증 전문가입니다. 실현 불가능한 것을 불가능하다고 명확히 지적하는 것이 당신의 역할입니다. 반드시 유효한 JSON만 반환하세요.'
+          },
+          { role: 'user', content: verificationPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.1,
+        response_format: { type: 'json_object' }
+      });
+
+      realityCheckTokens = verificationResponse.usage?.total_tokens || 0;
+      const verificationContent = verificationResponse.choices[0]?.message?.content;
+
+      if (verificationContent) {
+        const verification = JSON.parse(verificationContent);
+        console.log(`📊 [Step AB-2.5] 검증 결과: ${verification.verified ? '✅ 검증됨' : '❌ 문제 발견'} (신뢰도: ${verification.confidence}%)`);
+        console.log(`📝 [Step AB-2.5] 근거: ${verification.evidence || '없음'}`);
+
+        if (!verification.verified || verification.confidence < 60) {
+          solutionVerified = false;
+          verificationWarning = verification.issue || '선택한 솔루션이 실제로 작동하지 않을 수 있습니다.';
+
+          console.log(`⚠️ [Step AB-2.5] 경고: ${verificationWarning}`);
+
+          // 불가능 케이스로 전환
+          if (verification.needsAlternative) {
+            console.log('🔄 [Step AB-2.5] 대안 솔루션 필요 - title에 경고 추가');
+            flowData.title = `⚠️ ${flowData.title} (검증 필요)`;
+            flowData.subtitle = `${verificationWarning}\n\n${flowData.subtitle || ''}`;
+          }
+        } else {
+          console.log('✅ [Step AB-2.5] 검증 통과 - 솔루션 신뢰 가능');
+        }
+      }
+    } catch (verifyError) {
+      console.error('❌ [Step AB-2.5] 검증 실패:', verifyError);
+      console.log('🔄 [Step AB-2.5] 검증 실패 - 일단 진행 (경고 포함)');
+      verificationWarning = '⚠️ 솔루션 검증 실패 - 실제 사용 전 확인 필요';
+    }
+
     const latency = Date.now() - startTime;
-    const totalTokens = reasoningTokens + searchTokens + selectionTokens;
+    const totalTokens = reasoningTokens + searchTokens + selectionTokens + realityCheckTokens;
 
     const flow = {
       steps: flowData.steps,
@@ -589,30 +646,35 @@ ${stepABBlueprint}
       searchPerformed: true,
       selectedTool: flowData.selectedTool || '미지정',
       reasoning: flowData.reasoning || '최적의 도구 선택됨',
-      ragSearches: 1, // gpt-4o-mini-search-preview 1회
+      ragSearches: 1,
       ragSources: searchData.searchResults?.length || 0,
       searchSummary: searchData.searchSummary || '',
+      solutionVerified, // Reality Check 결과
+      verificationWarning, // 검증 경고 메시지
       methodValidation: {
         originalMethods: flow.steps.length,
-        viableMethods: flow.steps.length,
-        problematicMethods: 0,
+        viableMethods: solutionVerified ? flow.steps.length : 0,
+        problematicMethods: solutionVerified ? 0 : flow.steps.length,
         alternativesFound: 0,
         finalMethods: flow.steps.length,
       },
     };
 
-    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (추론:${reasoningTokens} + 검색:${searchTokens} + 선택:${selectionTokens}), ${latency}ms`);
+    console.log(`✅ [Step AB] 플로우 생성 완료 - ${flow.steps.length}개 단계, ${totalTokens} 토큰 (추론:${reasoningTokens} + 검색:${searchTokens} + 선택:${selectionTokens} + 검증:${realityCheckTokens}), ${latency}ms`);
     console.log(`📋 [Step AB] 생성된 단계들: ${flow.steps.map((s: string, i: number) => `${i + 1}. ${s.substring(0, 30)}...`).join(' | ')}`);
+    if (!solutionVerified && verificationWarning) {
+      console.log(`⚠️ [Step AB] 검증 경고: ${verificationWarning}`);
+    }
 
     return {
       flow,
       tokens: totalTokens,
       latency,
-      model: 'o3-mini + gpt-4o-mini-search-preview', // 추론 + 검색 모델 조합
+      model: 'o3-mini + RAG + gpt-4o-mini Reality Check', // 추론 + RAG 검색 + 검증
       ragMetadata,
       selectedTool: flowData.selectedTool || '미지정',
       reasoning: flowData.reasoning || '최적의 도구 선택됨',
-    };
+    } as any;
   } catch (error) {
     console.error('❌ [Step AB] 플로우 생성 실패:', error);
 
