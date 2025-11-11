@@ -451,13 +451,26 @@ ${stepABBlueprint}
       messages: [
         { role: 'user', content: selectionPrompt },
       ],
-      max_completion_tokens: 1500, // o3-mini는 max_completion_tokens 사용
+      max_completion_tokens: 2500, // 한국어 + 상세 설명 고려하여 증가 (1500 → 2500)
       // 🚨 o3-mini는 temperature, response_format 지원 안 함
     });
 
     const selectionContent = selectionResponse.choices[0]?.message?.content;
     if (!selectionContent) {
       throw new Error('o3-mini 응답이 비어있습니다');
+    }
+
+    // 🔍 응답 잘림 감지
+    const isTruncated =
+      !selectionContent.includes('}') ||
+      selectionContent.trim().endsWith('...') ||
+      !selectionContent.includes('"reasoning"') ||
+      (selectionResponse.choices[0]?.finish_reason === 'length');
+
+    if (isTruncated) {
+      console.warn(`⚠️ [Step AB-2] 응답 잘림 감지 (finish_reason: ${selectionResponse.choices[0]?.finish_reason})`);
+      console.log('🔍 [Step AB-2] 잘린 응답:', selectionContent.substring(0, 500) + '...');
+      throw new Error('o3-mini 응답 잘림 - max_completion_tokens 부족');
     }
 
     // JSON 파싱 (o3-mini는 response_format 지원 안 하므로 수동 추출)
@@ -468,6 +481,10 @@ ${stepABBlueprint}
       if (cleanContent.includes('```json')) {
         const jsonStart = cleanContent.indexOf('```json') + 7;
         const jsonEnd = cleanContent.indexOf('```', jsonStart);
+        if (jsonEnd === -1) {
+          console.warn('⚠️ [Step AB-2] JSON 코드블록 종료 태그 없음 - 잘림 가능성');
+          throw new Error('JSON 코드블록 미완성');
+        }
         cleanContent = cleanContent.substring(jsonStart, jsonEnd).trim();
       } else if (cleanContent.includes('```')) {
         cleanContent = cleanContent.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
@@ -747,43 +764,26 @@ function createFallbackFlow(userInput: string, followupAnswers: any): {
   title: string;
   subtitle: string;
 } {
-  // 사용자 입력에서 키워드 추출하여 적절한 기본 플로우 생성
-  const inputLower = userInput.toLowerCase();
-  
-  let steps: string[] = [];
-  let title = '자동화 플로우';
-  let subtitle = '기본 단계별 계획';
-  
-  if (inputLower.includes('분석') || inputLower.includes('데이터')) {
-    title = '데이터 분석 자동화';
-    subtitle = '데이터 수집부터 분석까지';
-    steps = [
-      '1단계: 데이터 소스 연결',
-      '2단계: 데이터 수집 자동화',
-      '3단계: 데이터 분석 및 처리',
-      '4단계: 결과 리포트 생성'
-    ];
-  } else if (inputLower.includes('알림') || inputLower.includes('모니터링')) {
-    title = '모니터링 및 알림 자동화';
-    subtitle = '실시간 감시 및 알림 시스템';
-    steps = [
-      '1단계: 모니터링 대상 설정',
-      '2단계: 알림 조건 구성',
-      '3단계: 알림 채널 연결',
-      '4단계: 테스트 및 활성화'
-    ];
-  } else {
-    // 기본 범용 플로우
-    title = '업무 자동화 플로우';
-    subtitle = '반복 작업 자동화';
-    steps = [
-      '1단계: 작업 대상 설정',
-      '2단계: 자동화 도구 연결',
-      '3단계: 워크플로우 구성',
-      '4단계: 테스트 및 실행'
-    ];
-  }
-  
+  // 🔧 사용자 요청을 직접 반영한 Fallback 생성 (하드코딩 최소화)
+  const inputTrimmed = userInput.trim();
+  const inputShort = inputTrimmed.length > 50 ? inputTrimmed.substring(0, 47) + '...' : inputTrimmed;
+
+  // 예산 제약 확인
+  const isFreeOnly = followupAnswers?.budget === '무료만' || followupAnswers?.constraints?.includes('무료만');
+  const budgetNote = isFreeOnly ? ' (무료 도구 활용)' : '';
+
+  // 사용자 요청 기반 제목 생성
+  const title = `${inputShort} 자동화`;
+  const subtitle = `요청하신 작업을 자동화하는 기본 플로우${budgetNote}`;
+
+  // 범용 4단계 플로우 (모든 자동화에 적용 가능)
+  const steps = [
+    `1단계: "${inputShort}" 작업에 필요한 도구 선택 및 계정 설정`,
+    `2단계: 자동화 트리거 및 조건 구성`,
+    `3단계: 실행 워크플로우 설정 및 테스트`,
+    `4단계: 모니터링 및 최적화`
+  ];
+
   return {
     steps,
     title,

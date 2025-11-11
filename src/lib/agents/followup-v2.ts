@@ -81,9 +81,10 @@ async function generateWhyBasedQuestions(userInput: string): Promise<{
 
 # Few-Shot 예시
 
-## 예시 1: 트위터 모니터링 (4개)
+## 예시 1: 트위터 모니터링 (3개)
 요청: "트위터에서 우리 브랜드 언급 모니터링하고 싶어요"
 Use Cases: [평판 관리 / 피드백 수집 / 경쟁사 추적 / 그냥 보기]
+이유: 모니터링 목적을 알아야 최적 도구 선택 가능. 빈도로 자동화 수준 결정. 예산은 필수 제약.
 [
   {
     "key": "monitoring_purpose",
@@ -95,22 +96,13 @@ Use Cases: [평판 관리 / 피드백 수집 / 경쟁사 추적 / 그냥 보기]
     "description": "목적에 맞게 추천해드릴게요"
   },
   {
-    "key": "frequency",
+    "key": "alert_frequency",
     "question": "얼마나 자주 확인하시나요?",
     "type": "single",
     "options": ["실시간으로", "하루 한 번", "일주일 한 번", "✏️ 직접 입력할게요"],
     "category": "context",
     "importance": "high",
     "description": "자동화 수준을 결정할게요"
-  },
-  {
-    "key": "tech_level",
-    "question": "기술 수준은 어떠신가요?",
-    "type": "single",
-    "options": ["초보자", "코드 조금 가능", "개발자", "✏️ 직접 입력할게요"],
-    "category": "constraints",
-    "importance": "high",
-    "description": "난이도를 맞춰드릴게요"
   },
   {
     "key": "budget",
@@ -123,9 +115,10 @@ Use Cases: [평판 관리 / 피드백 수집 / 경쟁사 추적 / 그냥 보기]
   }
 ]
 
-## 예시 2: 데이터 정리 (4개)
+## 예시 2: 데이터 정리 (3개)
 요청: "엑셀 데이터를 정리하고 싶어요"
 Use Cases: [1회 정리 / 반복 업데이트 / 팀 공유 / 시각화]
+이유: 데이터 용도에 따라 도구 선택. 업데이트 빈도로 자동화 필요성 판단. 예산은 필수 제약.
 [
   {
     "key": "data_goal",
@@ -146,28 +139,20 @@ Use Cases: [1회 정리 / 반복 업데이트 / 팀 공유 / 시각화]
     "description": "자동화 필요성을 판단할게요"
   },
   {
-    "key": "tech_level",
-    "question": "기술 수준은 어떠신가요?",
+    "key": "budget",
+    "question": "예산은 어떠신가요?",
     "type": "single",
-    "options": ["초보자", "엑셀 능숙", "코드 가능", "✏️ 직접 입력할게요"],
+    "options": ["무료만", "조금 가능", "상관없어요", "✏️ 직접 입력할게요"],
     "category": "constraints",
-    "importance": "medium",
-    "description": "난이도를 맞춰드릴게요"
-  },
-  {
-    "key": "urgency",
-    "question": "언제까지 필요하신가요?",
-    "type": "single",
-    "options": ["오늘 바로", "이번 주", "여유있어요", "✏️ 직접 입력할게요"],
-    "category": "constraints",
-    "importance": "medium",
-    "description": "시간에 맞춰 제안할게요"
+    "importance": "critical",
+    "description": "조건에 맞게 찾아드릴게요"
   }
 ]
 
 ## 예시 3: 단순 알림 (3개)
 요청: "매일 아침 날씨 알림 받고 싶어요"
 Use Cases: [간단 알림] (추가 정보 불필요)
+이유: 왜 필요한지(맥락), 긴급도, 예산만으로 충분. 단순한 요청은 3개만!
 [
   {
     "key": "why_need",
@@ -179,13 +164,13 @@ Use Cases: [간단 알림] (추가 정보 불필요)
     "description": "상황에 맞게 추천할게요"
   },
   {
-    "key": "tech_level",
-    "question": "기술 수준은 어떠신가요?",
+    "key": "urgency",
+    "question": "언제까지 필요하신가요?",
     "type": "single",
-    "options": ["초보자", "조금 할 줄 알아요", "개발자", "✏️ 직접 입력할게요"],
+    "options": ["오늘 바로", "이번 주 안에", "여유있어요", "✏️ 직접 입력할게요"],
     "category": "constraints",
     "importance": "medium",
-    "description": "쉬운 방법을 찾아드릴게요"
+    "description": "시간에 맞춰 제안할게요"
   },
   {
     "key": "budget",
@@ -213,12 +198,13 @@ JSON 배열로 응답 (마크다운 블록 없이).
 - description: 설명 (20자 이내)
 
 체크리스트:
-✅ 3-4개 질문 (5개는 예외, 6개 금지)
+✅ 3개 질문 기본 (복잡한 경우만 4개, 5개는 극히 예외)
 ✅ WHY 기반 의도 파악 질문
 ✅ 확장 제안 금지 (의도 명확화만)
 ✅ 토스 스타일 (짧고, 쉽고, 밝게)
 ✅ 이모지 금지 (텍스트만)
-✅ 마지막 선택지 "✏️ 직접 입력할게요"`;
+✅ 마지막 선택지 "✏️ 직접 입력할게요"
+❌ 기술 수준 질문 금지 (서비스가 모든 가이드 제공, 진입장벽 유발)`;
 
     console.log('📊 [WHY-based] gpt-4o-mini 호출 시작 (Use Case 추론 → 구분 질문 생성)...');
 
@@ -398,18 +384,18 @@ function getFallbackQuestions(): any[] {
       description: '목적에 맞게 추천해드릴게요',
     },
     {
-      key: 'tech_level',
-      question: '기술 수준은 어떠신가요?',
+      key: 'urgency',
+      question: '언제까지 필요하신가요?',
       type: 'single',
       options: [
-        '초보자',
-        '조금 할 줄 알아요',
-        '개발 가능',
+        '오늘 바로',
+        '이번 주 안에',
+        '여유있어요',
         '✏️ 직접 입력할게요',
       ],
       category: 'constraints',
-      importance: 'high',
-      description: '난이도를 맞춰드릴게요',
+      importance: 'medium',
+      description: '시간에 맞춰 제안할게요',
     },
     {
       key: 'budget',
