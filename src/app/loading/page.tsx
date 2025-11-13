@@ -58,17 +58,13 @@ function LoadingContent() {
           // sessionStorage에 결과 저장 + goal도 함께 저장
           sessionStorage.setItem('automationResultData', JSON.stringify(data));
           sessionStorage.setItem('currentGoal', goal); // 🔧 goal을 별도 저장
+          sessionStorage.setItem('resultReady', 'true'); // 🔥 결과 준비 플래그
           console.log('💾 [Loading] sessionStorage에 저장 완료 (goal 포함)');
 
-          // 최소 1초 보장
-          const elapsed = Date.now() - start;
-          const wait = Math.max(0, 1000 - elapsed);
-          setTimeout(() => {
-            if (isMounted) {
-              console.log('🔄 [Loading] automation-result로 이동');
-              router.replace(`/automation-result?goal=${encodeURIComponent(goal)}`);
-            }
-          }, wait);
+          // 🎯 UX 개선: 즉시 리디렉트하지 않음
+          // LoadingScreen이 resultReady 플래그를 감지하여 알림 표시
+          // 사용자가 게임 중이면 게임을 계속하고, 아니면 자동 이동
+          console.log('✅ [Loading] 결과 준비 완료 - LoadingScreen이 처리할 예정');
         } else {
           // 후속질문 생성 API 호출 (기존)
           const res = await fetch('/api/agent-followup', {

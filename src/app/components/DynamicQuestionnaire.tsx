@@ -21,6 +21,16 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 
 // 단순한 컴포넌트
 
+// 🔧 Helper: 직접입력 옵션인지 확인 (여러 패턴 지원)
+const isCustomInputOption = (option: string): boolean => {
+  return (
+    option === '기타 (직접입력)' ||
+    option.includes('직접 입력') ||
+    option.startsWith('✏️') ||
+    option.includes('기타')
+  );
+};
+
 // 새로운 동적 질문 타입 정의
 export interface DynamicQuestion {
   key: string;
@@ -80,8 +90,8 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
         // 기존 답변에서 input 값 추출하여 복원
         currentQuestion.options?.forEach(option => {
           const inputKey = `${currentStep}-${option}`;
-          
-          if (option === '기타 (직접입력)' && existingAnswer.startsWith('기타:')) {
+
+          if (isCustomInputOption(option) && existingAnswer.startsWith('기타:')) {
             const inputValue = existingAnswer.replace('기타:', '');
             setInputValues(prev => ({ ...prev, [inputKey]: inputValue }));
           } else if (existingAnswer.startsWith(`${option}:`) && currentQuestion.inputTriggers?.[option]) {
@@ -426,8 +436,8 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleAnswer(option)}
                         className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-200 ${
-                          (currentAnswer === option || 
-                           (option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')) ||
+                          (currentAnswer === option ||
+                           (isCustomInputOption(option) && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')) ||
                            (currentQuestion.inputTriggers?.[option] && typeof currentAnswer === 'string' && currentAnswer.startsWith(`${option}:`)))
                             ? `border-blue-500 bg-blue-50 text-blue-700`
                             : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
@@ -435,8 +445,8 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                       >
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{option}</span>
-                          {(currentAnswer === option || 
-                            (option === '기타 (직접입력)' && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')) ||
+                          {(currentAnswer === option ||
+                            (isCustomInputOption(option) && typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:')) ||
                             (currentQuestion.inputTriggers?.[option] && typeof currentAnswer === 'string' && currentAnswer.startsWith(`${option}:`))) && (
                             <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
                               <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -446,12 +456,12 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                       </motion.button>
 
                       {/* 바로 이 옵션 아래에 직접입력 칸 표시 */}
-                      {((option === '기타 (직접입력)' && (
-                        currentAnswer === '기타 (직접입력)' || 
+                      {((isCustomInputOption(option) && (
+                        currentAnswer === option ||
                         (typeof currentAnswer === 'string' && currentAnswer.startsWith('기타:'))
-                      )) || 
+                      )) ||
                       (currentQuestion.inputTriggers?.[option]?.requiresInput && (
-                        currentAnswer === option || 
+                        currentAnswer === option ||
                         (typeof currentAnswer === 'string' && currentAnswer.startsWith(`${option}:`))
                       ))) && (
                         <motion.div
@@ -463,8 +473,8 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                           <input
                             type="text"
                             placeholder={
-                              currentQuestion.inputTriggers?.[option]?.inputPlaceholder || 
-                              (option === '기타 (직접입력)' ? "직접 입력해주세요..." : "입력해주세요...")
+                              currentQuestion.inputTriggers?.[option]?.inputPlaceholder ||
+                              (isCustomInputOption(option) ? "직접 입력해주세요..." : "입력해주세요...")
                             }
                             value={(() => {
                               const inputKey = `${currentStep}-${option}`;
@@ -498,11 +508,11 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                               }
                               
                               // 2. 답변 state 업데이트 (디바운스 없이 즉시)
-                              if (option === '기타 (직접입력)') {
+                              if (isCustomInputOption(option)) {
                                 if (customValue.trim()) {
                                   handleAnswer(`기타:${customValue.trim()}`);
                                 } else {
-                                  handleAnswer('기타 (직접입력)');
+                                  handleAnswer(option);
                                 }
                               } else if (currentQuestion.inputTriggers?.[option]) {
                                 if (customValue.trim()) {
@@ -568,9 +578,9 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                       </motion.button>
                       
                       {/* 기타 직접입력 처리 - 해당 옵션 바로 아래에 표시 */}
-                      {option === '기타 (직접입력)' && 
-                       Array.isArray(currentAnswer) && 
-                       currentAnswer.includes('기타 (직접입력)') && (
+                      {isCustomInputOption(option) &&
+                       Array.isArray(currentAnswer) &&
+                       currentAnswer.some(ans => ans === option || isCustomInputOption(ans)) && (
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -585,10 +595,10 @@ const DynamicQuestionnaire = React.memo(function DynamicQuestionnaire({ userInpu
                               const customValue = e.target.value;
                               if (customValue.trim()) {
                                 const currentArray = Array.isArray(currentAnswer) ? currentAnswer : [];
-                                const filteredArray = currentArray.filter(item => 
-                                  item !== '기타 (직접입력)' && !item.startsWith('기타:')
+                                const filteredArray = currentArray.filter(item =>
+                                  !isCustomInputOption(item) && !item.startsWith('기타:')
                                 );
-                                const newArray = [...filteredArray, '기타 (직접입력)', `기타:${customValue}`];
+                                const newArray = [...filteredArray, option, `기타:${customValue}`];
                                 handleAnswer(newArray);
                               }
                             }}
