@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import ShareModal from './ShareModal';
 import FlowDiagramSection from './FlowDiagram/FlowDiagramSection';
 import WowCardRenderer from './WowCardRenderer';
+import FeedbackSection from './FeedbackSection';
 
 interface WowAutomationResultProps {
   result: {
@@ -1236,6 +1237,11 @@ export default function WowAutomationResult({
           </div>
         </div>
       )}
+
+      {/* 피드백 섹션 */}
+      <div className="max-w-4xl mx-auto mt-12 px-4">
+        <FeedbackSection />
+      </div>
     </div>
     </>
   );

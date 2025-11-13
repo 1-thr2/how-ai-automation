@@ -58,8 +58,44 @@ CREATE POLICY "공유 링크 생성 허용" ON public.share_links
     FOR INSERT WITH CHECK (true);
 
 -- ===============================================
+-- 📝 사용자 피드백 테이블
+-- ===============================================
+-- Beta 기간 동안 사용자 피드백 수집
+CREATE TABLE IF NOT EXISTS public.user_feedback (
+    id BIGSERIAL PRIMARY KEY,
+    automation_id BIGINT REFERENCES public.automation_requests(id) ON DELETE CASCADE,
+    success BOOLEAN NOT NULL, -- true: 성공, false: 실패
+    failed_steps INTEGER[], -- 실패한 단계 번호들 (예: [1, 3])
+    detail TEXT, -- 사용자가 입력한 상세 내용
+    email VARCHAR(255), -- 답변받을 이메일 (선택)
+    status VARCHAR(20) DEFAULT 'pending', -- pending, completed
+    admin_reply TEXT, -- 관리자 답변
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+    replied_at TIMESTAMP WITH TIME ZONE -- 답변 시각
+);
+
+-- 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_user_feedback_status ON public.user_feedback(status);
+CREATE INDEX IF NOT EXISTS idx_user_feedback_created_at ON public.user_feedback(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_feedback_automation_id ON public.user_feedback(automation_id);
+
+-- RLS 정책
+ALTER TABLE public.user_feedback ENABLE ROW LEVEL SECURITY;
+
+-- 모든 사용자가 피드백 등록 가능
+CREATE POLICY "피드백 등록 허용" ON public.user_feedback
+    FOR INSERT WITH CHECK (true);
+
+-- 모든 사용자가 자신의 피드백 조회 가능
+CREATE POLICY "피드백 조회 허용" ON public.user_feedback
+    FOR SELECT USING (true);
+
+-- ===============================================
 -- 🔍 참고: Supabase 대시보드에서 실행하세요
 -- ===============================================
 -- 1. Supabase 프로젝트 → SQL Editor
 -- 2. 위 스크립트 복사/붙여넣기 → 실행
--- 3. Table Editor에서 automation_requests와 share_links 테이블 확인 
+-- 3. Table Editor에서 테이블 확인:
+--    - automation_requests
+--    - share_links
+--    - user_feedback (NEW) 
