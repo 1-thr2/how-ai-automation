@@ -485,6 +485,7 @@ export const ORCHESTRATOR_STEP_C = `# 🚀 Step C: 현실적 실행 가이드 �
 2. **완전성 보장**: 시작부터 끝까지 끊어지지 않는 워크플로우
 3. **초보자 친화**: "어디 클릭 → 무엇 입력 → 어디 붙여넣기" 수준
 4. **목적 달성**: 기술이 아닌 결과 중심
+5. **Toss-style UX**: 비개발자도 100% 따라할 수 있는 초특정 가이드
 
 ## ⚡ **2025년 기술 가이드라인**
 ### 현실 불가능 (금지)
@@ -619,6 +620,210 @@ export const ORCHESTRATOR_STEP_C = `# 🚀 Step C: 현실적 실행 가이드 �
 - **실제 화면 안내**: 사용자가 보게 될 실제 화면과 버튼 위치
 - **오류 해결**: 흔한 오류와 해결 방법 미리 안내
 - **테스트 방법**: 완료 후 정상 작동 확인하는 구체적 방법
+
+## 🎨 **Toss-style UX 필수 규칙**
+
+### ❌ 스크린샷 절대 금지
+AI는 스크린샷을 생성할 수 없습니다. **텍스트로만** 설명하세요.
+
+**나쁜 예:**
+\`\`\`
+"아래 스크린샷을 참고하세요"
+"다음 이미지처럼 설정하세요"
+\`\`\`
+
+**좋은 예:**
+\`\`\`
+"화면 오른쪽 위에 있는 파란색 ⚙️ 톱니바퀴 아이콘을 클릭하세요"
+"왼쪽 사이드바에서 '확장 프로그램' 메뉴 (퍼즐 조각 모양 🧩)를 찾으세요"
+"상단 메뉴바 → '도구' → '스크립트 편집기' 순서로 클릭"
+\`\`\`
+
+### 🎯 초특정 위치 설명 (3요소 필수)
+모든 클릭/입력 설명에는 **반드시** 다음 3가지 포함:
+
+1. **위치** (화면 어디?)
+   - "오른쪽 위", "왼쪽 사이드바", "하단 중앙"
+
+2. **색상/모양** (어떻게 생겼나?)
+   - "파란색", "초록색", "회색", "점 3개 모양", "톱니바퀴 모양"
+
+3. **텍스트/아이콘** (뭐라고 쓰여있나?)
+   - "설정", "저장", "⚙️", "📁", "실행"
+
+**예시:**
+\`\`\`
+❌ "설정 버튼 클릭"
+✅ "화면 오른쪽 위 파란색 ⚙️ 설정 버튼 클릭"
+
+❌ "메뉴 열기"
+✅ "왼쪽 상단 햄버거 메뉴(≡ 세 줄) 클릭"
+
+❌ "API 키 입력"
+✅ "중앙 입력창에 복사한 API 키 붙여넣기 (sk-proj로 시작)"
+\`\`\`
+
+### 🆘 ChatGPT 탈출구 (모든 Guide에 필수)
+각 guide 카드마다 **반드시** \`chatGptEscape\` 필드 추가:
+
+\`\`\`json
+{
+  "type": "guide",
+  "chatGptEscape": {
+    "trigger": "잘 모르겠어요",
+    "prompt": "ChatGPT에 이렇게 물어보세요:\n\n'Google Apps Script에서 Gmail API로 이메일 보내는 코드 예제 알려줘. MailApp.sendEmail() 함수 사용법이 궁금해.'"
+  }
+}
+\`\`\`
+
+**탈출구 작성 원칙:**
+- 사용자가 **복붙**할 수 있는 구체적인 프롬프트 제공
+- 현재 단계의 **핵심 키워드** 포함 (도구명, API명 등)
+- ChatGPT가 **바로 답변 가능한** 수준으로 구체적으로
+
+**예시:**
+\`\`\`
+단계: "Zapier에서 Webhook 설정"
+→ 탈출구: "Zapier Webhook 설정 방법 단계별로 알려줘. 트리거는 Webhook으로 받고, Google Sheets에 데이터 추가하고 싶어."
+
+단계: "Apps Script에서 API 키 환경변수 설정"
+→ 탈출구: "Google Apps Script에서 API 키를 안전하게 저장하고 사용하는 방법 알려줘. PropertiesService 사용법이 궁금해."
+\`\`\`
+
+### 💻 코드 작성 필수 규칙
+
+#### 1. 변수는 맨 위에 모으기
+비개발자가 쉽게 수정할 수 있도록 **모든 설정 변수를 코드 상단**에 배치:
+
+**나쁜 예:**
+\`\`\`javascript
+function sendEmail() {
+  MailApp.sendEmail("user@example.com", "제목", "내용");
+  // ... 100줄 뒤 ...
+  const apiKey = "sk-proj-abc123";
+}
+\`\`\`
+
+**좋은 예:**
+\`\`\`javascript
+// ========================================
+// 🔧 여기만 수정하세요!
+// ========================================
+const RECIPIENT_EMAIL = "user@example.com";
+const EMAIL_SUBJECT = "자동화 알림";
+const API_KEY = "sk-proj-abc123";
+const SHEET_ID = "1A2B3C4D5E6F";
+// ========================================
+
+function sendEmail() {
+  MailApp.sendEmail(RECIPIENT_EMAIL, EMAIL_SUBJECT, "내용");
+}
+\`\`\`
+
+#### 2. userEditables 필드 필수
+모든 코드 블록에 **반드시** \`userEditables\` 필드 추가:
+
+\`\`\`json
+{
+  "codeBlock": "...",
+  "userEditables": [
+    {
+      "variable": "RECIPIENT_EMAIL",
+      "description": "알림 받을 이메일 주소",
+      "example": "your-email@gmail.com",
+      "location": "3줄: const RECIPIENT_EMAIL"
+    },
+    {
+      "variable": "API_KEY",
+      "description": "OpenAI API 키 (sk-proj로 시작)",
+      "example": "sk-proj-abc123...",
+      "location": "5줄: const API_KEY",
+      "getFrom": "https://platform.openai.com/api-keys"
+    }
+  ]
+}
+\`\`\`
+
+#### 3. 주석으로 수정 가이드
+코드 내부에도 명확한 주석 추가:
+
+\`\`\`javascript
+// ========================================
+// 🔧 설정: 아래 값들을 당신의 정보로 바꾸세요
+// ========================================
+
+// 1️⃣ 알림 받을 이메일 (당신의 Gmail 주소 입력)
+const RECIPIENT_EMAIL = "your-email@gmail.com";
+
+// 2️⃣ OpenAI API 키 (https://platform.openai.com/api-keys에서 발급)
+const API_KEY = "sk-proj-여기에_실제_키_입력";
+
+// 3️⃣ 구글 시트 ID (스프레드시트 URL에서 /d/ 다음 부분 복사)
+// 예: https://docs.google.com/spreadsheets/d/1A2B3C4D/edit
+//     → 1A2B3C4D 부분이 ID
+const SHEET_ID = "여기에_시트_ID_입력";
+
+// ========================================
+// ⚠️ 아래는 수정하지 마세요!
+// ========================================
+\`\`\`
+
+### 🔗 직접 링크 제공
+가능하면 **정확한 설정 페이지 URL** 제공:
+
+**나쁜 예:**
+\`\`\`
+"Google Cloud Console에서 API 활성화"
+\`\`\`
+
+**좋은 예:**
+\`\`\`
+"👉 https://console.cloud.google.com/apis/library 접속
+→ 검색창에 'Gmail API' 입력
+→ 파란색 '사용 설정' 버튼 클릭"
+\`\`\`
+
+**유용한 직접 링크 예시:**
+- Google Apps Script: \`https://script.google.com\`
+- OpenAI API Keys: \`https://platform.openai.com/api-keys\`
+- Zapier Dashboard: \`https://zapier.com/app/dashboard\`
+- Supabase Project: \`https://supabase.com/dashboard/project/_/settings/api\`
+
+### 📝 detailedSteps 작성 규칙
+각 detailedStep에는 **4가지 필드 모두** 포함:
+
+\`\`\`json
+{
+  "number": 1,
+  "title": "Google Apps Script 열기",
+  "description": "1. 구글 시트 열기\n2. 상단 메뉴 → '확장 프로그램' (퍼즐 조각 🧩) 클릭\n3. 'Apps Script' 선택",
+  "expectedScreen": "새 탭에서 Apps Script 편집기가 열립니다. 왼쪽에 '파일' 목록, 오른쪽에 'function myFunction() {}' 기본 코드가 보입니다.",
+  "checkpoint": "✅ 확인: 상단에 '프로젝트 이름'과 파란색 '실행' 버튼이 보이면 성공"
+}
+\`\`\`
+
+**checkpoint 작성 팁:**
+- "✅ 확인:" 으로 시작
+- 성공 여부를 **시각적으로** 확인할 수 있는 방법
+- 실패 시 돌아갈 단계 명시
+
+**예시:**
+\`\`\`
+✅ 확인: 화면에 "인증 완료" 초록색 메시지가 보이면 성공
+✅ 확인: 콘솔 창에 "Hello, World!" 출력되면 정상 작동
+✅ 확인: 스프레드시트에 새 행이 추가되었는지 확인
+\`\`\`
+
+---
+
+## ⚠️ 중요: 모든 guide 카드에 적용
+위 Toss-style 규칙은 **모든 guide 타입 카드**에 필수로 적용하세요:
+- ✅ 스크린샷 언급 금지
+- ✅ 초특정 위치 설명 (3요소)
+- ✅ chatGptEscape 필드
+- ✅ userEditables 필드 (코드 있을 때)
+- ✅ 직접 링크 제공
+- ✅ checkpoint 명확히
 
 **이상으로 Blueprint 완료. 위 원칙에 따라 현실적이고 완전한 가이드를 생성하세요.**`;
 
