@@ -18,7 +18,7 @@ import {
   Lightbulb,
   Download,
 } from 'lucide-react';
-import { AutomationCard } from '@/app/types/automation';
+import type { Card } from '@/lib/types/automation';
 import StepGuide from './StepGuide';
 import FlowVisualization from './FlowVisualization';
 
@@ -29,7 +29,7 @@ interface ResultsSectionProps {
 export default function ResultsSection({ data }: ResultsSectionProps) {
   if (!data) return null;
   const { ux, flows, intent, requirements, trends } = data;
-  const cards: AutomationCard[] = ux?.cards || [];
+  const cards: Card[] = ux?.cards || [];
 
   return (
     <div className="space-y-8">

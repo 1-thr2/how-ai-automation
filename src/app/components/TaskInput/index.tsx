@@ -1,7 +1,27 @@
 'use client';
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { FiSend, FiLoader, FiAlertCircle, FiInfo, FiCopy, FiCheck } from 'react-icons/fi';
-import type { AutomationAPIResponse, AutomationContext, AutomationCard } from '@/app/types/automation/index';
+import type { Card } from '@/lib/types/automation';
+
+// 인라인 타입 정의
+interface AutomationContext {
+  userInput: string;
+  domain?: string;
+  painPoints?: string[];
+  constraints?: string[];
+  followupAnswers?: Record<string, any>;
+}
+
+interface AutomationAPIResponse {
+  context: AutomationContext;
+  cards: Card[];
+  error?: string;
+  fallbackExample?: string;
+  followupQuestions?: string[];
+  raw?: any;
+}
+
+type AutomationCard = Card;
 
 interface Props {
   onSubmit: (task: string) => void;

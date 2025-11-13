@@ -1,5 +1,11 @@
 import React from 'react';
-import type { FlowConnection } from '@/app/types/automation';
+
+// 인라인 타입 정의
+interface FlowConnection {
+  from: string;
+  to: string;
+  type?: 'default' | 'success' | 'error';
+}
 
 interface FlowConnectionsProps {
   connections: FlowConnection[];

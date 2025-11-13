@@ -4,7 +4,19 @@ import { useSearchParams } from 'next/navigation';
 import LoadingScreen from '../components/LoadingScreen';
 import WowAutomationResult from '../components/WowAutomationResult';
 import { Card } from '@/lib/types/automation';
-import type { AutomationAPIResponse } from '@/app/types/automation/index';
+
+// 인라인 타입 정의
+interface AutomationAPIResponse {
+  context: {
+    userInput: string;
+    followupAnswers?: Record<string, any>;
+  };
+  cards: Card[];
+  error?: string;
+  fallbackExample?: string;
+  followupQuestions?: string[];
+  raw?: any;
+}
 
 function AutomationResultContent() {
   const [cards, setCards] = useState<Card[]>([]);

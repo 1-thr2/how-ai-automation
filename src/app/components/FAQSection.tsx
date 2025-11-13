@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { FiChevronDown, FiHelpCircle } from 'react-icons/fi';
-import type { FAQItem } from '@/app/types/automation';
+
+// 인라인 타입 정의
+interface FAQItem {
+  question?: string;
+  answer?: string;
+  q?: string;
+  a?: string;
+  category?: string;
+}
 
 interface FAQSectionProps {
   faq: FAQItem[];
