@@ -109,14 +109,38 @@ export interface GuideStep {
 
 export interface GuideCard extends BaseCard {
   type: 'guide';
-  stepId: number;
+  stepId: number | string;  // stepId는 string도 가능 (Blueprint 기준)
   title: string;
   subtitle: string;
-  content: {
+  // 🎯 Toss-style UX: 상세 단계 (Blueprint 기준)
+  detailedSteps?: Array<{
+    number: number;
+    title: string;
+    description: string;
+    expectedScreen?: string;
+    checkpoint?: string;
+  }>;
+  // Legacy: 이전 content 형식 (호환성 유지)
+  content?: {
     steps: GuideStep[];
     code?: string;
     tips?: string[];
   };
+  // 🎯 Toss-style UX: 코드 블록
+  codeBlock?: string;
+  // 🆘 Toss-style UX: ChatGPT 탈출구 (필수)
+  chatGptEscape?: {
+    trigger: string;
+    prompt: string;
+  };
+  // 💻 Toss-style UX: 사용자 수정 가능 변수 (필수)
+  userEditables?: Array<{
+    variable: string;
+    description: string;
+    example: string;
+    location: string;
+    getFrom?: string;
+  }>;
   engine?: 'make' | 'zapier' | 'apps_script' | 'power_automate';
   importBlocks?: {
     make_import_json?: string;

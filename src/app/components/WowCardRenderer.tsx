@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '@/lib/types/automation';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Download, Play, Eye, Copy } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface WowCardRendererProps {
   card: Card;
@@ -14,7 +15,18 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    // TODO: 토스트 알림 추가
+    toast.success('클립보드에 복사되었습니다!', {
+      duration: 2000,
+      position: 'bottom-center',
+      style: {
+        background: '#10B981',
+        color: '#fff',
+        fontWeight: '600',
+        padding: '12px 20px',
+        borderRadius: '8px',
+      },
+      icon: '✅',
+    });
   };
 
   // 카드 타입별 렌더링
@@ -854,6 +866,65 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
             </div>
           )}
 
+          {/* 💻 수정 필요한 변수들 (Toss-style UX) */}
+          {guideCard.userEditables && guideCard.userEditables.length > 0 && (
+            <div className="mb-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 border-2 border-blue-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-blue-600 text-xl">💻</span>
+                <h4 className="font-semibold text-blue-900">
+                  코드에서 수정해야 할 부분 (꼭 확인하세요!)
+                </h4>
+              </div>
+              <p className="text-sm text-blue-700 mb-4">
+                아래 변수들을 여러분의 상황에 맞게 수정하세요. 복사-붙여넣기 후 이 값들만 바꾸면 됩니다.
+              </p>
+              <div className="space-y-3">
+                {guideCard.userEditables.map((editable: any, index: number) => (
+                  <div
+                    key={index}
+                    className="bg-white rounded-lg p-4 border border-blue-200 hover:border-blue-400 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <code className="bg-blue-100 text-blue-900 px-2 py-1 rounded text-sm font-mono font-bold">
+                            {editable.variable}
+                          </code>
+                          {editable.getFrom && (
+                            <a
+                              href={editable.getFrom}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              여기서 가져오기
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700 mb-2">{editable.description}</p>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">📍 위치:</span>
+                            <code className="text-xs text-gray-600 font-mono">
+                              {editable.location}
+                            </code>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">💡 예시:</span>
+                            <code className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded font-mono">
+                              {editable.example}
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 🎯 완벽한 복붙 가이드 블록들 */}
           {guideCard.codeBlocks && guideCard.codeBlocks.length > 0 && (
             <div className="space-y-4 mb-6">
@@ -937,6 +1008,45 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
                 </ul>
               </div>
             )}
+
+          {/* 🆘 ChatGPT 탈출구 (Toss-style UX) */}
+          {guideCard.chatGptEscape && (
+            <div className="mt-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border-2 border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-purple-600 text-xl">🆘</span>
+                <h4 className="font-semibold text-purple-900">
+                  {guideCard.chatGptEscape.trigger || '잘 모르겠어요?'}
+                </h4>
+              </div>
+              <p className="text-sm text-purple-700 mb-3">
+                ChatGPT에 바로 물어볼 수 있는 최적화된 프롬프트를 준비했어요. 복사해서 붙여넣기만 하세요!
+              </p>
+              <div className="bg-white rounded-lg p-4 border border-purple-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-purple-900">
+                    📋 ChatGPT 프롬프트
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => handleCopy(guideCard.chatGptEscape.prompt)}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                  >
+                    <Copy className="w-4 h-4 mr-1" />
+                    복사
+                  </Button>
+                </div>
+                <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
+                  {guideCard.chatGptEscape.prompt}
+                </pre>
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-xs text-purple-600">
+                <span>💡</span>
+                <span>
+                  ChatGPT에 붙여넣으면 바로 도움을 받을 수 있어요
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       );
 

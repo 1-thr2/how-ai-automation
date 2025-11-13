@@ -19,165 +19,222 @@ interface FollowupMetrics {
 }
 
 /**
- * Draft 단계: 빠른 초기 질문 생성
+ * 🎯 WHY 기반 의도 파악 질문 생성 (Single-Pass, 3-4개)
  */
-async function draftStepGen(userInput: string): Promise<{
+async function generateWhyBasedQuestions(userInput: string): Promise<{
   questions: any[];
   tokens: number;
   latency: number;
 }> {
   const startTime = Date.now();
-  console.log('📝 [Draft] 초기 질문 생성 시작...');
+  console.log('🎯 [WHY-based] 의도 파악 질문 생성 시작...');
 
   try {
-    console.log('📝 [Blueprint] Draft Blueprint 읽기 시작...');
-    const { base, draft } = await BlueprintReader.getFollowupBlueprints();
-    console.log('✅ [Blueprint] Draft Blueprint 읽기 완료');
+    const systemPrompt = `당신은 사용자의 진짜 의도를 파악하는 전문가입니다.
 
-    // 프롬프트 구성
-    const systemPrompt = `${base}\n\n${draft}`;
+# 핵심 임무
+표면적 요청 뒤의 진짜 목적(WHY)을 파악하여, 최적의 솔루션을 제공하기 위한 최소한의 질문을 만드세요.
+
+# 토스 PO 철학
+1. **최소 질문 원칙**: 3-4개로 충분 (5개는 예외, 6개 이상 금지)
+2. **의도 파악 > 기능 나열**: "분석도 하실 건가요?" (X) → "왜 필요하신가요?" (O)
+3. **확장은 금지**: 질문은 의도 파악용. 추가 기능 제안은 솔루션 단계에서
+4. **빠르게**: 사용자는 기다리기 싫어함. 간결하고 명확하게
+
+# 토스 스타일 UX
+- 질문: 10자 이내, 쉬운 말
+- 설명: 20자 이내, 공감 톤
+- 선택지: 텍스트만 (이모지 금지), 마지막은 "✏️ 직접 입력할게요"
+- 친근하고 밝게
+
+# 질문 생성 프로세스
+1. Use Case 추론: 사용자가 진짜 원하는 것은?
+2. 구분 질문: 어떤 질문으로 use case를 구분할 수 있는가?
+3. 제약 파악: 무료/유료, 급한지, 기술 수준은?`;
+
     const userPrompt = `사용자 요청: "${userInput}"
 
-위 요청을 분석하여 **자동화 구현에 꼭 필요한 1-3개 질문**만 생성하세요.
+# 분석 단계
 
-⚡ 20초 내 완료 목표: 
-- 불필요한 질문은 제외
-- 명확하고 즉답 가능한 질문만
-- 사용자가 이미 언급한 내용은 재질문 금지
+**Step 1: Use Case 추론**
+이 사람의 진짜 목적은? 가능한 시나리오들을 생각하세요.
 
-🎯 필수 질문 영역만 포함:
-1. 데이터 소스 (어디서 가져올지)
-2. 목적지/결과물 (어디로 보낼지)
-3. 실행 환경 (어떤 도구 환경인지)
+예시:
+- "트위터 모니터링" → [브랜드 평판 관리 / 고객 피드백 수집 / 경쟁사 추적]
+- "엑셀 → 구글시트" → [1회 이동 / 반복 자동화 / 팀 협업 / 시각화/대시보드]
+- "이력서 정리" → [채용 프로세스 / 데이터 분석 / 보관]
 
-중요: 반드시 JSON 배열 형식으로만 응답하세요. 
-올바른 형식: [{"key": "...", "question": "...", ...}]`;
+**Step 2: 구분 질문 생성**
+각 use case를 구분할 수 있는 질문은?
 
-    // 토큰 수 추정 및 모델 선택
-    const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
-    const model = selectModel(estimatedTokens);
+❌ 나쁜 예: "분석도 하실 건가요?" (확장 제안)
+✅ 좋은 예: "정리한 데이터로 뭘 하실 건가요?" (의도 파악)
 
-    console.log(`📊 [Draft] 예상 토큰: ${estimatedTokens}, 선택된 모델: ${model}`);
+**Step 3: 질문 개수 결정**
+- 단순 (날씨 알림): 3개 (WHY + 제약만)
+- 보통 (모니터링): 4개 (WHY + 제약 + use case 구분 1개)
+- 복잡 (데이터 파싱): 4-5개 (WHY + 제약 + use case 구분 2개)
 
-    const response = await openai.chat.completions.create({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 800, // Draft JSON 완성을 위해 증가
-      temperature: 0.8, // Draft는 창의성 중시
-      // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
-    });
+⚠️ 6개 이상 금지! 사용자 이탈!
 
-    // 🔍 OpenAI 응답 간소 로깅
-    const content = response.choices[0]?.message?.content;
-    console.log('🔍 [Draft] 결과:', {
-      choices: response.choices?.length,
-      usage: response.usage,
-      finish_reason: response.choices?.[0]?.finish_reason,
-      content_length: content?.length
-    });
-    
-    if (!content) {
-      console.error('❌ [Draft] OpenAI 응답에서 content가 null/undefined입니다');
-      console.error('❌ [Draft] response.choices[0]?.message:', response.choices?.[0]?.message);
-      throw new Error('Draft 응답이 비어있습니다');
-    }
+---
 
-    // 🔍 GPT 응답 디버깅
-    console.log('🔍 [Draft] GPT 원시 응답 길이:', content.length);
-    console.log('🔍 [Draft] GPT 원시 응답 첫 200자:', content.substring(0, 200));
-    console.log('🔍 [Draft] GPT 원시 응답 마지막 200자:', content.substring(content.length - 200));
+# Few-Shot 예시
 
-    // JSON 파싱 (개선된 로직)
-    const questions = parseQuestionsJSON(content);
-    const latency = Date.now() - startTime;
-    const actualTokens = response.usage?.total_tokens || estimatedTokens;
-
-    console.log(`✅ [Draft] 완료 - ${questions.length}개 질문, ${actualTokens} 토큰, ${latency}ms`);
-
-    return {
-      questions,
-      tokens: actualTokens,
-      latency,
-    };
-  } catch (error) {
-    console.error('❌ [Draft] 실패:', error);
-    throw error;
+## 예시 1: 트위터 모니터링 (3개)
+요청: "트위터에서 우리 브랜드 언급 모니터링하고 싶어요"
+Use Cases: [평판 관리 / 피드백 수집 / 경쟁사 추적 / 그냥 보기]
+이유: 모니터링 목적을 알아야 최적 도구 선택 가능. 빈도로 자동화 수준 결정. 예산은 필수 제약.
+[
+  {
+    "key": "monitoring_purpose",
+    "question": "왜 모니터링하시나요?",
+    "type": "single",
+    "options": ["브랜드 평판 관리", "고객 피드백 수집", "경쟁사 추적", "그냥 언급만 보기", "✏️ 직접 입력할게요"],
+    "category": "purpose",
+    "importance": "critical",
+    "description": "목적에 맞게 추천해드릴게요"
+  },
+  {
+    "key": "alert_frequency",
+    "question": "얼마나 자주 확인하시나요?",
+    "type": "single",
+    "options": ["실시간으로", "하루 한 번", "일주일 한 번", "✏️ 직접 입력할게요"],
+    "category": "context",
+    "importance": "high",
+    "description": "자동화 수준을 결정할게요"
+  },
+  {
+    "key": "budget",
+    "question": "예산은 어떠신가요?",
+    "type": "single",
+    "options": ["무료만", "월 1-5만원", "상관없어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "critical",
+    "description": "조건에 맞게 찾아드릴게요"
   }
-}
+]
 
-/**
- * Refine 단계: 질문 품질 개선
- */
-async function refineStepGen(
-  draftQuestions: any[],
-  userInput: string
-): Promise<{
-  questions: any[];
-  tokens: number;
-  latency: number;
-}> {
-  const startTime = Date.now();
-  console.log('🔧 [Refine] 질문 품질 개선 시작...');
+## 예시 2: 데이터 정리 (3개)
+요청: "엑셀 데이터를 정리하고 싶어요"
+Use Cases: [1회 정리 / 반복 업데이트 / 팀 공유 / 시각화]
+이유: 데이터 용도에 따라 도구 선택. 업데이트 빈도로 자동화 필요성 판단. 예산은 필수 제약.
+[
+  {
+    "key": "data_goal",
+    "question": "정리한 데이터로 뭘 하실 건가요?",
+    "type": "single",
+    "options": ["팀과 공유", "대시보드/보고", "분석", "그냥 보관", "✏️ 직접 입력할게요"],
+    "category": "purpose",
+    "importance": "critical",
+    "description": "진짜 목적을 알려주세요"
+  },
+  {
+    "key": "update_frequency",
+    "question": "얼마나 자주 업데이트되나요?",
+    "type": "single",
+    "options": ["실시간", "매일", "한 번만", "가끔", "✏️ 직접 입력할게요"],
+    "category": "context",
+    "importance": "high",
+    "description": "자동화 필요성을 판단할게요"
+  },
+  {
+    "key": "budget",
+    "question": "예산은 어떠신가요?",
+    "type": "single",
+    "options": ["무료만", "조금 가능", "상관없어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "critical",
+    "description": "조건에 맞게 찾아드릴게요"
+  }
+]
 
-  try {
-    console.log('🔧 [Blueprint] Refine Blueprint 읽기 시작...');
-    const { base, refine } = await BlueprintReader.getFollowupBlueprints();
-    console.log('✅ [Blueprint] Refine Blueprint 읽기 완료');
+## 예시 3: 단순 알림 (3개)
+요청: "매일 아침 날씨 알림 받고 싶어요"
+Use Cases: [간단 알림] (추가 정보 불필요)
+이유: 왜 필요한지(맥락), 긴급도, 예산만으로 충분. 단순한 요청은 3개만!
+[
+  {
+    "key": "why_need",
+    "question": "왜 필요하신가요?",
+    "type": "single",
+    "options": ["매번 확인 귀찮아서", "자주 깜빡해서", "일정 계획 위해", "✏️ 직접 입력할게요"],
+    "category": "purpose",
+    "importance": "high",
+    "description": "상황에 맞게 추천할게요"
+  },
+  {
+    "key": "urgency",
+    "question": "언제까지 필요하신가요?",
+    "type": "single",
+    "options": ["오늘 바로", "이번 주 안에", "여유있어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "medium",
+    "description": "시간에 맞춰 제안할게요"
+  },
+  {
+    "key": "budget",
+    "question": "예산은 어떠신가요?",
+    "type": "single",
+    "options": ["무료만", "조금 가능", "상관없어요", "✏️ 직접 입력할게요"],
+    "category": "constraints",
+    "importance": "critical",
+    "description": "조건에 맞게 찾아드릴게요"
+  }
+]
 
-    // 프롬프트 구성
-    const systemPrompt = `${base}\n\n${refine}`;
-    const userPrompt = `원본 요청: "${userInput}"
+---
 
-Draft 단계에서 생성된 질문들:
-${JSON.stringify(draftQuestions, null, 2)}
+# 출력 형식
+JSON 배열로 응답 (마크다운 블록 없이).
 
-위 질문들을 더 명확하고 실용적으로 개선해주세요. 
-질문의 개수는 최소한으로 유지하고, 표현과 옵션들을 더 구체적이고 사용자 친화적으로 만드세요. 
-불필요한 질문은 과감히 제거하고, 자동화 구현에 꼭 필요한 정보만 묻도록 개선하세요.
+필수 필드:
+- key: 질문 식별자 (snake_case)
+- question: 질문 (10자 이내)
+- type: "single" | "multiple"
+- options: 선택지 배열 (마지막은 "✏️ 직접 입력할게요")
+- category: "purpose" | "context" | "constraints"
+- importance: "critical" | "high" | "medium"
+- description: 설명 (20자 이내)
 
-중요: 반드시 JSON 배열 형식으로만 응답하세요. 
-잘못된 형식: 마크다운 블록 사용하거나 객체로 감싸기
-올바른 형식: [{"key": "...", "question": "...", ...}]
-마크다운 블록이나 다른 텍스트는 절대 포함하지 마세요.`;
+체크리스트:
+✅ 3개 질문 기본 (복잡한 경우만 4개, 5개는 극히 예외)
+✅ WHY 기반 의도 파악 질문
+✅ 확장 제안 금지 (의도 명확화만)
+✅ 토스 스타일 (짧고, 쉽고, 밝게)
+✅ 이모지 금지 (텍스트만)
+✅ 마지막 선택지 "✏️ 직접 입력할게요"
+❌ 기술 수준 질문 금지 (서비스가 모든 가이드 제공, 진입장벽 유발)`;
 
-    // 토큰 수 추정 및 모델 선택
-    const estimatedTokens = estimateTokens(systemPrompt + userPrompt);
-    const model = selectModel(estimatedTokens);
-
-    console.log(`📊 [Refine] 예상 토큰: ${estimatedTokens}, 선택된 모델: ${model}`);
+    console.log('📊 [WHY-based] gpt-4o-mini 호출 시작 (Use Case 추론 → 구분 질문 생성)...');
 
     const response = await openai.chat.completions.create({
-      model,
+      model: 'gpt-4o-mini', // 빠르고 저렴하면서 충분한 추론 능력
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      max_tokens: 700, // Refine JSON 완성을 위해 약간 증가
-      temperature: 0.3, // Refine은 정확성 중시
-      // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
+      max_tokens: 1200, // 3-4개 질문 (최대 5개)
+      temperature: 0.3, // 일관성 중심 (사용자 대기 시간 최소화)
     });
 
     const content = response.choices[0]?.message?.content;
+
     if (!content) {
-      throw new Error('Refine 응답이 비어있습니다');
+      console.error('❌ [WHY-based] OpenAI 응답이 비어있습니다');
+      throw new Error('WHY 기반 질문 생성 실패');
     }
 
-    // 🔍 GPT 응답 디버깅
-    console.log('🔍 [Refine] GPT 원시 응답 길이:', content.length);
-    console.log('🔍 [Refine] GPT 원시 응답 첫 200자:', content.substring(0, 200));
-    console.log('🔍 [Refine] GPT 원시 응답 마지막 200자:', content.substring(content.length - 200));
+    console.log('🔍 [WHY-based] GPT 응답 길이:', content.length);
+    console.log('🔍 [WHY-based] 응답 첫 200자:', content.substring(0, 200));
 
     // JSON 파싱
     const questions = parseQuestionsJSON(content);
     const latency = Date.now() - startTime;
-    const actualTokens = response.usage?.total_tokens || estimatedTokens;
+    const actualTokens = response.usage?.total_tokens || 800;
 
-    console.log(
-      `✅ [Refine] 완료 - ${questions.length}개 질문, ${actualTokens} 토큰, ${latency}ms`
-    );
+    console.log(`✅ [WHY-based] 완료 - ${questions.length}개 질문, ${actualTokens} 토큰, ${latency}ms`);
+    console.log(`💡 [토스 철학] 빠르게(4o-mini) + 최소 질문 + 의도 파악 → 최적 솔루션`);
 
     return {
       questions,
@@ -185,10 +242,11 @@ ${JSON.stringify(draftQuestions, null, 2)}
       latency,
     };
   } catch (error) {
-    console.error('❌ [Refine] 실패:', error);
+    console.error('❌ [WHY-based] 실패:', error);
     throw error;
   }
 }
+
 
 /**
  * 개선된 JSON 파싱 함수
@@ -306,174 +364,59 @@ function parseQuestionsJSON(content: string): any[] {
 }
 
 /**
- * 폴백 질문들 (JSON 파싱 실패 시)
+ * 🎯 WHY 기반 폴백 질문들 (JSON 파싱 실패 시)
  */
 function getFallbackQuestions(): any[] {
   return [
     {
-      key: 'data_source',
-      question: '현재 처리하는 데이터는 주로 어디에서 오나요?',
-      type: 'multiple',
-      options: [
-        '엑셀/구글시트',
-        '데이터베이스',
-        '웹사이트',
-        '이메일',
-        '기타 (직접입력)',
-        '잘모름 (AI가 추천)',
-      ],
-      category: 'data',
-      importance: 'high',
-      description: '데이터 소스 파악',
-    },
-    {
-      key: 'current_workflow',
-      question: '현재는 이 작업을 어떻게 처리하고 계신가요?',
-      type: 'multiple',
-      options: [
-        '수동으로 직접',
-        '간단한 도구 사용',
-        '복잡한 시스템 사용',
-        '아직 시작 안함',
-        '기타 (직접입력)',
-        '잘모름 (AI가 추천)',
-      ],
-      category: 'workflow',
-      importance: 'high',
-      description: '현재 업무 방식 파악',
-    },
-    {
-      key: 'success_criteria',
-      question: '이 자동화를 통해 얻고 싶은 가장 중요한 결과는 무엇인가요?',
-      type: 'multiple',
+      key: 'automation_goal',
+      question: '왜 자동화가 필요하신가요?',
+      type: 'single',
       options: [
         '시간 절약',
-        '정확도 향상',
-        '실시간 모니터링',
-        '데이터 인사이트',
-        '기타 (직접입력)',
-        '잘모름 (AI가 추천)',
+        '놓치지 않기 위해',
+        '데이터 분석',
+        '팀과 공유',
+        '✏️ 직접 입력할게요',
       ],
-      category: 'goals',
-      importance: 'high',
-      description: '성공 기준 설정',
+      category: 'purpose',
+      importance: 'critical',
+      description: '목적에 맞게 추천해드릴게요',
+    },
+    {
+      key: 'urgency',
+      question: '언제까지 필요하신가요?',
+      type: 'single',
+      options: [
+        '오늘 바로',
+        '이번 주 안에',
+        '여유있어요',
+        '✏️ 직접 입력할게요',
+      ],
+      category: 'constraints',
+      importance: 'medium',
+      description: '시간에 맞춰 제안할게요',
+    },
+    {
+      key: 'budget',
+      question: '예산은 어떠신가요?',
+      type: 'single',
+      options: [
+        '무료만',
+        '조금 가능',
+        '상관없어요',
+        '✏️ 직접 입력할게요',
+      ],
+      category: 'constraints',
+      importance: 'critical',
+      description: '조건에 맞게 찾아드릴게요',
     },
   ];
 }
 
-/**
- * 🚀 단순 요청 감지 (Fast-Track 적용)
- */
-function detectSimpleRequest(userInput: string): boolean {
-  const input = userInput.toLowerCase();
-  
-  // 🔧 매우 엄격한 단순 패턴만 (정말 간단한 연결만)
-  const simplePatterns = [
-    // 매우 기본적인 이메일 처리만 (짧고 명확한)
-    /^.{0,40}(이메일|메일).*새 파일.{0,30}$/,
-    /^.{0,40}구글 폼.*새.*행.{0,30}$/,
-    
-    // ❌ SNS 모니터링은 복잡하므로 제외 (브랜드명, 키워드, 필터링 등 필요)
-    // ❌ 슬랙 알림은 복잡하므로 제외 (채널, 메시지 포맷 등 필요)
-    // ❌ 브랜드 모니터링은 복잡하므로 제외 (키워드, 조건 등 필요)
-  ];
-  
-  return simplePatterns.some(pattern => pattern.test(input));
-}
 
 /**
- * ⚡ Fast-Track: 단순 요청용 1-Step 처리
- */
-async function generateFastTrackQuestions(userInput: string): Promise<{
-  questions: any[];
-  tokens: number;
-  latency: number;
-}> {
-  const startTime = Date.now();
-  console.log('⚡ [Fast-Track] 단순 요청 빠른 처리 시작...');
-
-  // 🎯 축약된 프롬프트 (토큰 절약하되 충분한 질문 생성)
-  const systemPrompt = `자동화 전문가입니다. 기본적인 요청에 대해 필요한 핵심 질문들을 생성하세요.`;
-  
-  const userPrompt = `요청: "${userInput}"
-
-🧠 **목적 중심 접근법**:
-이 사람이 정말로 원하는 것은 무엇인가요? 표면적 요청 뒤의 진짜 목적을 파악하는 질문을 만드세요.
-
-🎯 **필수 확인 사항 (목적 우선순위)**:
-1. **진짜 목적**: 왜 이 자동화가 필요한지? (시간절약? 놓치는 정보 방지? 팀 소통?)
-2. **현재 상황**: 지금은 어떻게 하고 있는지? (수동? 다른 도구?)
-3. **제약사항**: 예산, 기술수준, 회사 정책 등 현실적 제약이 있는지?
-
-🚨 **핵심 원칙**:
-- 도구보다는 목적을 먼저 물어보기
-- "무엇을 쓸까?"보다 "왜 필요한가?" 우선
-- 현실적 제약사항 미리 파악
-
-JSON 배열로만 응답: [{"key": "...", "question": "...", "type": "single", "options": [...], "category": "purpose|constraints|context", "importance": "high"}]`;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      max_tokens: 300, // ⚡ Fast-Track JSON 완성을 위해 증가
-      temperature: 0.3, // 🎯 더 결정적으로
-      // response_format: { type: 'json_object' }, // 🚨 임시 제거: JSON 배열과 충돌
-    });
-
-    const content = response.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Fast-Track 응답이 비어있습니다');
-    }
-
-    const parsedResult = parseJSON(content);
-    const latency = Date.now() - startTime;
-    const tokens = response.usage?.total_tokens || 300;
-
-    // 🔧 배열 형태로 변환 (JSON 구조 다양성 대응)
-    let questions = [];
-    
-    if (Array.isArray(parsedResult)) {
-      questions = parsedResult;
-    } else if (parsedResult && typeof parsedResult === 'object' && 'questions' in parsedResult && Array.isArray((parsedResult as any).questions)) {
-      questions = (parsedResult as any).questions;
-    } else if (parsedResult && typeof parsedResult === 'object' && 'items' in parsedResult && Array.isArray((parsedResult as any).items)) {
-      questions = (parsedResult as any).items;
-    } else {
-      console.log('⚠️ [Fast-Track] 예상치 못한 JSON 구조:', parsedResult);
-      // 단일 객체를 배열로 변환
-      questions = [parsedResult];
-    }
-
-    console.log(`✅ [Fast-Track] 완료 - ${questions.length}개 질문, ${tokens} 토큰, ${latency}ms`);
-
-    return { questions, tokens, latency };
-  } catch (error) {
-    console.error('❌ [Fast-Track] 실패:', error);
-    
-    // 폴백: 미리 정의된 간단한 질문
-    return {
-      questions: [
-        {
-          key: 'integration_status',
-          question: '사용할 도구들(Zapier, 슬랙 등)의 계정은 이미 준비되어 있나요?',
-          type: 'single',
-          options: ['모두 준비됨', '일부 준비됨', '준비 안됨', '잘모름 (AI가 추천)'],
-          category: 'integration',
-          importance: 'high'
-        }
-      ],
-      tokens: 50,
-      latency: Date.now() - startTime
-    };
-  }
-}
-
-/**
- * 메인 2-Step 후속질문 생성 함수 (스마트 라우팅 적용)
+ * 🎯 메인 WHY 기반 후속질문 생성 함수 (의도 파악 중심)
  */
 export async function generate2StepFollowup(userInput: string): Promise<{
   questions: any[];
@@ -483,58 +426,27 @@ export async function generate2StepFollowup(userInput: string): Promise<{
   const metrics: FollowupMetrics = {
     totalTokens: 0,
     latencyMs: 0,
-    stepsUsed: [],
+    stepsUsed: ['why-based-intent'],
     modelUsed: 'gpt-4o-mini',
     success: false,
     errors: [],
   };
 
   try {
-    console.log('🚀 [2-Step] 후속질문 생성 시작');
+    console.log('🎯 [WHY-based] 의도 파악 중심 후속질문 생성 시작');
 
-    // 🎯 단순 요청 감지 및 Fast-Track 적용
-    if (detectSimpleRequest(userInput)) {
-      console.log('⚡ [Routing] 단순 요청 감지 → Fast-Track 모드');
-      
-      const fastResult = await generateFastTrackQuestions(userInput);
-      metrics.stepsUsed.push('fast-track');
-      metrics.totalTokens = fastResult.tokens;
-      metrics.latencyMs = Date.now() - overallStartTime;
-      metrics.success = true;
+    // WHY 기반 질문 생성 (Single-Pass, 3-4개)
+    const result = await generateWhyBasedQuestions(userInput);
 
-      console.log(`✅ [Fast-Track] 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.latencyMs}ms`);
-      console.log(`🚀 [Speed] ${100 - Math.round((metrics.latencyMs / 24000) * 100)}% 빨라짐!`);
-
-      return {
-        questions: fastResult.questions,
-        metrics,
-      };
-    }
-
-    // 🔄 복잡한 요청은 기존 2-Step 프로세스
-    console.log('🔄 [Routing] 복잡한 요청 감지 → 전체 2-Step 모드');
-
-    // Step 1: Draft
-    const draftResult = await draftStepGen(userInput);
-    metrics.stepsUsed.push('draft');
-    metrics.totalTokens += draftResult.tokens;
-
-    // Step 2: Refine
-    const refineResult = await refineStepGen(draftResult.questions, userInput);
-    metrics.stepsUsed.push('refine');
-    metrics.totalTokens += refineResult.tokens;
-
-    // 메트릭 완성
+    metrics.totalTokens = result.tokens;
     metrics.latencyMs = Date.now() - overallStartTime;
     metrics.success = true;
 
-    console.log(`✅ [2-Step] 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.latencyMs}ms`);
-    console.log(
-      `💰 [비용] 예상 절약: ${(metrics.totalTokens * 0.00015 * 100).toFixed(2)}% (기존 4o 대비)`
-    );
+    console.log(`✅ [WHY-based] 완료 - 총 ${metrics.totalTokens} 토큰, ${metrics.latencyMs}ms`);
+    console.log(`💡 [토스 철학] 최소 질문(${result.questions.length}개) + 의도 명확화 → 최적 솔루션`);
 
     return {
-      questions: refineResult.questions,
+      questions: result.questions,
       metrics,
     };
   } catch (error) {
@@ -542,9 +454,9 @@ export async function generate2StepFollowup(userInput: string): Promise<{
     metrics.errors = [error instanceof Error ? error.message : String(error)];
     metrics.latencyMs = Date.now() - overallStartTime;
 
-    console.error('❌ [2-Step] 실패:', error);
+    console.error('❌ [WHY-based] 실패:', error);
 
-    // 완전 실패 시에도 폴백 질문 반환
+    // 완전 실패 시에도 WHY 중심 폴백 질문 반환
     return {
       questions: getFallbackQuestions(),
       metrics,

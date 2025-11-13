@@ -34,9 +34,9 @@ export async function POST(req: Request) {
     try {
       const ragHealth = await checkRAGHealth();
       console.log('🏥 [RAG] 헬스체크:', ragHealth);
-      
-      if (!ragHealth.tavilyAvailable) {
-        console.log('⚠️ [RAG] Tavily 사용 불가, 기본 모드로 진행');
+
+      if (!ragHealth.gptAvailable) {
+        console.log('⚠️ [RAG] GPT-4o 사용 불가, 기본 모드로 진행');
       }
     } catch (ragError) {
       console.log('⚠️ [RAG] 헬스체크 실패, 기본 모드로 진행:', ragError);
@@ -78,6 +78,18 @@ export async function POST(req: Request) {
         processingTime: processingTime,
         approach: '3단계_리팩토링_시스템_v2',
         version: '2.0.0',
+        // 🧪 Phase 1 실험 정보
+        experiment: {
+          phase: 'phase1',
+          description: '2-Pass 전략 통일 + o1-mini (Skeleton) + gpt-4.1-mini (Detail)',
+          startDate: '2025-11-10',
+          evaluationPeriod: '2주',
+          metrics: {
+            complexity: (metrics as any).complexity || 0,  // 복잡도 점수
+            modelsUsed: metrics.modelsUsed,  // 사용된 모델들
+            strategy: '2-Pass (항상)'
+          }
+        },
         stages: {
           stepA: `${metrics.costBreakdown.stepA.model} (카드 초안)`,
           stepB: `RAG 검증 (${metrics.ragSearches}회 검색)`,
@@ -108,9 +120,10 @@ export async function POST(req: Request) {
       }
     };
 
-    // 💾 Supabase에 자동화 요청 데이터 저장 (백그라운드)
+    // 💾 Supabase에 자동화 요청 데이터 저장 및 automationId 생성
+    let automationId: number | null = null;
     try {
-      await saveAutomationRequest({
+      const savedData = await saveAutomationRequest({
         user_input: userInput,
         followup_answers: followupAnswers,
         generated_cards: allCards,
@@ -118,7 +131,13 @@ export async function POST(req: Request) {
         processing_time_ms: processingTime,
         success: metrics.success
       });
-      console.log('✅ 자동화 요청 데이터 저장 완료 (v2.0)');
+
+      if (savedData && savedData.id) {
+        automationId = savedData.id;
+        console.log('✅ 자동화 요청 데이터 저장 완료 (v2.0), automationId:', automationId);
+      } else {
+        console.warn('⚠️ 자동화 요청 저장됐지만 ID 받지 못함');
+      }
     } catch (saveError) {
       console.error('⚠️ 자동화 요청 저장 실패 (응답은 정상 진행):', saveError);
       // 저장 실패해도 응답은 정상 반환
@@ -127,7 +146,15 @@ export async function POST(req: Request) {
     // 📊 성공으로 메트릭 완료
     metricsCollector.success();
 
-    return NextResponse.json(response_data);
+    // 🔑 automationId를 응답에 포함 (피드백 시스템 연동용)
+    return NextResponse.json({
+      ...response_data,
+      automationId,  // 피드백 시스템이 사용
+      context: {
+        userInput,
+        followupAnswers
+      }
+    });
 
   } catch (error) {
     console.error('❌ 리팩토링된 자동화 생성 실패:', error);

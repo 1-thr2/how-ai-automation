@@ -1,14 +1,14 @@
-import { tavily } from '@tavily/core';
+import OpenAI from 'openai';
 import { detectDomainEnhanced, getOptimalAITools } from './ai-tools-registry';
 
 /**
- * Tavily RAG 서비스
- * 최신 정보 검색 및 검증을 담당
+ * GPT-4o RAG 서비스
+ * GPT-4o를 활용한 최신 정보 검색 및 검증
  */
 
-// Tavily 클라이언트 설정
-const tavilyClient = tavily({
-  apiKey: process.env.TAVILY_API_KEY || '',
+// OpenAI 클라이언트 설정
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
 });
 
 /**
@@ -97,18 +97,80 @@ export async function searchWithRAG(
       ...options,
     };
 
-    // Tavily API 호출
-    const response = await tavilyClient.search(query, {
-      max_results: defaultOptions.maxResults,
-      include_images: defaultOptions.includeImages,
-      include_answer: defaultOptions.includeAnswers,
-      search_depth: defaultOptions.searchDepth,
-      exclude_domains: defaultOptions.excludeDomains,
-      include_domains: defaultOptions.includeDomains,
+    // 🔍 gpt-4o-mini-search-preview API 호출 (실시간 웹 검색)
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini-search-preview',
+      messages: [
+        {
+          role: 'user',
+          content: `당신은 웹 검색 결과를 제공하는 전문가입니다. 사용자의 검색 쿼리에 대해 최신 정보를 포함한 관련 결과를 JSON 배열 형식으로 제공하세요.
+
+각 결과는 다음 형식이어야 합니다:
+{
+  "title": "페이지 제목",
+  "url": "실제 URL",
+  "content": "내용 요약 (200-300자)",
+  "score": 0.0-1.0 사이의 관련성 점수,
+  "publishedDate": "YYYY-MM-DD 형식 (알 수 있는 경우)"
+}
+
+한국어 쿼리에 대해서는 한국어 콘텐츠를 우선적으로 제공하고, 공식 문서, 튜토리얼, 가이드 등 신뢰할 수 있는 출처를 우선하세요.
+
+검색 쿼리: "${query}"
+
+최대 ${defaultOptions.maxResults}개의 관련 결과를 JSON 배열로 제공해주세요.`
+        }
+      ],
+      // 🔧 search-preview 모델은 temperature 파라미터를 지원하지 않음
+      max_tokens: 2000,
     });
 
-    // 🧠 스마트 결과 처리 및 필터링
-    const rawResults = response.results || [];
+    let rawResults: any[] = [];
+    try {
+      const responseContent = completion.choices[0]?.message?.content || '[]';
+
+      // 🧹 JSON 파싱 전처리 (마크다운 코드블록 및 한글 텍스트 처리)
+      let cleanContent = responseContent.trim();
+
+      // 1️⃣ 마크다운 코드블록 제거
+      if (cleanContent.includes('```json')) {
+        const jsonStart = cleanContent.indexOf('```json');
+        const afterJsonTag = jsonStart + 7; // '```json' 길이
+        let startIndex = afterJsonTag;
+        // 첫 번째 줄바꿈까지 건너뛰기
+        if (cleanContent.charAt(startIndex) === '\n') {
+          startIndex++;
+        }
+        const endIndex = cleanContent.indexOf('```', afterJsonTag);
+        if (endIndex !== -1) {
+          cleanContent = cleanContent.substring(startIndex, endIndex).trim();
+        } else {
+          cleanContent = cleanContent.substring(startIndex).trim();
+        }
+        console.log('🔧 [RAG] 마크다운 코드블록 제거 완료');
+      } else if (cleanContent.includes('```')) {
+        // 일반 코드블록 처리
+        cleanContent = cleanContent.replace(/```[a-z]*\n?/g, '').replace(/```/g, '').trim();
+        console.log('🔧 [RAG] 일반 코드블록 제거 완료');
+      }
+
+      // 2️⃣ 한글 텍스트만 있는 경우 (JSON 아님) 빈 배열 반환
+      if (!cleanContent.includes('[') && !cleanContent.includes('{')) {
+        console.log('⚠️ [RAG] JSON 형식이 아닌 텍스트 응답:', cleanContent.substring(0, 100));
+        rawResults = [];
+      } else {
+        // 3️⃣ JSON 파싱 시도
+        rawResults = JSON.parse(cleanContent);
+
+        // 응답이 배열이 아닌 경우 처리
+        if (!Array.isArray(rawResults)) {
+          rawResults = [];
+        }
+      }
+    } catch (parseError) {
+      console.error('❌ [RAG] GPT-4o 응답 파싱 실패:', parseError);
+      rawResults = [];
+    }
     console.log(`📥 [RAG] 원본 결과: ${rawResults.length}개`);
 
     // 품질 향상 및 필터링 적용
@@ -134,7 +196,7 @@ export async function searchWithRAG(
   } catch (error) {
     console.error('❌ [RAG] 검색 실패:', error);
 
-    // Tavily API 오류 시 빈 결과 반환 (서비스 중단 방지)
+    // GPT-4o API 오류 시 빈 결과 반환 (서비스 중단 방지)
     return [];
   }
 }
@@ -1017,7 +1079,7 @@ export async function generateRAGContext(
     if (searchResults && searchResults.length > 0) {
       console.log(`📊 [RAG] 원시 검색 결과: ${searchResults.length}개`);
       searchResults.forEach((result, i) => {
-        console.log(`  ${i+1}. "${result.title}" (Tavily점수: ${result.score?.toFixed(3) || 'N/A'})`);
+        console.log(`  ${i+1}. "${result.title}" (관련성점수: ${result.score?.toFixed(3) || 'N/A'})`);
       });
     }
     
@@ -1229,28 +1291,28 @@ JSON 형식으로만 응답하세요:
  * RAG 시스템 상태 확인
  */
 export async function checkRAGHealth(): Promise<{
-  tavilyAvailable: boolean;
+  gptAvailable: boolean;
   apiKeyConfigured: boolean;
   testSearchWorking: boolean;
 }> {
   const health = {
-    tavilyAvailable: true,
-    apiKeyConfigured: !!process.env.TAVILY_API_KEY,
+    gptAvailable: true,
+    apiKeyConfigured: !!process.env.OPENAI_API_KEY,
     testSearchWorking: false,
   };
 
   try {
-    // 🔧 실제 검색 대신 Tavily 클라이언트 초기화 확인으로 변경
-    if (process.env.TAVILY_API_KEY && process.env.TAVILY_API_KEY.length > 10) {
+    // OpenAI API 키 확인
+    if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10) {
       health.testSearchWorking = true; // API 키가 유효하면 작동한다고 가정
-      console.log('✅ [RAG] 헬스체크: Tavily API 키 확인됨');
+      console.log('✅ [RAG] 헬스체크: OpenAI API 키 확인됨');
     } else {
       health.testSearchWorking = false;
-      console.log('⚠️ [RAG] 헬스체크: Tavily API 키 없음');
+      console.log('⚠️ [RAG] 헬스체크: OpenAI API 키 없음');
     }
   } catch (error) {
     console.error('❌ [RAG] 헬스체크 실패:', error);
-    health.tavilyAvailable = false;
+    health.gptAvailable = false;
     health.testSearchWorking = false;
   }
 

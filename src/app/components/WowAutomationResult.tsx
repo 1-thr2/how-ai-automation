@@ -6,11 +6,13 @@ import toast from 'react-hot-toast';
 import ShareModal from './ShareModal';
 import FlowDiagramSection from './FlowDiagram/FlowDiagramSection';
 import WowCardRenderer from './WowCardRenderer';
+import FeedbackSection from './FeedbackSection';
 
 interface WowAutomationResultProps {
   result: {
     context: { userInput: string; followupAnswers?: any };
     cards: any[];
+    automationId?: number;  // 🔑 피드백 시스템 연동용
     error?: string;
     fallbackExample?: string;
     followupQuestions?: string[];
@@ -1236,6 +1238,11 @@ export default function WowAutomationResult({
           </div>
         </div>
       )}
+
+      {/* 피드백 섹션 */}
+      <div className="max-w-4xl mx-auto mt-12 px-4">
+        <FeedbackSection automationId={result.automationId} />
+      </div>
     </div>
     </>
   );

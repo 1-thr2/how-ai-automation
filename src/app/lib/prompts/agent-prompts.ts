@@ -1,4 +1,4 @@
-import { CardType } from '@/app/types/automation';
+import { CardType } from '@/lib/types/automation';
 
 // 실전형 자동화 레시피 프롬프트 (전면 개선)
 export const SYSTEM_PROMPT = `

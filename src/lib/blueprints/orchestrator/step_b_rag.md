@@ -30,13 +30,30 @@
 - 데이터 품질과 신뢰성이 보장되는가?
 - 유지보수가 현실적인가?
 
-### 3️⃣ 2025년 AI 도구 컨텍스트 적용
-**최신 도구 우선 고려:**
-- NotebookLM (문서 QA)
-- Claude 3 Haiku (텍스트 분석)  
-- Make.com/Zapier (노코드 자동화)
-- Supermetrics (데이터 통합)
-- Airtable/Notion (데이터 관리)
+### 3️⃣ 도구 선택 원칙 (사용자 제약사항 기반)
+
+**🎯 원칙 기반 도구 선택 (하드코딩 금지)**
+
+**우선순위 1: 사용자 제약사항 필터링**
+- 예산 제약: 무료 도구만 → 유료 도구 제외
+- 시간 제약: 1시간 내 설정 → 복잡한 설정 제외
+- 기술 제약: 코딩 불가 → 노코드 도구만
+- 정책 제약: 외부 서비스 금지 → 사내 도구/자체 호스팅만
+
+**우선순위 2: 접근성 순서**
+1. **무료 도구 우선**: Google Apps Script, IFTTT, Power Automate (개인), Pipedream
+2. **저비용 도구**: Zapier (Starter), Make.com (Free), n8n (Self-hosted)
+3. **고비용 도구**: 사용자가 예산 허용 시에만 (Enterprise 플랜 등)
+
+**우선순위 3: 실행 방식**
+1. **노코드 우선**: Zapier, Make.com, IFTTT (초보자 친화적)
+2. **로우코드**: Google Apps Script, Pipedream (복사-붙여넣기 수준)
+3. **코딩 필요**: Python/Node.js (고급 사용자만, 우리가 완전한 코드 제공)
+
+**우선순위 4: 기술적 현실성**
+1. **공식 API 우선**: Gmail API, Slack API, Google Sheets API
+2. **서드파티 통합**: Zapier 커넥터, Make.com 앱
+3. **크롤링 최후**: 법적/윤리적 이슈, 유지보수 어려움 (가급적 회피)
 
 **LLM 기반 반자동화 권장:**
 - "완전 자동화"가 불가능하면 → "사람 + AI" 워크플로우 제안

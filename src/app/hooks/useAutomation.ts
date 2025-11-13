@@ -1,7 +1,24 @@
 import { useState, useCallback } from 'react';
-import { AutomationData, ApiResponse } from '@/app/types/automation';
 import { handleError } from '@/lib/error-handler';
 import { Card } from '@/lib/types/automation';
+
+// 인라인 타입 정의
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+}
+
+interface AutomationData {
+  title: string;
+  subtitle: string;
+  steps: any[];
+  results: any[];
+}
 
 const API_BASE = '/api/agent-orchestrator';
 

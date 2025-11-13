@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FlowStep } from '@/app/types/automation';
+import { FlowStep } from '@/lib/types/automation';
 import styles from './FlowDiagramSection.module.css';
 
 // 3사진처럼 깔끔한 구조화된 설명 렌더링
