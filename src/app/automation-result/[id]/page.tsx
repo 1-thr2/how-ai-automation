@@ -81,11 +81,12 @@ function AutomationResultContent() {
         
         const data = await response.json();
         console.log('✅ 자동화 결과 생성 완료:', data);
-        
+        console.log('🔑 automationId:', data.automationId);
+
         if (!data || !data.cards || !Array.isArray(data.cards)) {
           throw new Error('API 응답이 올바르지 않습니다.');
         }
-        
+
         setApiResponse(data);
         
       } catch (e: any) {
