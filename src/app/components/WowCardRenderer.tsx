@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from '@/lib/types/automation';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Download, Play, Eye, Copy } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface WowCardRendererProps {
   card: Card;
@@ -14,7 +15,18 @@ export default function WowCardRenderer({ card }: WowCardRendererProps) {
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    // TODO: 토스트 알림 추가
+    toast.success('클립보드에 복사되었습니다!', {
+      duration: 2000,
+      position: 'bottom-center',
+      style: {
+        background: '#10B981',
+        color: '#fff',
+        fontWeight: '600',
+        padding: '12px 20px',
+        borderRadius: '8px',
+      },
+      icon: '✅',
+    });
   };
 
   // 카드 타입별 렌더링
